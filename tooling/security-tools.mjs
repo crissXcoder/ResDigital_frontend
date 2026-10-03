@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { createWriteStream, existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { createWriteStream, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { pipeline } from 'node:stream/promises';
 
@@ -47,6 +47,13 @@ function cachePath(tool) {
   return resolve(root, gitDir, '.codex-tools', tool.version, tool.executable);
 }
 
+function scannerEnvironment(binary) {
+  const directory = dirname(binary);
+  const globalConfig = resolve(directory, 'empty.gitconfig');
+  if (!existsSync(globalConfig)) writeFileSync(globalConfig, '');
+  return { ...process.env, GIT_CONFIG_GLOBAL: globalConfig, GIT_CONFIG_NOSYSTEM: '1', XDG_CONFIG_HOME: directory };
+}
+
 async function install(name) {
   const tool = tools[name];
   if (!tool || !['win32', 'linux'].includes(process.platform)) throw new Error('Solo se admiten Windows y Linux con binarios fijados.');
@@ -66,8 +73,17 @@ async function install(name) {
     rmSync(archive, { force: true });
     throw new Error(`${name}: SHA-256 no coincide con el checksum oficial; binario rechazado.`);
   }
-  execFileSync('tar', ['-xf', archive, '-C', dirname(destination), tool.executable], { stdio: 'inherit' });
-  rmSync(archive, { force: true });
+  try {
+    if (process.platform === 'win32') {
+      const quotePowerShell = (value) => `'${value.replaceAll("'", "''")}'`;
+      const command = `Expand-Archive -LiteralPath ${quotePowerShell(archive)} -DestinationPath ${quotePowerShell(dirname(destination))} -Force`;
+      execFileSync('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', command], { stdio: 'inherit' });
+    } else {
+      execFileSync('tar', ['-xf', basename(archive), '-C', dirname(destination), tool.executable], { cwd: dirname(destination), stdio: 'inherit' });
+    }
+  } finally {
+    rmSync(archive, { force: true });
+  }
   if (process.platform !== 'win32') execFileSync('chmod', ['700', destination]);
   return destination;
 }
@@ -83,14 +99,15 @@ async function main() {
     const binary = await install('gitleaks');
     const args = ['protect', '--staged', '--redact'];
     if (existsSync(join(root, '.gitleaks.toml'))) args.push('--config', '.gitleaks.toml');
-    execFileSync(binary, args, { cwd: root, stdio: 'inherit' });
+    execFileSync(binary, args, { cwd: root, env: scannerEnvironment(binary), stdio: 'inherit' });
   } else if (command === 'gitleaks-ci') {
     const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
     const commits = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch'
       ? [execFileSync('git', ['rev-parse', 'HEAD^'], { cwd: root, encoding: 'utf8' }).trim(), execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()]
       : [];
     const range = resolveScanRange(event, process.env.GITHUB_EVENT_NAME, commits);
-    execFileSync(await install('gitleaks'), ['git', '--redact', `--log-opts=${range}`, '--exit-code=1', '.'], { cwd: root, stdio: 'inherit' });
+    const binary = await install('gitleaks');
+    execFileSync(binary, ['git', '--redact', `--log-opts=${range}`, '--exit-code=1', '.'], { cwd: root, env: scannerEnvironment(binary), stdio: 'inherit' });
   } else {
     throw new Error('Comando esperado: actionlint | gitleaks-protect | gitleaks-ci.');
   }
