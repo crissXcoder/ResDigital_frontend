@@ -33,7 +33,7 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: node tooling/git-policy.mjs --release
       - run: node tooling/security-tools.mjs actionlint
-      - run: node tooling/security-tools.mjs --verify-workflows
+      - run: node tooling/git-policy.mjs --verify-workflows
 
   draft:
     needs: validate
