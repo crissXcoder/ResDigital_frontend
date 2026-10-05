@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DashboardStatusBadge } from "@/components/dashboard/status-badge";
@@ -100,15 +101,21 @@ export function SemaforoSanitario() {
                     <tr key={animal.animalId} className="transition-colors hover:bg-slate-50">
                       {/* Animal */}
                       <td className="py-3 pr-4">
-                        <div className="flex items-center gap-2.5">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-bold text-slate-600">
+                        <Link
+                          href={`/hato/${animal.animalId}`}
+                          className="flex items-center gap-2.5 group cursor-pointer"
+                          title={`Ver expediente de ${animal.nombre}`}
+                        >
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-bold text-slate-600 group-hover:bg-navy group-hover:text-white transition-colors">
                             {animal.nombre.charAt(0)}
                           </div>
                           <div>
-                            <p className="font-semibold text-slate-900">{animal.arete}</p>
+                            <p className="font-semibold text-slate-900 group-hover:text-navy group-hover:underline transition-colors">
+                              {animal.arete}
+                            </p>
                             <p className="text-xs text-slate-500">{animal.nombre}</p>
                           </div>
-                        </div>
+                        </Link>
                       </td>
 
                       {/* Tipo de retiro */}

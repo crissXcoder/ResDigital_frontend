@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { X, Upload, Link as LinkIcon, Loader2, AlertTriangle, Sparkles } from 'lucide-react';
+import { X, Upload, Link as LinkIcon, Loader2, AlertTriangle, Sparkles, AlertCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import {
   getMedicamentos,
@@ -14,12 +14,89 @@ import {
 } from '@/lib/api/sanitary';
 import { BUCKET_DOCUMENTOS } from '@/lib/supabase/buckets';
 
+export interface InitialTratamientoData {
+  id?: string;
+  farmaco?: string;
+  dosis?: string;
+  via?: string;
+  fecha?: string;
+  diagnostico?: string;
+  veterinario?: string;
+  diasRetiro?: number;
+  diasRetiroLeche?: number;
+  diasRetiroCarne?: number;
+  documentoUrl?: string;
+}
+
+export interface TratamientoFormData {
+  farmaco: string;
+  dosis: string;
+  via: string;
+  fecha: string;
+  diagnostico: string;
+  veterinario: string;
+  diasRetiro: number;
+  diasRetiroLeche: number;
+  diasRetiroCarne: number;
+  documentoUrl?: string;
+  [key: string]: unknown;
+}
+
 interface ModalTratamientoProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: any) => void;
-  initialData?: any | null;
+  onSubmit: (data: TratamientoFormData) => Promise<unknown> | void;
+  initialData?: InitialTratamientoData | null;
   animalSexo?: string;
+}
+
+function getInitialState(
+  initialData: InitialTratamientoData | null | undefined,
+  medicamentos: Medicamento[],
+  padecimientos: Padecimiento[],
+) {
+  if (initialData) {
+    const isCustomFarmaco =
+      initialData.farmaco &&
+      !medicamentos.some(m => m.nombreComercial === initialData.farmaco);
+    const isCustomDiagnostico =
+      initialData.diagnostico &&
+      !padecimientos.some(p => p.nombre === initialData.diagnostico);
+
+    return {
+      formData: {
+        farmaco: isCustomFarmaco ? 'Otro' : (initialData.farmaco || ''),
+        dosis: initialData.dosis || '',
+        via: initialData.via || 'Intramuscular',
+        fecha: initialData.fecha
+          ? new Date(initialData.fecha).toISOString().split('T')[0]
+          : '',
+        diagnostico: isCustomDiagnostico ? 'Otro' : (initialData.diagnostico || ''),
+        veterinario: initialData.veterinario || '',
+        dias_retiro_leche: (initialData.diasRetiroLeche ?? initialData.diasRetiro ?? 0).toString(),
+        dias_retiro_carne: (initialData.diasRetiroCarne ?? initialData.diasRetiro ?? 0).toString(),
+        documentoUrl: initialData.documentoUrl || '',
+      },
+      customFarmaco: isCustomFarmaco ? initialData.farmaco || '' : '',
+      customDiagnostico: isCustomDiagnostico ? initialData.diagnostico || '' : '',
+    };
+  }
+
+  return {
+    formData: {
+      farmaco: '',
+      dosis: '',
+      via: 'Intramuscular',
+      fecha: new Date().toISOString().split('T')[0],
+      diagnostico: '',
+      veterinario: '',
+      dias_retiro_leche: '0',
+      dias_retiro_carne: '0',
+      documentoUrl: '',
+    },
+    customFarmaco: '',
+    customDiagnostico: '',
+  };
 }
 
 export default function ModalTratamiento({
@@ -29,6 +106,7 @@ export default function ModalTratamiento({
   initialData,
   animalSexo,
 }: ModalTratamientoProps) {
+  void animalSexo;
   const [formData, setFormData] = useState({
     farmaco: '',
     dosis: '',
@@ -46,6 +124,11 @@ export default function ModalTratamiento({
   const [sugerenciaActiva, setSugerenciaActiva] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const [prevIsOpen, setPrevIsOpen] = useState(false);
+  const [prevInitialData, setPrevInitialData] = useState<InitialTratamientoData | null | undefined>(undefined);
 
   // Carga reactiva de catálogos desde el backend
   const { data: medicamentos = [], isLoading: loadingMedicamentos } = useQuery<Medicamento[]>({
@@ -62,51 +145,20 @@ export default function ModalTratamiento({
     enabled: isOpen,
   });
 
-  useEffect(() => {
+  // Sincronización al abrir o cambiar initialData durante render
+  if (isOpen !== prevIsOpen || initialData !== prevInitialData) {
+    setPrevIsOpen(isOpen);
+    setPrevInitialData(initialData);
     if (isOpen) {
-      if (initialData) {
-        const isCustomFarmaco =
-          initialData.farmaco &&
-          !medicamentos.some(m => m.nombreComercial === initialData.farmaco);
-        const isCustomDiagnostico =
-          initialData.diagnostico &&
-          !padecimientos.some(p => p.nombre === initialData.diagnostico);
-
-        setFormData({
-          farmaco: isCustomFarmaco ? 'Otro' : (initialData.farmaco || ''),
-          dosis: initialData.dosis || '',
-          via: initialData.via || 'Intramuscular',
-          fecha: initialData.fecha
-            ? new Date(initialData.fecha).toISOString().split('T')[0]
-            : '',
-          diagnostico: isCustomDiagnostico ? 'Otro' : (initialData.diagnostico || ''),
-          veterinario: initialData.veterinario || '',
-          dias_retiro_leche: (initialData.diasRetiroLeche ?? initialData.diasRetiro ?? 0).toString(),
-          dias_retiro_carne: (initialData.diasRetiroCarne ?? initialData.diasRetiro ?? 0).toString(),
-          documentoUrl: initialData.documentoUrl || '',
-        });
-        setCustomFarmaco(isCustomFarmaco ? initialData.farmaco : '');
-        setCustomDiagnostico(isCustomDiagnostico ? initialData.diagnostico : '');
-        setSugerenciaActiva(null);
-      } else {
-        setFormData({
-          farmaco: '',
-          dosis: '',
-          via: 'Intramuscular',
-          fecha: new Date().toISOString().split('T')[0],
-          diagnostico: '',
-          veterinario: '',
-          dias_retiro_leche: '0',
-          dias_retiro_carne: '0',
-          documentoUrl: '',
-        });
-        setCustomFarmaco('');
-        setCustomDiagnostico('');
-        setSugerenciaActiva(null);
-      }
+      const init = getInitialState(initialData, medicamentos, padecimientos);
+      setFormData(init.formData);
+      setCustomFarmaco(init.customFarmaco);
+      setCustomDiagnostico(init.customDiagnostico);
+      setSugerenciaActiva(null);
       setFile(null);
+      setErrorMessage(null);
     }
-  }, [isOpen, initialData, medicamentos, padecimientos]);
+  }
 
   // Manejador de cambio de padecimiento con sugerencia de medicamento
   const handleDiagnosticoChange = (diagnosticoSeleccionado: string) => {
@@ -162,8 +214,6 @@ export default function ModalTratamiento({
     }
   };
 
-  if (!isOpen) return null;
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -190,7 +240,7 @@ export default function ModalTratamiento({
         finalDocumentoUrl = publicUrl;
       } catch (error) {
         console.error('Error uploading document:', error);
-        alert('Error al subir el documento. Por favor intente de nuevo.');
+        setErrorMessage('Error al subir el documento. Por favor intente de nuevo.');
         setIsUploading(false);
         return;
       }
@@ -204,25 +254,52 @@ export default function ModalTratamiento({
     const diasMayor = Math.max(diasLeche, diasCarne);
 
     // Solo campos camelCase whitelist — sin snake_case ni spread de formData
-    onSubmit({
-      farmaco: finalFarmaco,
-      dosis: formData.dosis,
-      via: formData.via,
-      fecha: formData.fecha,
-      diagnostico: finalDiagnostico,
-      veterinario: formData.veterinario,
-      diasRetiro: diasMayor,
-      diasRetiroLeche: diasLeche,
-      diasRetiroCarne: diasCarne,
-      documentoUrl: finalDocumentoUrl || undefined,
-    });
-    onClose();
+    setIsSubmitting(true);
+    setErrorMessage(null);
+    try {
+      await onSubmit({
+        farmaco: finalFarmaco,
+        dosis: formData.dosis,
+        via: formData.via,
+        fecha: formData.fecha,
+        diagnostico: finalDiagnostico,
+        veterinario: formData.veterinario,
+        diasRetiro: diasMayor,
+        diasRetiroLeche: diasLeche,
+        diasRetiroCarne: diasCarne,
+        documentoUrl: finalDocumentoUrl || undefined,
+      });
+      onClose();
+    } catch (err: unknown) {
+      console.error('Error al registrar tratamiento:', err);
+      const errorObj = err as { response?: { data?: { message?: string } }; message?: string };
+      setErrorMessage(
+        errorObj?.response?.data?.message || errorObj?.message || 'Error al guardar el tratamiento. Inténtalo de nuevo.',
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const isEditing = !!initialData;
   const fechaLiberacionLeche = calcularFechaLiberacion(formData.fecha, Number(formData.dias_retiro_leche) || 0);
   const fechaLiberacionCarne = calcularFechaLiberacion(formData.fecha, Number(formData.dias_retiro_carne) || 0);
-  const tieneRetiroActivo = (Number(formData.dias_retiro_leche) || 0) > 0 || (Number(formData.dias_retiro_carne) || 0) > 0;
+  const tieneRetiroActivo =
+    (Number(formData.dias_retiro_leche) > 0 || Number(formData.dias_retiro_carne) > 0) &&
+    Boolean(formData.fecha);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/60 backdrop-blur-sm p-4 overflow-y-auto">
@@ -238,13 +315,20 @@ export default function ModalTratamiento({
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-lg hover:bg-slate-200"
+            disabled={isSubmitting || isUploading}
+            className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-lg hover:bg-slate-200 disabled:opacity-50"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4">
+          {errorMessage && (
+            <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium flex items-start gap-2 animate-in fade-in">
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-500 mt-0.5" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Diagnóstico / Padecimiento */}
             <div className="space-y-1.5">
@@ -501,17 +585,17 @@ export default function ModalTratamiento({
             <button
               type="button"
               onClick={onClose}
-              disabled={isUploading}
+              disabled={isUploading || isSubmitting}
               className="px-5 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors disabled:opacity-50"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              disabled={isUploading}
-              className="px-5 py-2 bg-danger text-white rounded-lg text-sm font-semibold hover:bg-danger/90 shadow-sm transition-colors disabled:opacity-50 flex items-center justify-center min-w-[150px]"
+              disabled={isUploading || isSubmitting}
+              className="px-5 py-2 bg-danger text-white rounded-lg text-sm font-semibold hover:bg-danger/90 shadow-sm transition-colors disabled:opacity-50 flex items-center justify-center min-w-[150px] gap-2"
             >
-              {isUploading ? (
+              {isUploading || isSubmitting ? (
                 <Loader2 className="w-4 h-4 animate-spin text-white" />
               ) : isEditing ? (
                 'Guardar Cambios'

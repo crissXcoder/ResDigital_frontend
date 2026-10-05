@@ -130,8 +130,8 @@ export function toCreateTratamientoPayload(
   // Garantizar que no escapen claves fuera de whitelist
   const cleaned = {} as CreateTratamientoDto;
   for (const key of CREATE_WHITELIST) {
-    if (key in payload && (payload as Record<string, unknown>)[key] !== undefined) {
-      (cleaned as Record<string, unknown>)[key] = (payload as Record<string, unknown>)[key];
+    if (key in payload && (payload as unknown as Record<string, unknown>)[key] !== undefined) {
+      (cleaned as unknown as Record<string, unknown>)[key] = (payload as unknown as Record<string, unknown>)[key];
     }
   }
   return cleaned;
@@ -142,6 +142,7 @@ export function toUpdateTratamientoPayload(
 ): UpdateTratamientoDto {
   const base = toCreateTratamientoPayload(input, '00000000-0000-0000-0000-000000000000');
   const { animalId: _omit, ...rest } = base;
+  void _omit;
   return rest;
 }
 

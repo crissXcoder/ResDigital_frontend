@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -14,25 +15,27 @@ export function KpiCard({
   icon: Icon,
   loading,
   tone = "default",
+  href,
 }: {
   label: string;
   value: number;
   icon: LucideIcon;
   loading?: boolean;
   tone?: "default" | "danger";
+  href?: string;
 }) {
-  return (
-    <Card>
+  const cardElement = (
+    <Card className={cn(href && "transition-all hover:-translate-y-0.5 hover:shadow-md cursor-pointer group")}>
       <CardHeader className="flex-row items-center justify-between gap-2 pb-0">
         <CardTitle>
           {/* H3 style from DESIGN.md: text-sm font-medium uppercase tracking-wider text-slate-500 */}
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+          <span className={cn("text-xs font-semibold uppercase tracking-wider text-slate-500", href && "group-hover:text-navy transition-colors")}>
             {label}
           </span>
         </CardTitle>
         <Icon
           className={cn(
-            "size-5 stroke-2",
+            "size-5 stroke-2 transition-transform group-hover:scale-105",
             tone === "danger" ? "text-red-500" : "text-blue-600",
           )}
           aria-hidden
@@ -54,4 +57,10 @@ export function KpiCard({
       </CardContent>
     </Card>
   );
+
+  if (href) {
+    return <Link href={href} className="block">{cardElement}</Link>;
+  }
+
+  return cardElement;
 }

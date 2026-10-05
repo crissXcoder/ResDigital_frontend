@@ -3,18 +3,36 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Loader2, Search, X } from "lucide-react";
-import ModalPesaje from "@/components/modals/ModalPesaje";
-import ModalServicio from "@/components/modals/ModalServicio";
-import ModalTratamiento from "@/components/modals/ModalTratamiento";
+import ModalPesaje, { type PesajeFormData } from "@/components/modals/ModalPesaje";
+import ModalServicio, { type ServicioFormData } from "@/components/modals/ModalServicio";
+import ModalTratamiento, { type TratamientoFormData } from "@/components/modals/ModalTratamiento";
 import {
   type Animal,
   createPesaje,
   createServicioReproductivo,
-  createTratamiento,
   getAnimales,
 } from "@/lib/api/animales";
+import {
+  createTratamiento,
+  toCreateTratamientoPayload,
+} from "@/lib/api/sanitary";
+import { useAuthUser, type RolUsuario } from "@/lib/hooks/useAuthUser";
 
 export type TipoAccionRapida = "tratamiento" | "reproductivo" | "leche";
+
+export const ROLES_PERMITIDOS_ACCION: Record<TipoAccionRapida, RolUsuario[]> = {
+  tratamiento: ["propietario", "administrador", "veterinario"],
+  reproductivo: ["propietario", "administrador", "veterinario"],
+  leche: ["propietario", "administrador"],
+};
+
+export function puedeEjecutarAccion(
+  accion: TipoAccionRapida,
+  rol: RolUsuario | null | undefined,
+): boolean {
+  if (!rol) return false;
+  return ROLES_PERMITIDOS_ACCION[accion]?.includes(rol) ?? false;
+}
 
 interface AccionConfig {
   titulo: string;
@@ -87,6 +105,7 @@ export function filtrarAnimalesAccion(
 
 export function AccionesRapidas() {
   const queryClient = useQueryClient();
+  const { role } = useAuthUser();
 
   // Estados del flujo
   const [accionActiva, setAccionActiva] = useState<TipoAccionRapida | null>(null);
@@ -114,29 +133,26 @@ export function AccionesRapidas() {
 
   // Mutación: Registrar Tratamiento
   const tratamientoMutation = useMutation({
-    mutationFn: (data: any) => {
-      const { dias_retiro, ...rest } = data;
-      return createTratamiento({
-        ...rest,
-        diasRetiro: dias_retiro ? parseInt(dias_retiro, 10) : 0,
-        animalId: animalSeleccionado!.id,
-      });
+    mutationFn: (data: TratamientoFormData) => {
+      const payload = toCreateTratamientoPayload(data as unknown as Record<string, unknown>, animalSeleccionado!.id);
+      return createTratamiento(payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["animales"] });
       queryClient.invalidateQueries({ queryKey: ["tratamientos"] });
+      queryClient.invalidateQueries({ queryKey: ["historialSanitario"] });
+      queryClient.invalidateQueries({ queryKey: ["estadoSanitario"] });
       cerrarTodoConExito("Tratamiento médico registrado correctamente");
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       console.error("Error al registrar tratamiento:", error);
-      alert("Hubo un error al registrar el tratamiento. Inténtalo de nuevo.");
     },
   });
 
   // Mutación: Registrar Evento Reproductivo (Servicio)
   const servicioMutation = useMutation({
-    mutationFn: (data: any) => {
+    mutationFn: (data: ServicioFormData) => {
       return createServicioReproductivo(animalSeleccionado!.id, {
         fechaEvento: data.fecha,
         tipoServicio: data.tipo_servicio,
@@ -153,17 +169,17 @@ export function AccionesRapidas() {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["estadoReproductivo"] });
       queryClient.invalidateQueries({ queryKey: ["reproductivo"] });
+      queryClient.invalidateQueries({ queryKey: ["animales"] });
       cerrarTodoConExito("Evento reproductivo registrado correctamente");
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       console.error("Error al registrar servicio reproductivo:", error);
-      alert("Hubo un error al registrar el evento reproductivo.");
     },
   });
 
   // Mutación: Registrar Producción de Leche / Pesaje
   const pesajeMutation = useMutation({
-    mutationFn: (data: any) => {
+    mutationFn: (data: PesajeFormData) => {
       return createPesaje({
         animalId: animalSeleccionado!.id,
         fecha: data.fecha,
@@ -175,11 +191,12 @@ export function AccionesRapidas() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["pesajes"] });
+      queryClient.invalidateQueries({ queryKey: ["produccionLeche"] });
+      queryClient.invalidateQueries({ queryKey: ["animales"] });
       cerrarTodoConExito("Producción de leche registrada correctamente");
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       console.error("Error al registrar pesaje/leche:", error);
-      alert("Hubo un error al registrar la producción de leche.");
     },
   });
 
@@ -196,6 +213,7 @@ export function AccionesRapidas() {
   };
 
   const abrirSelector = (tipo: TipoAccionRapida) => {
+    if (!puedeEjecutarAccion(tipo, role)) return;
     setAccionActiva(tipo);
     setAnimalSeleccionado(null);
     setIsFormOpen(false);
@@ -247,47 +265,46 @@ export function AccionesRapidas() {
 
       {/* Grid de 3 tarjetas de acción rápida */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3 sm:gap-6">
-        {/* 1. Registrar Tratamiento Médico */}
-        <button
-          type="button"
-          onClick={() => abrirSelector("tratamiento")}
-          className="group block w-full text-left rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md cursor-pointer"
-        >
-          <h3 className="text-sm sm:text-base font-bold text-slate-900 group-hover:text-navy transition-colors">
-            {CONFIG_ACCIONES.tratamiento.titulo}
-          </h3>
-          <p className="mt-1 text-xs sm:text-sm text-slate-500">
-            {CONFIG_ACCIONES.tratamiento.subtitulo}
-          </p>
-        </button>
+        {(["tratamiento", "reproductivo", "leche"] as const).map((tipo) => {
+          const config = CONFIG_ACCIONES[tipo];
+          const permitido = puedeEjecutarAccion(tipo, role);
 
-        {/* 2. Nuevo Evento Reproductivo */}
-        <button
-          type="button"
-          onClick={() => abrirSelector("reproductivo")}
-          className="group block w-full text-left rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md cursor-pointer"
-        >
-          <h3 className="text-sm sm:text-base font-bold text-slate-900 group-hover:text-navy transition-colors">
-            {CONFIG_ACCIONES.reproductivo.titulo}
-          </h3>
-          <p className="mt-1 text-xs sm:text-sm text-slate-500">
-            {CONFIG_ACCIONES.reproductivo.subtitulo}
-          </p>
-        </button>
-
-        {/* 3. Registrar Producción de Leche */}
-        <button
-          type="button"
-          onClick={() => abrirSelector("leche")}
-          className="group block w-full text-left rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md cursor-pointer"
-        >
-          <h3 className="text-sm sm:text-base font-bold text-slate-900 group-hover:text-navy transition-colors">
-            {CONFIG_ACCIONES.leche.titulo}
-          </h3>
-          <p className="mt-1 text-xs sm:text-sm text-slate-500">
-            {CONFIG_ACCIONES.leche.subtitulo}
-          </p>
-        </button>
+          return (
+            <button
+              key={tipo}
+              type="button"
+              data-testid={`accion-rapida-${tipo}`}
+              disabled={!permitido}
+              aria-disabled={!permitido}
+              onClick={() => abrirSelector(tipo)}
+              className={
+                permitido
+                  ? "group block w-full text-left rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md cursor-pointer"
+                  : "block w-full text-left rounded-2xl border border-slate-200/60 bg-slate-50/70 p-5 sm:p-6 opacity-60 cursor-not-allowed select-none"
+              }
+            >
+              <div className="flex items-start justify-between gap-2">
+                <h3
+                  className={`text-sm sm:text-base font-bold transition-colors ${
+                    permitido
+                      ? "text-slate-900 group-hover:text-navy"
+                      : "text-slate-500"
+                  }`}
+                >
+                  {config.titulo}
+                </h3>
+                {!permitido && (
+                  <span className="shrink-0 rounded-full bg-slate-200/80 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                    Rol no autorizado
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-xs sm:text-sm text-slate-500">
+                {config.subtitulo}
+              </p>
+            </button>
+          );
+        })}
       </div>
 
       {/* Modal: Selector de Animal antes de abrir el formulario */}
@@ -394,7 +411,9 @@ export function AccionesRapidas() {
           isOpen={isFormOpen}
           onClose={cancelarFlujo}
           animalSexo={animalSeleccionado.sexo}
-          onSubmit={(data) => tratamientoMutation.mutate(data)}
+          onSubmit={async (data) => {
+            await tratamientoMutation.mutateAsync(data);
+          }}
         />
       )}
 
@@ -404,7 +423,9 @@ export function AccionesRapidas() {
           isOpen={isFormOpen}
           onClose={cancelarFlujo}
           animalSexo={animalSeleccionado.sexo}
-          onSubmit={(data) => servicioMutation.mutate(data)}
+          onSubmit={async (data) => {
+            await servicioMutation.mutateAsync(data);
+          }}
         />
       )}
 
@@ -414,7 +435,9 @@ export function AccionesRapidas() {
           isOpen={isFormOpen}
           onClose={cancelarFlujo}
           animalSexo={animalSeleccionado.sexo}
-          onSubmit={(data) => pesajeMutation.mutate(data)}
+          onSubmit={async (data) => {
+            await pesajeMutation.mutateAsync(data);
+          }}
         />
       )}
     </section>

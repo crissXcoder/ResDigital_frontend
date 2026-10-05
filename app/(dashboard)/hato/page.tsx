@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { getAnimales, getRazas } from '@/lib/api/animales';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -9,13 +10,23 @@ import Link from 'next/link';
 import { ModalEditarAnimal } from '@/components/modals/ModalEditarAnimal';
 import { ModalDarBaja } from '@/components/modals/ModalDarBaja';
 
-export default function HatoPage() {
-  const [searchTerm, setSearchTerm] = useState('');
+function HatoContent() {
+  const searchParams = useSearchParams();
+  const queryParam = searchParams.get('buscar') || searchParams.get('search') || '';
+
+  const [searchTerm, setSearchTerm] = useState(queryParam);
   const [filterRaza, setFilterRaza] = useState('');
   const [filterSanitario, setFilterSanitario] = useState('');
   const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
   const [editingAnimal, setEditingAnimal] = useState<any | null>(null);
   const [bajaAnimal, setBajaAnimal] = useState<any | null>(null);
+
+  // Sincronizar término de búsqueda si cambia la URL
+  useEffect(() => {
+    if (queryParam) {
+      setSearchTerm(queryParam);
+    }
+  }, [queryParam]);
   
   const { data: animales = [], isLoading, error } = useQuery({
     queryKey: ['animales'],
@@ -31,10 +42,19 @@ export default function HatoPage() {
   const closeDropdown = () => setActiveDropdownId(null);
 
   const filteredAnimales = animales.filter(animal => {
-    // Filter by search term
+    // Filter by search term (soporta #506, 506, DIIO y nombre)
+    const cleanSearch = searchTerm.replace(/^#/, '').trim().toLowerCase();
+    const rawSearch = searchTerm.trim().toLowerCase();
+    const arete = (animal.areteInterno || '').toLowerCase();
+    const diio = (animal.numeroOficialDiio || '').toLowerCase();
+    const nombre = (animal.nombre || '').toLowerCase();
+
     const matchesSearch = 
-      animal.areteInterno.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (animal.nombre && animal.nombre.toLowerCase().includes(searchTerm.toLowerCase()));
+      !cleanSearch ||
+      arete.includes(cleanSearch) ||
+      `#${arete}`.includes(rawSearch) ||
+      diio.includes(cleanSearch) ||
+      nombre.includes(cleanSearch);
 
     // Filter by raza
     const searchRaza = filterRaza.toLowerCase();
@@ -262,3 +282,20 @@ export default function HatoPage() {
     </main>
   );
 }
+
+export default function HatoPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="p-6 md:p-8">
+          <div className="max-w-[1400px] mx-auto text-slate-500 font-medium">
+            Cargando inventario del hato...
+          </div>
+        </main>
+      }
+    >
+      <HatoContent />
+    </Suspense>
+  );
+}
+

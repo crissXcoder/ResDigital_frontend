@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   filtrarAnimalesAccion,
+  puedeEjecutarAccion,
   type TipoAccionRapida,
 } from '@/components/dashboard/acciones-rapidas';
 import type { Animal } from '@/lib/api/animales';
@@ -149,3 +150,48 @@ describe('filtrarAnimalesAccion — Reglas de negocio y filtros biológicos', ()
     });
   });
 });
+
+describe('puedeEjecutarAccion — Matriz de Roles y Autorización (DASH-T005 / ARCH-ROLES)', () => {
+  it('retorna false si el rol es null o undefined (sesión no resuelta)', () => {
+    expect(puedeEjecutarAccion('tratamiento', null)).toBe(false);
+    expect(puedeEjecutarAccion('tratamiento', undefined)).toBe(false);
+    expect(puedeEjecutarAccion('reproductivo', null)).toBe(false);
+    expect(puedeEjecutarAccion('leche', null)).toBe(false);
+  });
+
+  describe('Rol: propietario', () => {
+    it('tiene acceso a todas las acciones rápidas', () => {
+      expect(puedeEjecutarAccion('tratamiento', 'propietario')).toBe(true);
+      expect(puedeEjecutarAccion('reproductivo', 'propietario')).toBe(true);
+      expect(puedeEjecutarAccion('leche', 'propietario')).toBe(true);
+    });
+  });
+
+  describe('Rol: administrador', () => {
+    it('tiene acceso a todas las acciones rápidas', () => {
+      expect(puedeEjecutarAccion('tratamiento', 'administrador')).toBe(true);
+      expect(puedeEjecutarAccion('reproductivo', 'administrador')).toBe(true);
+      expect(puedeEjecutarAccion('leche', 'administrador')).toBe(true);
+    });
+  });
+
+  describe('Rol: veterinario', () => {
+    it('puede registrar tratamientos y eventos reproductivos', () => {
+      expect(puedeEjecutarAccion('tratamiento', 'veterinario')).toBe(true);
+      expect(puedeEjecutarAccion('reproductivo', 'veterinario')).toBe(true);
+    });
+
+    it('tiene estrictamente PROHIBIDO registrar producción de leche o pesaje (ARCH-ROLES)', () => {
+      expect(puedeEjecutarAccion('leche', 'veterinario')).toBe(false);
+    });
+  });
+
+  describe('Rol: peon', () => {
+    it('no tiene permiso directo en acciones rápidas del dashboard', () => {
+      expect(puedeEjecutarAccion('tratamiento', 'peon')).toBe(false);
+      expect(puedeEjecutarAccion('reproductivo', 'peon')).toBe(false);
+      expect(puedeEjecutarAccion('leche', 'peon')).toBe(false);
+    });
+  });
+});
+

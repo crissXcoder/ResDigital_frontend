@@ -7,17 +7,13 @@ import {
   getMockAlertas,
   getMockAnimalesEnRetiro,
   getMockKpis,
-  getMockProximosEventosReproductivos,
 } from "@/lib/mock/dashboard-mock";
 
 /**
  * Hooks de datos del Dashboard, uno por pieza de UI.
  *
- * Hoy leen del mock (lib/mock/dashboard-mock.ts). Cuando cada módulo exponga su endpoint real,
- * el único cambio necesario es la `queryFn` — el resto de la UI no se toca:
- *   - useAnimalesEnRetiro: queryFn -> GET a lo que exponga Ari (MOD-02, "animales en retiro hoy")
- *   - useProximosEventosReproductivos: queryFn -> GET /reproductivo/proximos-eventos (Cristhian) ✅ conectado
- *   - useKpisDashboard: se recalcula solo, ya que depende de los dos anteriores + Hato (Danny)
+ * Cero fallbacks silenciosos: si una petición falla, propaga el error a React Query
+ * para que la interfaz muestre el estado de error honesto.
  */
 
 const dashboardKeys = {
@@ -32,35 +28,28 @@ export function useKpisDashboard() {
     queryKey: dashboardKeys.kpis,
     queryFn: async () => {
       const mockKpis = getMockKpis();
-      try {
-        const animales = await getAnimales();
-        const retiros = getMockAnimalesEnRetiro();
+      const animales = await getAnimales();
+      const retiros = getMockAnimalesEnRetiro();
 
-        const activos = animales.filter((a) => a.activo);
-        const totalHatoActivo = activos.length;
+      const activos = animales.filter((a) => a.activo);
+      const totalHatoActivo = activos.length;
 
-        // B11: Vacas en Ordeño (Hembra, categoría Vaca en Ordeño, SIN retiro de leche)
-        const vacasEnOrdeno = activos.filter((a) => {
-          if (a.categoria !== "Vaca en Ordeño" || a.sexo !== "Hembra") return false;
-          // Verificar si tiene retiro de leche activo en los mocks
-          const tieneRetiro = retiros.some((r) => r.animalId === a.id && r.diasRestantesLeche !== null);
-          return !tieneRetiro;
-        }).length;
+      // B11: Vacas en Ordeño (Hembra, categoría Vaca en Ordeño, SIN retiro de leche)
+      const vacasEnOrdeno = activos.filter((a) => {
+        if (a.categoria !== "Vaca en Ordeño" || a.sexo !== "Hembra") return false;
+        const tieneRetiro = retiros.some((r) => r.animalId === a.id && r.diasRestantesLeche !== null);
+        return !tieneRetiro;
+      }).length;
 
-        // B4: Gestantes Confirmadas (solo con diagnóstico positivo)
-        // Ya que aún no hay endpoint real reproductivo, seguimos usando el mock
-        const gestantesConfirmadas = mockKpis.gestantesConfirmadas;
+      // B4: Gestantes Confirmadas (solo con diagnóstico positivo)
+      const gestantesConfirmadas = mockKpis.gestantesConfirmadas;
 
-        return {
-          totalHatoActivo,
-          vacasEnOrdeno,
-          gestantesConfirmadas,
-          alertasActivas: mockKpis.alertasActivas,
-        };
-      } catch (error) {
-        console.warn("Failed to fetch real animales for KPIs, falling back to mock", error);
-        return mockKpis;
-      }
+      return {
+        totalHatoActivo,
+        vacasEnOrdeno,
+        gestantesConfirmadas,
+        alertasActivas: mockKpis.alertasActivas,
+      };
     },
   });
 }
@@ -76,17 +65,9 @@ export function useProximosEventosReproductivos() {
   return useQuery({
     queryKey: dashboardKeys.proximosEventos,
     queryFn: async () => {
-      try {
-        // getProximosEventos devuelve ProximoEvento[] (lib/api/reproductivo.ts de Cristhian)
-        // que es estructuralmente compatible con ProximoEventoReproductivo del Dashboard.
-        return await getProximosEventos();
-      } catch (error) {
-        console.warn(
-          "useProximosEventosReproductivos: error al llamar al backend, usando mock como fallback",
-          error,
-        );
-        return getMockProximosEventosReproductivos();
-      }
+      // Consume el endpoint real GET /reproductivo/proximos-eventos (Cristhian - MOD-03)
+      // Sin fallback silencioso a datos mock en caso de fallo de red
+      return await getProximosEventos();
     },
   });
 }
