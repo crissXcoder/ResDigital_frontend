@@ -32,6 +32,22 @@ export default function Home() {
             Registrar Nueva Finca
           </Link>
         </div>
+
+        <footer className="mt-8 pt-6 border-t border-border flex items-center justify-center gap-3 text-xs text-muted-foreground">
+          <Link
+            href="/terminos"
+            className="hover:text-foreground transition-colors underline-offset-4 hover:underline"
+          >
+            Términos y Condiciones
+          </Link>
+          <span>·</span>
+          <Link
+            href="/privacidad"
+            className="hover:text-foreground transition-colors underline-offset-4 hover:underline"
+          >
+            Política de Privacidad
+          </Link>
+        </footer>
       </div>
     </main>
   );

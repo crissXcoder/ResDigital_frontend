@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { AlertCircle, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useProximosEventosReproductivos } from "@/lib/hooks/use-dashboard-data";
 import type { ProximoEventoReproductivo, TipoEventoReproductivo } from "@/lib/types/dashboard";
@@ -43,7 +43,7 @@ function formatFecha(iso: string): string {
  * Muestra los hitos agrupados por animal, con enlace a la ficha del expediente.
  */
 export function CalendarioReproductivo() {
-  const { data, isLoading } = useProximosEventosReproductivos();
+  const { data, isLoading, isError } = useProximosEventosReproductivos();
 
   const grupos = data ? agruparPorAnimal(data) : new Map<string, ProximoEventoReproductivo[]>();
 
@@ -59,6 +59,11 @@ export function CalendarioReproductivo() {
             {[1, 2, 3].map((i) => (
               <div key={i} className="h-14 animate-pulse rounded-lg bg-slate-100" />
             ))}
+          </div>
+        ) : isError ? (
+          <div className="flex items-center gap-2 rounded-lg bg-red-50 p-4 text-xs text-red-700">
+            <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
+            <span>No se pudieron cargar los eventos reproductivos desde el servidor.</span>
           </div>
         ) : grupos.size === 0 ? (
           <p className="text-sm text-slate-500">

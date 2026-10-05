@@ -43,7 +43,8 @@ import {
   CheckCircle2,
   Loader2,
   FileText,
-  Camera
+  Camera,
+  QrCode,
 } from 'lucide-react';
 import ModalPesaje from '@/components/modals/ModalPesaje';
 import ModalServicio from '@/components/modals/ModalServicio';
@@ -51,6 +52,8 @@ import ModalDiagnostico from '@/components/modals/ModalDiagnostico';
 import ModalTratamiento from '@/components/modals/ModalTratamiento';
 import ModalEditarOrigen from '@/components/modals/ModalEditarOrigen';
 import ModalDocumento from '@/components/modals/ModalDocumento';
+import ModalQrAnimal from '@/components/modals/ModalQrAnimal';
+import { useAuthUser } from '@/lib/hooks/useAuthUser';
 import { ModalEditarAnimal } from '@/components/modals/ModalEditarAnimal';
 import { ModalDarBaja } from '@/components/modals/ModalDarBaja';
 import TabReproductivo from '@/components/reproductivo/TabReproductivo';
@@ -82,6 +85,8 @@ export default function ExpedienteAnimal() {
   const [isDocumentoOpen, setIsDocumentoOpen] = useState(false);
   const [isEditarAnimalOpen, setIsEditarAnimalOpen] = useState(false);
   const [isBajaOpen, setIsBajaOpen] = useState(false);
+  const [isQrOpen, setIsQrOpen] = useState(false);
+  const { user: authUser } = useAuthUser();
 
   // Documentos state
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
@@ -453,6 +458,13 @@ export default function ExpedienteAnimal() {
             Volver al Hato
           </Link>
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsQrOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 bg-white transition-colors shadow-xs"
+            >
+              <QrCode className="w-4 h-4 text-navy" />
+              <span>Código QR</span>
+            </button>
             {animal.activo && (
               <button
                 onClick={() => setIsBajaOpen(true)}
@@ -553,6 +565,13 @@ export default function ExpedienteAnimal() {
                 className="w-full sm:w-auto px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-50 transition-colors"
               >
                 Descargar PDF
+              </button>
+              <button
+                onClick={() => setIsQrOpen(true)}
+                className="w-full sm:w-auto px-5 py-2.5 bg-white border border-slate-200 text-navy rounded-lg text-sm font-bold shadow-sm hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
+              >
+                <QrCode className="w-4 h-4 text-navy" />
+                <span>Generar QR</span>
               </button>
             </div>
           </div>
@@ -1123,6 +1142,15 @@ export default function ExpedienteAnimal() {
           isOpen={isBajaOpen}
           onClose={() => setIsBajaOpen(false)}
           animal={animal}
+        />
+      )}
+
+      {isQrOpen && (
+        <ModalQrAnimal
+          isOpen={isQrOpen}
+          onClose={() => setIsQrOpen(false)}
+          animal={animal}
+          nombreFinca={authUser?.nombreFinca}
         />
       )}
 

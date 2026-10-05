@@ -15,6 +15,7 @@ export interface AuthUserProfile {
   rol: RolUsuario;
   nombreCompleto: string;
   correo: string;
+  nombreFinca: string;
 }
 
 /**

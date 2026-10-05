@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import Link from 'next/link';
 import { LoginForm } from '@/components/auth/LoginForm';
 
 // Prevención del bug de CSP Nonce de Energisa:
@@ -25,6 +26,20 @@ export default function LoginPage() {
       >
         <LoginForm />
       </Suspense>
+
+      <footer className="mt-8 text-center text-xs text-muted-foreground max-w-sm">
+        <p>
+          Al ingresar al piloto de ResDigital, aceptas los{' '}
+          <Link href="/terminos" className="text-primary font-medium hover:underline">
+            Términos y Condiciones
+          </Link>{' '}
+          y la{' '}
+          <Link href="/privacidad" className="text-primary font-medium hover:underline">
+            Política de Privacidad
+          </Link>
+          .
+        </p>
+      </footer>
     </main>
   );
 }
