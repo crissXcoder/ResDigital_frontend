@@ -900,7 +900,7 @@ export default function ExpedienteAnimal() {
                               title="Editar tratamiento"
                             >
                               <Pencil className="w-4 h-4" />
-                            </button>
+                            </button></RequireRole>
                           </td>
                         </tr>
                       );
