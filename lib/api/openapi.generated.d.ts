@@ -203,6 +203,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tratamientos/retiros-activos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["TratamientosController_getRetirosActivos"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tratamientos/animal/{animalId}/estado-sanitario": {
         parameters: {
             query?: never;
@@ -235,7 +251,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/tratamientos/{id}": {
+    "/tratamientos/{id}/correccion": {
         parameters: {
             query?: never;
             header?: never;
@@ -243,8 +259,24 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put: operations["TratamientosController_update"];
-        post?: never;
+        put?: never;
+        post: operations["TratamientosController_corregir"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tratamientos/{id}/anulacion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["TratamientosController_anular"];
         delete?: never;
         options?: never;
         head?: never;
@@ -523,7 +555,8 @@ export interface components {
         };
         CreatePesajeDto: Record<string, never>;
         CreateTratamientoDto: Record<string, never>;
-        UpdateTratamientoDto: Record<string, never>;
+        CorregirTratamientoDto: Record<string, never>;
+        AnularTratamientoDto: Record<string, never>;
         CreatePotreroDto: Record<string, never>;
         UpdatePotreroDto: Record<string, never>;
         AsignarAnimalesDto: Record<string, never>;
@@ -1285,6 +1318,23 @@ export interface operations {
             };
         };
     };
+    TratamientosController_getRetirosActivos: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     TratamientosController_getEstadoSanitario: {
         parameters: {
             query?: never;
@@ -1323,7 +1373,7 @@ export interface operations {
             };
         };
     };
-    TratamientosController_update: {
+    TratamientosController_corregir: {
         parameters: {
             query?: never;
             header?: never;
@@ -1334,7 +1384,30 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateTratamientoDto"];
+                "application/json": components["schemas"]["CorregirTratamientoDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    TratamientosController_anular: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnularTratamientoDto"];
             };
         };
         responses: {

@@ -459,6 +459,25 @@
         ]
       }
     },
+    "/tratamientos/retiros-activos": {
+      "get": {
+        "operationId": "TratamientosController_getRetirosActivos",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Tratamientos Sanitarios"
+        ]
+      }
+    },
     "/tratamientos/animal/{animalId}/estado-sanitario": {
       "get": {
         "operationId": "TratamientosController_getEstadoSanitario",
@@ -515,9 +534,9 @@
         ]
       }
     },
-    "/tratamientos/{id}": {
-      "put": {
-        "operationId": "TratamientosController_update",
+    "/tratamientos/{id}/correccion": {
+      "post": {
+        "operationId": "TratamientosController_corregir",
         "parameters": [
           {
             "name": "id",
@@ -533,7 +552,45 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateTratamientoDto"
+                "$ref": "#/components/schemas/CorregirTratamientoDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Tratamientos Sanitarios"
+        ]
+      }
+    },
+    "/tratamientos/{id}/anulacion": {
+      "post": {
+        "operationId": "TratamientosController_anular",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnularTratamientoDto"
               }
             }
           }
@@ -1309,7 +1366,11 @@
         "type": "object",
         "properties": {}
       },
-      "UpdateTratamientoDto": {
+      "CorregirTratamientoDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "AnularTratamientoDto": {
         "type": "object",
         "properties": {}
       },
