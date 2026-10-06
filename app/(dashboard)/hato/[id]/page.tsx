@@ -61,6 +61,25 @@ import ModalQrAnimal from '@/components/modals/ModalQrAnimal';
 import { useAuthUser } from '@/lib/hooks/useAuthUser';
 import { formatearFecha as formatearFechaCivil, hoyLocal } from '@/lib/reproductivo/fechas';
 import { RequireRole } from '@/components/auth/RequireRole';
+function DocumentLink({ objectPath, children, ...props }: React.ComponentProps<'a'> & { objectPath: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    createClient().storage.from(BUCKET_ANIMAL_DOCS).createSignedUrl(objectPath, 60 * 10)
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error) setFailed(true);
+        else setUrl(data.signedUrl);
+      }).catch(() => { if (active) setFailed(true); });
+    return () => { active = false; };
+  }, [objectPath]);
+
+  if (failed) return <span className="text-xs text-slate-500">No se pudo cargar el documento.</span>;
+  if (!url) return <span className="text-xs text-slate-500">Preparando documento…</span>;
+  return <a href={url} {...props}>{children}</a>;
+}
 import { ModalEditarAnimal } from '@/components/modals/ModalEditarAnimal';
 import { ModalDarBaja } from '@/components/modals/ModalDarBaja';
 import TabReproductivo from '@/components/reproductivo/TabReproductivo';
@@ -198,7 +217,7 @@ export default function ExpedienteAnimal() {
   });
 
   const documentoMutation = useMutation({
-    mutationFn: (data: { tipo: string, archivoUrl: string }) => createDocumento(animalId, data),
+    mutationFn: (data: { tipo: string, objectPath: string }) => createDocumento(animalId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documentos', animalId] });
     }
@@ -207,40 +226,40 @@ export default function ExpedienteAnimal() {
   const handleDocumentSubmit = async ({ tipo, file }: { tipo: string; file: File }) => {
     try {
       setIsUploadingDoc(true);
+      const tenantId = authUser?.tenantId;
+      if (!tenantId) throw new Error('No se pudo validar la finca activa.');
 
-      // Subir archivo a Supabase Storage
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${animalId}-${tipo.replace(/[^a-z0-9]/gi, '_').toLowerCase()}-${Date.now()}.${fileExt}`;
+      const fileExt = file.name.split('.').pop()?.toLowerCase();
+      if (!fileExt || !['pdf', 'png', 'jpg'].includes(fileExt)) {
+        throw new Error('El documento debe ser PDF, PNG o JPG.');
+      }
+      const category = tipo.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const documentId = crypto.randomUUID();
+      const objectPath = `${tenantId}/${animalId}/${category}/${documentId}.${fileExt}`;
 
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from(BUCKET_ANIMAL_DOCS)
-        .upload(fileName, file);
+        .upload(objectPath, file);
 
-      if (uploadError) {
-        throw uploadError;
+      if (uploadError) throw uploadError;
+
+      try {
+        await documentoMutation.mutateAsync({ tipo, objectPath });
+      } catch (error) {
+        const { error: cleanupError } = await supabase.storage.from(BUCKET_ANIMAL_DOCS).remove([objectPath]);
+        if (cleanupError) console.error('No se pudo retirar el archivo sin registro:', cleanupError);
+        throw error;
       }
 
-      // Obtener URL pública
-      const { data: { publicUrl } } = supabase.storage
-        .from(BUCKET_ANIMAL_DOCS)
-        .getPublicUrl(fileName);
-
-      // Guardar en la base de datos
-      await documentoMutation.mutateAsync({
-        tipo,
-        archivoUrl: publicUrl
-      });
-
       setIsDocumentoOpen(false);
-
     } catch (error) {
       console.error('Error al subir documento:', error);
-      alert('Hubo un error al subir el documento. Por favor, intente de nuevo.');
+      alert(error instanceof Error ? error.message : 'Hubo un error al subir el documento. Por favor, intente de nuevo.');
     } finally {
       setIsUploadingDoc(false);
     }
   };
-
   const handleDownloadPDF = () => {
     if (!animal) return;
 
@@ -1055,19 +1074,15 @@ export default function ExpedienteAnimal() {
                           </p>
                         </div>
                         <div className="mt-5 pt-4 border-t border-slate-100">
-                          {doc.archivoUrl ? (
-                            <a
-                              href={doc.archivoUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="w-full flex items-center justify-center gap-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-100 hover:border-slate-300 transition-all"
-                            >
-                              <Download className="w-3 h-3" />
-                              Ver / Descargar
-                            </a>
-                          ) : (
-                            <span className="text-xs text-slate-500">Enlace del documento no disponible.</span>
-                          )}
+                          {doc.objectPath ? <DocumentLink
+                            objectPath={doc.objectPath}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full flex items-center justify-center gap-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-100 hover:border-slate-300 transition-all"
+                          >
+                            <Download className="w-3 h-3" />
+                            Ver / Descargar
+                          </DocumentLink> : <span className="text-xs text-slate-500">Documento pendiente de migración segura.</span>}
                         </div>
                       </div>
                     ))}

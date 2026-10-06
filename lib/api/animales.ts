@@ -98,6 +98,7 @@ export interface DocumentoAnimal {
   tenantId: string;
   tipo: string;
   archivoUrl: string | null;
+  objectPath: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -127,7 +128,7 @@ export const getDocumentos = async (animalId: string): Promise<DocumentoAnimal[]
   return fetchApi(`/animales/${animalId}/documentos`);
 };
 
-export const createDocumento = async (animalId: string, docData: { tipo: string, archivoUrl: string }) => {
+export const createDocumento = async (animalId: string, docData: { tipo: string, objectPath: string }) => {
   return fetchApi(`/animales/${animalId}/documentos`, {
     method: 'POST',
     body: JSON.stringify(docData),
