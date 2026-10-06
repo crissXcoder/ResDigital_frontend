@@ -94,6 +94,7 @@ jobs:
         with:
           version: 10.32.1
       - run: pnpm install --frozen-lockfile
+      - run: pnpm openapi:check
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
@@ -135,4 +136,5 @@ jobs:
       - name: Require every CI job to pass
         env:
           JOBS: ${{ toJson(needs) }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: node tooling/required-status.mjs

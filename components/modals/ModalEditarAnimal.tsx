@@ -1,37 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
-import { getCatalogosRazas } from '@/lib/api/catalogos';
-import { updateAnimal, getAnimales } from '@/lib/api/animales';
+
+import { updateAnimal, getRazas, type Animal, type UpdateAnimalInput } from '@/lib/api/animales';
 import { getPotreros } from '@/lib/api/potreros';
 
 interface ModalEditarAnimalProps {
   isOpen: boolean;
   onClose: () => void;
-  animal: any;
+  animal: Animal | null;
 }
 
-export function ModalEditarAnimal({ isOpen, onClose, animal }: ModalEditarAnimalProps) {
+export function ModalEditarAnimal(props: ModalEditarAnimalProps) {
+  if (!props.isOpen || !props.animal) return null;
+  return <ModalEditarAnimalForm {...props} animal={props.animal} key={props.animal.id} />;
+}
+
+function ModalEditarAnimalForm({ isOpen, onClose, animal }: Omit<ModalEditarAnimalProps, 'animal'> & { animal: Animal }) {
   const queryClient = useQueryClient();
   
-  const [formData, setFormData] = useState({
-    nombre: '',
-    razaId: '',
-    razaOtra: '',
-    categoria: '',
-    pesoActualKg: '',
-    potreroId: '',
-  });
+  const [formData, setFormData] = useState(() => ({
+    nombre: animal.nombre || '',
+    razaId: animal.razaId || '',
+    razaOtra: animal.razaOtra || '',
+    categoria: animal.categoria || '',
+    pesoActualKg: animal.pesoActualKg == null ? '' : String(animal.pesoActualKg),
+    potreroId: animal.potreroId || '',
+  }));
 
   const { data: razas = [] } = useQuery({
     queryKey: ['catalogos-razas'],
-    queryFn: getCatalogosRazas,
-    enabled: isOpen,
-  });
-
-  const { data: animales = [] } = useQuery({
-    queryKey: ['animales'],
-    queryFn: () => getAnimales(),
+    queryFn: getRazas,
     enabled: isOpen,
   });
 
@@ -40,19 +39,6 @@ export function ModalEditarAnimal({ isOpen, onClose, animal }: ModalEditarAnimal
     queryFn: () => getPotreros(),
     enabled: isOpen,
   });
-
-  useEffect(() => {
-    if (animal && isOpen) {
-      setFormData({
-        nombre: animal.nombre || '',
-        razaId: animal.razaId || '',
-        razaOtra: animal.razaOtra || '',
-        categoria: animal.categoria || '',
-        pesoActualKg: animal.pesoActualKg || '',
-        potreroId: animal.potreroId || '',
-      });
-    }
-  }, [animal, isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -66,15 +52,15 @@ export function ModalEditarAnimal({ isOpen, onClose, animal }: ModalEditarAnimal
   }, [isOpen]);
 
   const updateMutation = useMutation({
-    mutationFn: (data: any) => updateAnimal(animal.id, data),
+    mutationFn: (data: UpdateAnimalInput) => updateAnimal(animal.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['animales'] });
       queryClient.invalidateQueries({ queryKey: ['animal', animal.id] });
       onClose();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       console.error(error);
-      alert(error.response?.data?.message || 'Hubo un error al actualizar el animal');
+      alert(error.message || 'Hubo un error al actualizar el animal');
     }
   });
 
@@ -92,7 +78,7 @@ export function ModalEditarAnimal({ isOpen, onClose, animal }: ModalEditarAnimal
     });
   };
 
-  const selectedRazaNombre = razas.find((r: any) => r.id === formData.razaId)?.nombre;
+  const selectedRazaNombre = razas.find((r) => r.id === formData.razaId)?.nombre;
   const isOtraRaza = selectedRazaNombre?.toLowerCase() === 'otra';
 
   return (
@@ -141,7 +127,7 @@ export function ModalEditarAnimal({ isOpen, onClose, animal }: ModalEditarAnimal
                 className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700"
               >
                 <option value="">— Seleccione raza —</option>
-                {razas.map((raza: any) => (
+                {razas.map((raza) => (
                   <option key={raza.id} value={raza.id}>{raza.nombre}</option>
                 ))}
               </select>

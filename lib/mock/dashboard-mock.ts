@@ -23,23 +23,18 @@ import type {
   KpisDashboard,
   ProximoEventoReproductivo,
 } from "@/lib/types/dashboard";
-
-function hoy(): Date {
-  // Nunca una fecha fija en el código (bug B8 del wireframe) — siempre "ahora" real.
-  return new Date();
-}
+import { diferenciaDiasCivil, hoyLocal, sumarDiasCivil } from "@/lib/reproductivo/fechas";
 
 function diasEntre(fechaObjetivo: string): number {
-  const msPorDia = 1000 * 60 * 60 * 24;
-  const objetivo = new Date(fechaObjetivo);
-  const inicioHoy = new Date(hoy().toDateString());
-  return Math.round((objetivo.getTime() - inicioHoy.getTime()) / msPorDia);
+  const diferencia = diferenciaDiasCivil(hoyLocal(), fechaObjetivo);
+  if (diferencia === null) throw new RangeError("Fecha civil inválida en el mock del dashboard.");
+  return diferencia;
 }
 
 function fechaEnDias(dias: number): string {
-  const fecha = hoy();
-  fecha.setDate(fecha.getDate() + dias);
-  return fecha.toISOString().slice(0, 10);
+  const fecha = sumarDiasCivil(hoyLocal(), dias);
+  if (!fecha) throw new RangeError("No se pudo calcular una fecha civil para el mock del dashboard.");
+  return fecha;
 }
 
 /** Hato de prueba — mezcla de categorías, igual que un hato real de 20-200 cabezas. */

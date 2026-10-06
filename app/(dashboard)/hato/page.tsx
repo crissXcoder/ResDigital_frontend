@@ -1,33 +1,29 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { getAnimales, getRazas } from '@/lib/api/animales';
+import { getAnimales, getRazas, type Animal } from '@/lib/api/animales';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Search, Plus, MoreVertical, Edit2, ArchiveX } from 'lucide-react';
 import Link from 'next/link';
 import { ModalEditarAnimal } from '@/components/modals/ModalEditarAnimal';
 import { ModalDarBaja } from '@/components/modals/ModalDarBaja';
+import { formatearFecha, hoyLocal, normalizarFechaCivil } from '@/lib/reproductivo/fechas';
+import { RequireRole } from '@/components/auth/RequireRole';
 
 function HatoContent() {
   const searchParams = useSearchParams();
   const queryParam = searchParams.get('buscar') || searchParams.get('search') || '';
 
-  const [searchTerm, setSearchTerm] = useState(queryParam);
+  const [searchInput, setSearchInput] = useState({ query: queryParam, value: queryParam });
+  const searchTerm = searchInput.query === queryParam ? searchInput.value : queryParam;
   const [filterRaza, setFilterRaza] = useState('');
   const [filterSanitario, setFilterSanitario] = useState('');
   const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
-  const [editingAnimal, setEditingAnimal] = useState<any | null>(null);
-  const [bajaAnimal, setBajaAnimal] = useState<any | null>(null);
+  const [editingAnimal, setEditingAnimal] = useState<Animal | null>(null);
+  const [bajaAnimal, setBajaAnimal] = useState<Animal | null>(null);
 
-  // Sincronizar término de búsqueda si cambia la URL
-  useEffect(() => {
-    if (queryParam) {
-      setSearchTerm(queryParam);
-    }
-  }, [queryParam]);
-  
   const { data: animales = [], isLoading, error } = useQuery({
     queryKey: ['animales'],
     queryFn: () => getAnimales(),
@@ -75,13 +71,13 @@ function HatoContent() {
         {/* Top Actions (simulating top bar) */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h1 className="text-2xl md:text-3xl font-bold text-navy">Hato Ganadero</h1>
-          <Link 
+          <RequireRole roles={['propietario', 'administrador']}><Link
             href="/hato/nuevo" 
             className="flex items-center gap-2 bg-navy text-white px-5 py-2.5 rounded-full hover:bg-navy-light transition-colors text-sm font-semibold shadow-sm"
           >
             <Plus size={18} />
             Nuevo Animal
-          </Link>
+          </Link></RequireRole>
         </div>
 
         {/* Filters and Search */}
@@ -92,7 +88,7 @@ function HatoContent() {
               type="text"
               placeholder="Buscar por arete (#104), nombre o raza..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => setSearchInput({ query: queryParam, value: e.target.value })}
               className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light bg-white text-slate-700"
             />
           </div>
@@ -179,21 +175,27 @@ function HatoContent() {
                         {animal.razaOtra ? `Otra (${animal.razaOtra})` : animal.raza?.nombre || 'Desconocida'}
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-slate-600 text-xs">{animal.fechaNacimiento ? new Date(animal.fechaNacimiento).toLocaleDateString() : 'N/A'}</div>
+                        <div className="text-slate-600 text-xs">{animal.fechaNacimiento ? formatearFecha(animal.fechaNacimiento) : 'N/A'}</div>
                         <div className="text-blue-500 text-xs font-semibold mt-0.5">
                           {(() => {
                             if (!animal.fechaNacimiento) return '-';
-                            const birth = new Date(animal.fechaNacimiento);
-                            const now = new Date();
-                            
-                            let years = now.getFullYear() - birth.getFullYear();
-                            let months = now.getMonth() - birth.getMonth();
+                            const fechaNacimiento = normalizarFechaCivil(animal.fechaNacimiento);
+                            if (!fechaNacimiento) return '-';
+                            const [anioNacimiento, mesNacimiento, diaNacimiento] = fechaNacimiento.split('-').map(Number);
+                            const [anioHoy, mesHoy, diaHoy] = hoyLocal().split('-').map(Number);
+                            let years = anioHoy - anioNacimiento;
+                            let months = mesHoy - mesNacimiento;
 
-                            if (months < 0 || (months === 0 && now.getDate() < birth.getDate())) {
+                            const diaLimiteMes = Math.min(
+                              diaNacimiento,
+                              new Date(Date.UTC(anioHoy, mesHoy, 0)).getUTCDate(),
+                            );
+                            if (months < 0 || (months === 0 && diaHoy < diaLimiteMes)) {
                               years--;
                               months += 12;
                             }
-                            
+                            if (diaHoy < diaLimiteMes) months--;
+                            if (months < 0) months += 12;
                             if (years > 0) {
                               return `${years} año${years !== 1 ? 's' : ''}`;
                             } else if (months > 0) {
@@ -222,7 +224,7 @@ function HatoContent() {
                             Expediente
                           </Link>
                           
-                          <div className="relative">
+                          <RequireRole roles={['propietario', 'administrador']}><div className="relative">
                             <button 
                               onClick={() => setActiveDropdownId(activeDropdownId === animal.id ? null : animal.id)}
                               className="p-1.5 text-slate-400 hover:text-navy border border-slate-200 rounded-full hover:bg-slate-50 transition-colors"
@@ -252,7 +254,7 @@ function HatoContent() {
                                 </button>
                               </div>
                             )}
-                          </div>
+                          </div></RequireRole>
                         </div>
                       </td>
                     </tr>

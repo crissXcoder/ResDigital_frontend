@@ -116,10 +116,10 @@ export default function TerminosPage() {
           <section className="bg-white p-6 sm:p-8 rounded-xl border border-slate-200 shadow-sm space-y-4">
             <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <span className="flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 text-slate-700 text-sm font-semibold">5</span>
-              Disponibilidad y Régimen de Garantía "Tal Cual" (As Is)
+              Disponibilidad y Régimen de Garantía &quot;Tal Cual&quot; (As Is)
             </h2>
             <p>
-              Por tratarse de un prototipo funcional en etapa de pilotaje académico, ResDigital se pone a disposición "tal cual" y según disponibilidad, sin garantías comerciales explícitas o implícitas de funcionamiento ininterrumpido. El equipo docente y de estudiantes promotores no responderá por eventuales pérdidas operativas derivadas de interrupciones del servicio o fallos de conectividad en zonas rurales.
+              Por tratarse de un prototipo funcional en etapa de pilotaje académico, ResDigital se pone a disposición &quot;tal cual&quot; y según disponibilidad, sin garantías comerciales explícitas o implícitas de funcionamiento ininterrumpido. El equipo docente y de estudiantes promotores no responderá por eventuales pérdidas operativas derivadas de interrupciones del servicio o fallos de conectividad en zonas rurales.
             </p>
           </section>
         </article>

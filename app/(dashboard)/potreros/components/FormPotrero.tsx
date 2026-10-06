@@ -24,7 +24,7 @@ export function FormPotrero({ potrero, onClose }: FormPotreroProps) {
   });
 
   const mutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: Partial<Potrero>) => {
       if (isEditing && potrero) {
         return updatePotrero(potrero.id, data);
       } else {

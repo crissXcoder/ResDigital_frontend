@@ -2,7 +2,21 @@ import { createClient } from '../supabase/client';
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
 
-export async function fetchApi(endpoint: string, options: RequestInit = {}) {
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+export function isDefinitiveApiRejection(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.status >= 400 && error.status < 500;
+}
+
+export async function fetchApi<T>(
+  endpoint: string,
+  options: RequestInit = {},
+): Promise<T> {
   const supabase = createClient();
   const { data: { session } } = await supabase.auth.getSession();
 
@@ -27,8 +41,8 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
     let errorData = null;
     try { errorData = JSON.parse(errorText); } catch { /* ignore */ }
     console.error(`[fetchApi] Error en ${endpoint} | Status: ${response.status} | Body: ${errorText}`);
-    throw new Error(errorData?.message || `API Error: ${response.status} ${response.statusText}`);
+    throw new ApiError(errorData?.message || `API Error: ${response.status} ${response.statusText}`, response.status);
   }
 
-  return response.json();
+  return (await response.json()) as T;
 }

@@ -1,9 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import autoTable, { type Table } from 'jspdf-autotable';
+import type { UpdateAnimalInput, Pesaje, DocumentoAnimal } from '@/lib/api/animales';
+import type { TratamientoSanitario } from '@/lib/api/sanitary';
+import type { PesajeFormData } from '@/components/modals/ModalPesaje';
+import type { ServicioFormData } from '@/components/modals/ModalServicio';
+import type { DiagnosticoFormData } from '@/components/modals/ModalDiagnostico';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -31,6 +36,7 @@ import {
 } from '@/lib/api/sanitary';
 import { createClient } from '@/lib/supabase/client';
 import { BUCKET_ANIMAL_DOCS } from '@/lib/supabase/buckets';
+import { isDefinitiveApiRejection } from '@/lib/api/client';
 import {
   ChevronLeft,
   Plus,
@@ -54,6 +60,27 @@ import ModalEditarOrigen from '@/components/modals/ModalEditarOrigen';
 import ModalDocumento from '@/components/modals/ModalDocumento';
 import ModalQrAnimal from '@/components/modals/ModalQrAnimal';
 import { useAuthUser } from '@/lib/hooks/useAuthUser';
+import { formatearFecha as formatearFechaCivil, hoyLocal } from '@/lib/reproductivo/fechas';
+import { RequireRole } from '@/components/auth/RequireRole';
+function DocumentLink({ objectPath, children, ...props }: React.ComponentProps<'a'> & { objectPath: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    createClient().storage.from(BUCKET_ANIMAL_DOCS).createSignedUrl(objectPath, 60 * 10)
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error) setFailed(true);
+        else setUrl(data.signedUrl);
+      }).catch(() => { if (active) setFailed(true); });
+    return () => { active = false; };
+  }, [objectPath]);
+
+  if (failed) return <span className="text-xs text-slate-500">No se pudo cargar el documento.</span>;
+  if (!url) return <span className="text-xs text-slate-500">Preparando documento…</span>;
+  return <a href={url} {...props}>{children}</a>;
+}
 import { ModalEditarAnimal } from '@/components/modals/ModalEditarAnimal';
 import { ModalDarBaja } from '@/components/modals/ModalDarBaja';
 import TabReproductivo from '@/components/reproductivo/TabReproductivo';
@@ -80,7 +107,7 @@ export default function ExpedienteAnimal() {
   const [isDiagnosticoOpen, setIsDiagnosticoOpen] = useState(false);
   const [diagnosticoServicioId, setDiagnosticoServicioId] = useState('');
   const [isTratamientoOpen, setIsTratamientoOpen] = useState(false);
-  const [tratamientoSeleccionado, setTratamientoSeleccionado] = useState<any | null>(null);
+  const [tratamientoSeleccionado, setTratamientoSeleccionado] = useState<TratamientoSanitario | null>(null);
   const [isOrigenOpen, setIsOrigenOpen] = useState(false);
   const [isDocumentoOpen, setIsDocumentoOpen] = useState(false);
   const [isEditarAnimalOpen, setIsEditarAnimalOpen] = useState(false);
@@ -125,7 +152,7 @@ export default function ExpedienteAnimal() {
   });
 
   const pesajeMutation = useMutation({
-    mutationFn: (data: any) => createPesaje({
+    mutationFn: (data: PesajeFormData) => createPesaje({
       fecha: data.fecha,
       pesoActualKg: data.peso_actual ? parseFloat(data.peso_actual) : null,
       lecheMananaL: data.leche_manana ? parseFloat(data.leche_manana) : null,
@@ -139,7 +166,7 @@ export default function ExpedienteAnimal() {
   });
 
   const servicioMutation = useMutation({
-    mutationFn: (data: any) => createServicioReproductivo(animalId, {
+    mutationFn: (data: ServicioFormData) => createServicioReproductivo(animalId, {
       fechaEvento: data.fecha,
       tipoServicio: data.tipo_servicio,
       toroOPajilla: data.semental,
@@ -153,7 +180,7 @@ export default function ExpedienteAnimal() {
   });
 
   const diagnosticoMutation = useMutation({
-    mutationFn: (data: any) => createDiagnosticoReproductivo(animalId, data),
+    mutationFn: (data: DiagnosticoFormData) => createDiagnosticoReproductivo(animalId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['estadoReproductivo', animalId] });
       setIsDiagnosticoOpen(false);
@@ -183,7 +210,7 @@ export default function ExpedienteAnimal() {
   });
 
   const updateAnimalMutation = useMutation({
-    mutationFn: (data: any) => updateAnimal(animalId, data),
+    mutationFn: (data: UpdateAnimalInput) => updateAnimal(animalId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['animal', animalId] });
       setIsOrigenOpen(false);
@@ -191,7 +218,7 @@ export default function ExpedienteAnimal() {
   });
 
   const documentoMutation = useMutation({
-    mutationFn: (data: { tipo: string, archivoUrl: string }) => createDocumento(animalId, data),
+    mutationFn: (data: { tipo: string, objectPath: string }) => createDocumento(animalId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documentos', animalId] });
     }
@@ -200,40 +227,48 @@ export default function ExpedienteAnimal() {
   const handleDocumentSubmit = async ({ tipo, file }: { tipo: string; file: File }) => {
     try {
       setIsUploadingDoc(true);
+      const tenantId = authUser?.tenantId;
+      if (!tenantId) throw new Error('No se pudo validar la finca activa.');
 
-      // Subir archivo a Supabase Storage
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${animalId}-${tipo.replace(/[^a-z0-9]/gi, '_').toLowerCase()}-${Date.now()}.${fileExt}`;
+      const fileExt = file.name.split('.').pop()?.toLowerCase();
+      if (!fileExt || !['pdf', 'png', 'jpg'].includes(fileExt)) {
+        throw new Error('El documento debe ser PDF, PNG o JPG.');
+      }
+      if (file.size === 0 || file.size > 10 * 1024 * 1024) {
+        throw new Error('El documento debe tener un tamaño mayor que 0 y máximo 10 MB.');
+      }
+      const category = tipo.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const documentId = crypto.randomUUID();
+      const objectPath = `${tenantId}/${animalId}/${category}/${documentId}.${fileExt}`;
 
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from(BUCKET_ANIMAL_DOCS)
-        .upload(fileName, file);
+        .upload(objectPath, file);
 
-      if (uploadError) {
-        throw uploadError;
+      if (uploadError) throw uploadError;
+
+      try {
+        await documentoMutation.mutateAsync({ tipo, objectPath });
+      } catch (error) {
+        // Solo una respuesta HTTP 4xx confirma que la API rechazó el registro.
+        // Una falla de red o 5xx puede ocurrir después del commit; borrar aquí
+        // dejaría la fila confirmada apuntando a un objeto inexistente.
+        if (isDefinitiveApiRejection(error)) {
+          const { error: cleanupError } = await supabase.storage.from(BUCKET_ANIMAL_DOCS).remove([objectPath]);
+          if (cleanupError) console.error('No se pudo retirar el archivo sin registro:', cleanupError);
+        }
+        throw error;
       }
 
-      // Obtener URL pública
-      const { data: { publicUrl } } = supabase.storage
-        .from(BUCKET_ANIMAL_DOCS)
-        .getPublicUrl(fileName);
-
-      // Guardar en la base de datos
-      await documentoMutation.mutateAsync({
-        tipo,
-        archivoUrl: publicUrl
-      });
-
       setIsDocumentoOpen(false);
-
     } catch (error) {
       console.error('Error al subir documento:', error);
-      alert('Hubo un error al subir el documento. Por favor, intente de nuevo.');
+      alert(error instanceof Error ? error.message : 'Hubo un error al subir el documento. Por favor, intente de nuevo.');
     } finally {
       setIsUploadingDoc(false);
     }
   };
-
   const handleDownloadPDF = () => {
     if (!animal) return;
 
@@ -257,7 +292,7 @@ export default function ExpedienteAnimal() {
     doc.text(`Peso Actual: ${animal.pesoActualKg || 0} kg`, 14, yPos);
     doc.text(`Potrero: ${animal.potrero?.nombre || 'N/A'}`, 80, yPos);
     if (animal.fechaNacimiento) {
-      doc.text(`Fecha Nac.: ${new Date(animal.fechaNacimiento).toLocaleDateString()}`, 150, yPos);
+      doc.text(`Fecha Nac.: ${formatearFechaCivil(animal.fechaNacimiento)}`, 150, yPos);
     }
     yPos += 15;
 
@@ -268,10 +303,10 @@ export default function ExpedienteAnimal() {
       doc.text('Historial de Producción y Pesajes', 14, yPos);
       yPos += 5;
 
-      const tableData = pesajes.map((p: any) => {
+      const tableData = pesajes.map((p: Pesaje) => {
         const totalL = (Number(p.lecheMananaL) || 0) + (Number(p.lecheTardeL) || 0);
         return [
-          new Date(p.fecha).toLocaleDateString(),
+          formatearFechaCivil(p.fecha),
           p.pesoActualKg ? `${p.pesoActualKg} kg` : '-',
           totalL > 0 ? `${totalL.toFixed(1)} L` : '-'
         ];
@@ -285,7 +320,7 @@ export default function ExpedienteAnimal() {
         styles: { fontSize: 9 },
         headStyles: { fillColor: [15, 23, 42] }
       });
-      yPos = (doc as any).lastAutoTable.finalY + 15;
+      yPos = ((doc as jsPDF & { lastAutoTable: Table }).lastAutoTable.finalY ?? yPos) + 15;
     } else {
       doc.setFontSize(14);
       doc.setTextColor(15, 23, 42);
@@ -306,8 +341,8 @@ export default function ExpedienteAnimal() {
       doc.text('Historial Sanitario', 14, yPos);
       yPos += 5;
 
-      const tableData = tratamientos.map((t: any) => [
-        t.fecha ? new Date(t.fecha).toLocaleDateString() : '-',
+      const tableData = tratamientos.map((t: TratamientoSanitario) => [
+        t.fecha ? formatearFechaCivil(t.fecha) : '-',
         t.diagnostico || '-',
         t.farmaco || '-',
         t.dosis || '-',
@@ -322,7 +357,7 @@ export default function ExpedienteAnimal() {
         styles: { fontSize: 9 },
         headStyles: { fillColor: [15, 23, 42] }
       });
-      yPos = (doc as any).lastAutoTable.finalY + 15;
+      yPos = ((doc as jsPDF & { lastAutoTable: Table }).lastAutoTable.finalY ?? yPos) + 15;
     } else {
       if (yPos > 250) { doc.addPage(); yPos = 20; }
       doc.setFontSize(14);
@@ -345,11 +380,11 @@ export default function ExpedienteAnimal() {
       doc.text('Historial Reproductivo', 14, yPos);
       yPos += 5;
 
-      const tableData = serviciosActivos.map((s: any) => {
+      const tableData = serviciosActivos.map((s) => {
         return [
-          s.fechaEvento || s.fecha ? new Date(s.fechaEvento || s.fecha).toLocaleDateString() : '-',
+          s.fechaServicio ? formatearFechaCivil(s.fechaServicio) : '-',
           s.tipoServicio || '-',
-          s.toroOPajilla || s.semental || '-',
+          s.toroOPajilla || '-',
           estadoReproductivo?.ultimoDiagnostico?.resultado || 'Pendiente'
         ];
       });
@@ -362,7 +397,7 @@ export default function ExpedienteAnimal() {
         styles: { fontSize: 9 },
         headStyles: { fillColor: [15, 23, 42] }
       });
-      yPos = (doc as any).lastAutoTable.finalY + 15;
+      yPos = ((doc as jsPDF & { lastAutoTable: Table }).lastAutoTable.finalY ?? yPos) + 15;
     } else {
       if (yPos > 250) { doc.addPage(); yPos = 20; }
       doc.setFontSize(14);
@@ -376,7 +411,7 @@ export default function ExpedienteAnimal() {
     }
 
     // Descargar
-    doc.save(`Expediente_${animal.areteInterno}_${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(`Expediente_${animal.areteInterno}_${hoyLocal()}.pdf`);
   };
 
   const isMacho = animal?.sexo === 'Macho';
@@ -415,7 +450,7 @@ export default function ExpedienteAnimal() {
   let retiroLecheActivo: RetiroDetalle | null = null;
   let retiroCarneActivo: RetiroDetalle | null = null;
 
-  tratamientos?.forEach((t: any) => {
+  tratamientos?.forEach((t: TratamientoSanitario) => {
     const dLeche = t.diasRetiroLeche ?? t.diasRetiro ?? 0;
     const dCarne = t.diasRetiroCarne ?? t.diasRetiro ?? 0;
 
@@ -465,14 +500,15 @@ export default function ExpedienteAnimal() {
               <QrCode className="w-4 h-4 text-navy" />
               <span>Código QR</span>
             </button>
-            {animal.activo && (
+            <RequireRole roles={['propietario', 'administrador']}>{animal.activo && (
               <button
                 onClick={() => setIsBajaOpen(true)}
                 className="flex items-center gap-2 px-4 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-50 bg-white transition-colors"
               >
                 Dar de Baja
               </button>
-            )}
+            )}</RequireRole>
+            <RequireRole roles={['propietario', 'administrador']}>
             <button
               onClick={() => setIsEditarAnimalOpen(true)}
               className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 bg-white transition-colors"
@@ -480,6 +516,7 @@ export default function ExpedienteAnimal() {
               <Pencil className="w-4 h-4" />
               Editar Animal
             </button>
+            </RequireRole>
           </div>
         </div>
 
@@ -528,7 +565,7 @@ export default function ExpedienteAnimal() {
                   <p className="font-semibold">{animal.categoria || 'Sin Categoría'}</p>
                   <p className="font-semibold">{animal.potrero?.nombre || 'Sin Potrero'}</p>
                   {animal.fechaNacimiento && (
-                    <p>{new Date(animal.fechaNacimiento).toLocaleDateString()}</p>
+                    <p>{formatearFechaCivil(animal.fechaNacimiento)}</p>
                   )}
                   {animal.padreId && <p>Padre: <span className="font-semibold">{animal.padreId}</span></p>}
                   {animal.madreId && (
@@ -540,26 +577,26 @@ export default function ExpedienteAnimal() {
 
             {/* Action Buttons */}
             <div className="flex flex-col gap-2 shrink-0">
-              <button
+              <RequireRole roles={['propietario', 'administrador', 'peon']}><button
                 onClick={() => setIsPesajeOpen(true)}
                 className="w-full sm:w-auto px-5 py-2.5 bg-navy text-white rounded-lg text-sm font-bold shadow-sm hover:bg-navy-light transition-colors"
               >
                 Registrar Pesaje
-              </button>
-              {!isMacho && (
+              </button></RequireRole>
+              {!isMacho && <RequireRole roles={['propietario', 'administrador', 'peon', 'veterinario']}>
                 <button
                   onClick={() => setIsServicioOpen(true)}
                   className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-bold shadow-sm hover:bg-blue-700 transition-colors"
                 >
                   Registrar Servicio
                 </button>
-              )}
-              <button
+              </RequireRole>}
+              <RequireRole roles={['propietario', 'administrador', 'peon', 'veterinario']}><button
                 onClick={() => setIsTratamientoOpen(true)}
                 className="w-full sm:w-auto px-5 py-2.5 bg-red-600 text-white rounded-lg text-sm font-bold shadow-sm hover:bg-red-700 transition-colors"
               >
                 Aplicar Tratamiento
-              </button>
+              </button></RequireRole>
               <button
                 onClick={handleDownloadPDF}
                 className="w-full sm:w-auto px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-50 transition-colors"
@@ -782,7 +819,7 @@ export default function ExpedienteAnimal() {
                     Registro cronológico de aplicaciones veterinarias y periodos de retiro oficial
                   </p>
                 </div>
-                <button
+                <RequireRole roles={['propietario', 'administrador', 'peon', 'veterinario']}><button
                   onClick={() => {
                     setTratamientoSeleccionado(null);
                     setIsTratamientoOpen(true);
@@ -790,7 +827,7 @@ export default function ExpedienteAnimal() {
                   className="px-4 py-2 bg-danger text-white rounded-lg text-sm font-bold shadow-sm hover:bg-danger/90 transition-colors flex items-center gap-2"
                 >
                   <Plus className="w-4 h-4" /> Aplicar Tratamiento
-                </button>
+                </button></RequireRole>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
@@ -808,7 +845,7 @@ export default function ExpedienteAnimal() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-sm text-slate-600">
-                    {tratamientos?.map((t: any) => {
+                    {tratamientos?.map((t: TratamientoSanitario) => {
                       const dLeche = t.diasRetiroLeche ?? t.diasRetiro ?? 0;
                       const dCarne = t.diasRetiroCarne ?? t.diasRetiro ?? 0;
                       const libLeche =
@@ -888,7 +925,7 @@ export default function ExpedienteAnimal() {
                                 <FileText className="w-4 h-4" />
                               </a>
                             )}
-                            <button
+                            <RequireRole roles={['propietario', 'administrador', 'veterinario']}><button
                               onClick={() => {
                                 setTratamientoSeleccionado(t);
                                 setIsTratamientoOpen(true);
@@ -897,7 +934,7 @@ export default function ExpedienteAnimal() {
                               title="Editar tratamiento"
                             >
                               <Pencil className="w-4 h-4" />
-                            </button>
+                            </button></RequireRole>
                           </td>
                         </tr>
                       );
@@ -932,10 +969,10 @@ export default function ExpedienteAnimal() {
                           {/* design-exception: Recharts requiere valores estáticos/hex para sus props */}
                           <LineChart data={[...pesajes].reverse()} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                            <XAxis dataKey="fecha" tickFormatter={(val: any) => new Date(val).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                            <XAxis dataKey="fecha" tickFormatter={(val: string) => formatearFechaCivil(val)} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                             <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                            <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} labelFormatter={(val: any) => new Date(val).toLocaleDateString()} />
-                            <Line type="monotone" dataKey={(p: any) => (Number(p.lecheMananaL) || 0) + (Number(p.lecheTardeL) || 0)} stroke="#0284c7" strokeWidth={3} dot={{ r: 4, fill: '#0284c7', strokeWidth: 0 }} activeDot={{ r: 6, fill: '#0284c7' }} name="Total Leche (L)" />
+                            <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} labelFormatter={(val) => formatearFechaCivil(String(val))} />
+                            <Line type="monotone" dataKey={(p: Pesaje) => (Number(p.lecheMananaL) || 0) + (Number(p.lecheTardeL) || 0)} stroke="#0284c7" strokeWidth={3} dot={{ r: 4, fill: '#0284c7', strokeWidth: 0 }} activeDot={{ r: 6, fill: '#0284c7' }} name="Total Leche (L)" />
                           </LineChart>
                         </ResponsiveContainer>
                       ) : (
@@ -953,10 +990,10 @@ export default function ExpedienteAnimal() {
                         {/* design-exception: Recharts requiere valores estáticos/hex para sus props */}
                         <LineChart data={[...pesajes].reverse()} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                          <XAxis dataKey="fecha" tickFormatter={(val: any) => new Date(val).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                          <XAxis dataKey="fecha" tickFormatter={(val: string) => formatearFechaCivil(val)} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                           <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} domain={['dataMin - 10', 'auto']} />
-                          <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} labelFormatter={(val: any) => new Date(val).toLocaleDateString()} />
-                          <Line type="monotone" dataKey={(p: any) => Number(p.pesoActualKg) || 0} stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: '#10b981', strokeWidth: 0 }} activeDot={{ r: 6, fill: '#10b981' }} name="Peso (kg)" />
+                          <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} labelFormatter={(val) => formatearFechaCivil(String(val))} />
+                          <Line type="monotone" dataKey={(p: Pesaje) => Number(p.pesoActualKg) || 0} stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: '#10b981', strokeWidth: 0 }} activeDot={{ r: 6, fill: '#10b981' }} name="Peso (kg)" />
                         </LineChart>
                       </ResponsiveContainer>
                     ) : (
@@ -971,12 +1008,12 @@ export default function ExpedienteAnimal() {
                   <h3 className="text-lg font-bold text-navy">
                     {isMacho ? 'Historial de Pesajes' : 'Historial de Pesajes y Producción'}
                   </h3>
-                  <button
+                  <RequireRole roles={['propietario', 'administrador', 'peon']}><button
                     onClick={() => setIsPesajeOpen(true)}
                     className="px-4 py-2 bg-navy text-white rounded-lg text-sm font-bold shadow-sm hover:bg-navy-light transition-colors"
                   >
                     + Registrar Pesaje
-                  </button>
+                  </button></RequireRole>
                 </div>
                 <div className="p-6">
                   <div className="space-y-4">
@@ -989,11 +1026,11 @@ export default function ExpedienteAnimal() {
                         )}
                       </div>
                     )}
-                    {pesajes?.map((p: any) => {
+                    {pesajes?.map((p: Pesaje) => {
                       const totalLeche = (Number(p.lecheMananaL) || 0) + (Number(p.lecheTardeL) || 0);
                       return (
                         <div key={p.id} className="flex items-center justify-between py-2 border-b border-slate-100">
-                          <span className="text-sm text-slate-500 w-1/3">{new Date(p.fecha).toLocaleDateString()}</span>
+                          <span className="text-sm text-slate-500 w-1/3">{formatearFechaCivil(p.fecha)}</span>
                           <span className="text-sm font-bold text-navy w-1/3">{p.pesoActualKg ? `${p.pesoActualKg} kg` : '-'}</span>
                           {!isMacho && (
                             <span className="text-sm font-bold text-green-600 w-1/3 text-right">
@@ -1018,13 +1055,15 @@ export default function ExpedienteAnimal() {
             <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden mt-6">
               <div className="p-6 border-b border-slate-100 flex items-center justify-between">
                 <h3 className="text-lg font-bold text-navy">Documentos del Animal</h3>
-                <button
-                  onClick={() => setIsDocumentoOpen(true)}
-                  className="px-4 py-2 bg-navy text-white rounded-lg text-sm font-bold shadow-sm hover:bg-navy-light transition-colors flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Agregar Documento
-                </button>
+                <RequireRole roles={['propietario', 'administrador']}>
+                  <button
+                    onClick={() => setIsDocumentoOpen(true)}
+                    className="px-4 py-2 bg-navy text-white rounded-lg text-sm font-bold shadow-sm hover:bg-navy-light transition-colors flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Agregar Documento
+                  </button>
+                </RequireRole>
               </div>
               <div className="p-6">
                 {!documentosDocumentos || documentosDocumentos.length === 0 ? (
@@ -1034,7 +1073,7 @@ export default function ExpedienteAnimal() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {documentosDocumentos.map((doc: any) => (
+                    {documentosDocumentos.map((doc: DocumentoAnimal) => (
                       <div key={doc.id} className="border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col h-full hover:shadow-md transition-shadow">
                         <div className="flex-1">
                           <div className="w-10 h-10 rounded-lg bg-navy/5 border border-navy/10 flex items-center justify-center text-navy mb-4">
@@ -1042,19 +1081,19 @@ export default function ExpedienteAnimal() {
                           </div>
                           <h4 className="font-bold text-navy text-sm mb-1">{doc.tipo}</h4>
                           <p className="text-xs text-slate-400">
-                            Cargado el {new Date(doc.createdAt).toLocaleDateString()}
+                            Cargado el {formatearFechaCivil(doc.createdAt)}
                           </p>
                         </div>
                         <div className="mt-5 pt-4 border-t border-slate-100">
-                          <a
-                            href={doc.archivoUrl}
+                          {doc.objectPath ? <DocumentLink
+                            objectPath={doc.objectPath}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="w-full flex items-center justify-center gap-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-100 hover:border-slate-300 transition-all"
                           >
                             <Download className="w-3 h-3" />
                             Ver / Descargar
-                          </a>
+                          </DocumentLink> : <span className="text-xs text-slate-500">Documento pendiente de migración segura.</span>}
                         </div>
                       </div>
                     ))}
@@ -1096,7 +1135,12 @@ export default function ExpedienteAnimal() {
           setIsTratamientoOpen(false);
           setTratamientoSeleccionado(null);
         }}
-        initialData={tratamientoSeleccionado}
+        initialData={tratamientoSeleccionado ? {
+          ...tratamientoSeleccionado,
+          via: tratamientoSeleccionado.via ?? undefined,
+          veterinario: tratamientoSeleccionado.veterinario ?? undefined,
+          documentoUrl: tratamientoSeleccionado.documentoUrl ?? undefined,
+        } : null}
         animalSexo={animal?.sexo}
         onSubmit={(data) => {
           if (tratamientoSeleccionado) {
