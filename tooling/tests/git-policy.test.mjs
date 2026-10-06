@@ -1,10 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { hasOnlyFullShaPinnedActions, isForbiddenMigrationChange, validatePullRequest, validateTag } from '../git-policy.mjs';
+import { hasOnlyFullShaPinnedActions, isForbiddenMigrationChange, validatePullRequest, validateTag, requiredCheckName, requiredCheckPassed } from '../git-policy.mjs';
 import { resolveScanRange } from '../security-tools.mjs';
 
 const base = '1'.repeat(40);
 const head = '2'.repeat(40);
+
+test('release check follows package identity after repository renames', () => {
+  assert.equal(requiredCheckName('frontend'), 'Frontend required');
+  assert.equal(requiredCheckName('backend'), 'Backend required');
+  assert.throws(() => requiredCheckName('other'), /paquete/);
+});
+
+test('release refuses a spoofed check and a newer failed rerun', () => {
+  const success = { id: 10, name: 'Frontend required', status: 'completed', conclusion: 'success', app: { id: 15368 } };
+  assert.equal(requiredCheckPassed([success], 'Frontend required'), true);
+  assert.equal(requiredCheckPassed([{ ...success, app: { id: 1 } }], 'Frontend required'), false);
+  assert.equal(requiredCheckPassed([success, { ...success, id: 11, conclusion: 'failure' }], 'Frontend required'), false);
+  assert.equal(requiredCheckPassed([{ ...success, conclusion: 'skipped' }], 'Frontend required'), false);
+  assert.equal(requiredCheckPassed([], 'Frontend required'), false);
+});
 
 test('accepts an infrastructure PR with criteria and task scope', () => {
   assert.deepEqual(validatePullRequest({

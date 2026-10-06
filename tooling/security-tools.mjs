@@ -18,6 +18,9 @@ const tools = {
   gitleaks: {
     version: '8.27.2',
     archive: process.platform === 'win32' ? 'gitleaks_8.27.2_windows_x64.zip' : 'gitleaks_8.27.2_linux_x64.tar.gz',
+    sha256: process.platform === 'win32'
+      ? '3c6a58efa70e991d7816a8bd87d1db797818017fcb67cbf1861394b404a70a42'
+      : '141c3b2dede46d8b3a53b47116da756bd223decc0374797559a6b50ecba5590c',
     executable: process.platform === 'win32' ? 'gitleaks.exe' : 'gitleaks',
     url: 'https://github.com/gitleaks/gitleaks/releases/download/v8.27.2/',
     checksums: 'gitleaks_8.27.2_checksums.txt',
@@ -61,19 +64,21 @@ async function install(name) {
   if (existsSync(destination)) return destination;
   mkdirSync(dirname(destination), { recursive: true });
   const archive = `${destination}.archive`;
-  const response = await fetch(tool.url + tool.archive, { redirect: 'follow' });
-  if (!response.ok || !response.body) throw new Error(`${name}: descarga falló con HTTP ${response.status}.`);
-  await pipeline(response.body, createWriteStream(archive));
-  const shasums = await fetch(tool.url + tool.checksums, { redirect: 'follow' });
-  if (!shasums.ok) throw new Error(`${name}: no se pudo obtener checksums oficiales.`);
-  const officialLine = (await shasums.text()).split(/\r?\n/).find((line) => line.trim().endsWith(tool.archive));
-  const actual = createHash('sha256').update(readFileSync(archive)).digest('hex');
-  const officialSha = officialLine?.trim().split(/\s+/)[0];
-  if (!/^[0-9a-f]{64}$/.test(officialSha ?? '') || actual !== officialSha) {
-    rmSync(archive, { force: true });
-    throw new Error(`${name}: SHA-256 no coincide con el checksum oficial; binario rechazado.`);
-  }
   try {
+    const response = await fetch(tool.url + tool.archive, { redirect: 'follow' });
+    if (!response.ok || !response.body) throw new Error(`${name}: descarga falló con HTTP ${response.status}.`);
+    await pipeline(response.body, createWriteStream(archive));
+    const shasums = await fetch(tool.url + tool.checksums, { redirect: 'follow' });
+    if (!shasums.ok) throw new Error(`${name}: no se pudo obtener checksums oficiales.`);
+    const officialLine = (await shasums.text()).split(/\r?\n/).find((line) => line.trim().endsWith(tool.archive));
+    const actual = createHash('sha256').update(readFileSync(archive)).digest('hex');
+    const officialSha = officialLine?.trim().split(/\s+/)[0];
+    if (!/^[0-9a-f]{64}$/.test(officialSha ?? '') || actual !== officialSha) {
+      throw new Error(`${name}: SHA-256 no coincide con el checksum oficial; binario rechazado.`);
+    }
+    if (!/^[0-9a-f]{64}$/.test(tool.sha256) || actual !== tool.sha256) {
+      throw new Error(`${name}: SHA-256 no coincide con el hash fijado; binario rechazado.`);
+    }
     if (process.platform === 'win32') {
       const quotePowerShell = (value) => `'${value.replaceAll("'", "''")}'`;
       const command = `Expand-Archive -LiteralPath ${quotePowerShell(archive)} -DestinationPath ${quotePowerShell(dirname(destination))} -Force`;
