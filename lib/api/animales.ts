@@ -2,8 +2,6 @@ import { fetchApi } from './client';
 import type { components } from './openapi.generated';
 import type { EstadoReproductivoResponse } from '../reproductivo/tipos';
 import type { ServicioInput, DiagnosticoInput } from './reproductivo';
-import type { CreateTratamientoDto, UpdateTratamientoDto, TratamientoSanitario } from './sanitary';
-
 export interface Raza {
   id: string;
   nombre: string;
@@ -162,24 +160,6 @@ export const getEstadoReproductivo = async (animalId: string): Promise<EstadoRep
 export const createServicioReproductivo = async (animalId: string, data: ServicioInput): Promise<components['schemas']['RegistrarServicioResponseDto']> => {
   return fetchApi<components['schemas']['RegistrarServicioResponseDto']>(`/animales/${animalId}/servicios`, {
     method: 'POST',
-    body: JSON.stringify(data),
-  });
-};
-
-export const createTratamiento = async (tratamiento: CreateTratamientoDto): Promise<TratamientoSanitario> => {
-  return fetchApi<TratamientoSanitario>('/tratamientos', {
-    method: 'POST',
-    body: JSON.stringify(tratamiento),
-  });
-};
-
-export const getTratamientosByAnimal = async (animalId: string): Promise<TratamientoSanitario[]> => {
-  return fetchApi<TratamientoSanitario[]>(`/tratamientos/animal/${animalId}`);
-};
-
-export const updateTratamiento = async (id: string, data: UpdateTratamientoDto): Promise<TratamientoSanitario> => {
-  return fetchApi<TratamientoSanitario>(`/tratamientos/${id}`, {
-    method: 'PUT',
     body: JSON.stringify(data),
   });
 };

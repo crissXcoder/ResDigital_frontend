@@ -3,11 +3,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { getAnimales } from "@/lib/api/animales";
 import { getProximosEventos } from "@/lib/api/reproductivo";
-import {
-  getMockAlertas,
-  getMockAnimalesEnRetiro,
-  getMockKpis,
-} from "@/lib/mock/dashboard-mock";
+import { getRetirosActivos } from "@/lib/api/sanitary";
+import { getMockAlertas, getMockKpis } from "@/lib/mock/dashboard-mock";
 
 /**
  * Hooks de datos del Dashboard, uno por pieza de UI.
@@ -28,8 +25,7 @@ export function useKpisDashboard() {
     queryKey: dashboardKeys.kpis,
     queryFn: async () => {
       const mockKpis = getMockKpis();
-      const animales = await getAnimales();
-      const retiros = getMockAnimalesEnRetiro();
+      const [animales, retiros] = await Promise.all([getAnimales(), getRetirosActivos()]);
 
       const activos = animales.filter((a) => a.activo);
       const totalHatoActivo = activos.length;
@@ -57,7 +53,8 @@ export function useKpisDashboard() {
 export function useAnimalesEnRetiro() {
   return useQuery({
     queryKey: dashboardKeys.retiros,
-    queryFn: () => Promise.resolve(getMockAnimalesEnRetiro()),
+    // GET /tratamientos/retiros-activos (Ari - MOD-02)
+    queryFn: () => getRetirosActivos(),
   });
 }
 

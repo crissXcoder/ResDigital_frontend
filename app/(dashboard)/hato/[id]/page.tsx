@@ -24,15 +24,15 @@ import {
   createDiagnosticoReproductivo,
 } from '@/lib/api/animales';
 import {
-  calcularFechaLiberacion,
+  anularTratamiento,
+  corregirTratamiento,
   createTratamiento,
   diasRestantesRetiro,
   formatearFecha,
   getEstadoSanitario,
   getTratamientosByAnimal,
   toCreateTratamientoPayload,
-  toUpdateTratamientoPayload,
-  updateTratamiento,
+  toDatosTratamientoPayload,
 } from '@/lib/api/sanitary';
 import { createClient } from '@/lib/supabase/client';
 import { BUCKET_ANIMAL_DOCS } from '@/lib/supabase/buckets';
@@ -56,6 +56,7 @@ import ModalPesaje from '@/components/modals/ModalPesaje';
 import ModalServicio from '@/components/modals/ModalServicio';
 import ModalDiagnostico from '@/components/modals/ModalDiagnostico';
 import ModalTratamiento from '@/components/modals/ModalTratamiento';
+import { AccionesTratamiento } from '@/components/sanitario/AccionesTratamiento';
 import ModalEditarOrigen from '@/components/modals/ModalEditarOrigen';
 import ModalDocumento from '@/components/modals/ModalDocumento';
 import ModalQrAnimal from '@/components/modals/ModalQrAnimal';
@@ -187,25 +188,41 @@ export default function ExpedienteAnimal() {
     }
   });
 
+  const invalidarSanitario = () => {
+    queryClient.invalidateQueries({ queryKey: ['tratamientos', animalId] });
+    queryClient.invalidateQueries({ queryKey: ['estadoSanitario', animalId] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard', 'animales-en-retiro'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard', 'kpis'] });
+  };
+
   const tratamientoMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) =>
       createTratamiento(toCreateTratamientoPayload(data, animalId)),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tratamientos', animalId] });
-      queryClient.invalidateQueries({ queryKey: ['estadoSanitario', animalId] });
+      invalidarSanitario();
       setIsTratamientoOpen(false);
       setTratamientoSeleccionado(null);
     }
   });
 
-  const updateTratamientoMutation = useMutation({
+  const corregirTratamientoMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) =>
-      updateTratamiento(id, toUpdateTratamientoPayload(data)),
+      corregirTratamiento(id, toDatosTratamientoPayload(data)),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tratamientos', animalId] });
-      queryClient.invalidateQueries({ queryKey: ['estadoSanitario', animalId] });
+      invalidarSanitario();
       setIsTratamientoOpen(false);
       setTratamientoSeleccionado(null);
+    }
+  });
+
+  const [tratamientoAAnular, setTratamientoAAnular] = useState<TratamientoSanitario | null>(null);
+  const [motivoAnulacion, setMotivoAnulacion] = useState('');
+  const anularTratamientoMutation = useMutation({
+    mutationFn: ({ id, motivo }: { id: string; motivo: string }) => anularTratamiento(id, motivo),
+    onSuccess: () => {
+      invalidarSanitario();
+      setTratamientoAAnular(null);
+      setMotivoAnulacion('');
     }
   });
 
@@ -441,37 +458,25 @@ export default function ExpedienteAnimal() {
     );
   }
 
-  // Cálculo de retiros sanitarios activos (leche y carne) según MOD-02 y Patron-Evento-Estado-Alerta
+  // Retiros activos a partir de las fechas de liberación persistidas por el backend (MOD-02)
   interface RetiroDetalle {
     fechaLiberacion: string;
     diasRestantes: number;
     farmaco: string;
   }
+  const hoyFinca = hoyLocal();
   let retiroLecheActivo: RetiroDetalle | null = null;
   let retiroCarneActivo: RetiroDetalle | null = null;
 
   tratamientos?.forEach((t: TratamientoSanitario) => {
-    const dLeche = t.diasRetiroLeche ?? t.diasRetiro ?? 0;
-    const dCarne = t.diasRetiroCarne ?? t.diasRetiro ?? 0;
-
-    if (dLeche > 0 && t.fecha) {
-      const libLeche = calcularFechaLiberacion(t.fecha, dLeche);
-      const restLeche = diasRestantesRetiro(libLeche);
-      if (restLeche > 0) {
-        if (!retiroLecheActivo || restLeche > retiroLecheActivo.diasRestantes) {
-          retiroLecheActivo = { fechaLiberacion: libLeche, diasRestantes: restLeche, farmaco: t.farmaco };
-        }
-      }
+    const restLeche = diasRestantesRetiro(t.fechaLiberacionLeche, hoyFinca);
+    if (restLeche > 0 && (!retiroLecheActivo || restLeche > retiroLecheActivo.diasRestantes)) {
+      retiroLecheActivo = { fechaLiberacion: t.fechaLiberacionLeche, diasRestantes: restLeche, farmaco: t.farmaco };
     }
 
-    if (dCarne > 0 && t.fecha) {
-      const libCarne = calcularFechaLiberacion(t.fecha, dCarne);
-      const restCarne = diasRestantesRetiro(libCarne);
-      if (restCarne > 0) {
-        if (!retiroCarneActivo || restCarne > retiroCarneActivo.diasRestantes) {
-          retiroCarneActivo = { fechaLiberacion: libCarne, diasRestantes: restCarne, farmaco: t.farmaco };
-        }
-      }
+    const restCarne = diasRestantesRetiro(t.fechaLiberacionCarne, hoyFinca);
+    if (restCarne > 0 && (!retiroCarneActivo || restCarne > retiroCarneActivo.diasRestantes)) {
+      retiroCarneActivo = { fechaLiberacion: t.fechaLiberacionCarne, diasRestantes: restCarne, farmaco: t.farmaco };
     }
   });
 
@@ -846,22 +851,26 @@ export default function ExpedienteAnimal() {
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-sm text-slate-600">
                     {tratamientos?.map((t: TratamientoSanitario) => {
-                      const dLeche = t.diasRetiroLeche ?? t.diasRetiro ?? 0;
-                      const dCarne = t.diasRetiroCarne ?? t.diasRetiro ?? 0;
-                      const libLeche =
-                        t.fechaLiberacionLeche ||
-                        (t.fecha && dLeche > 0 ? calcularFechaLiberacion(t.fecha, dLeche) : null);
-                      const libCarne =
-                        t.fechaLiberacionCarne ||
-                        (t.fecha && dCarne > 0 ? calcularFechaLiberacion(t.fecha, dCarne) : null);
-                      const restLeche = libLeche ? diasRestantesRetiro(libLeche) : 0;
-                      const restCarne = libCarne ? diasRestantesRetiro(libCarne) : 0;
+                      const dLeche = t.diasRetiroLeche;
+                      const dCarne = t.diasRetiroCarne;
+                      const libLeche = t.fechaLiberacionLeche;
+                      const libCarne = t.fechaLiberacionCarne;
+                      const restLeche = diasRestantesRetiro(libLeche, hoyFinca);
+                      const restCarne = diasRestantesRetiro(libCarne, hoyFinca);
                       const estaEnRetiro = restLeche > 0 || restCarne > 0;
 
                       return (
                         <tr key={t.id} className="hover:bg-slate-50 transition-colors">
                           <td className="p-4 pl-6 sm:pl-8 font-medium text-slate-700">
                             {formatearFecha(t.fecha)}
+                            {t.fechaUltimaAdministracion && t.fechaUltimaAdministracion !== t.fecha && (
+                              <span className="text-xs text-slate-400 block">
+                                Última: {formatearFecha(t.fechaUltimaAdministracion)}
+                              </span>
+                            )}
+                            {t.eventoCorrigeId && (
+                              <span className="text-[11px] font-semibold text-info block">Corregido</span>
+                            )}
                           </td>
                           <td className="p-4 font-bold text-navy">{t.farmaco}</td>
                           <td className="p-4">{t.diagnostico}</td>
@@ -925,16 +934,17 @@ export default function ExpedienteAnimal() {
                                 <FileText className="w-4 h-4" />
                               </a>
                             )}
-                            <RequireRole roles={['propietario', 'administrador', 'veterinario']}><button
-                              onClick={() => {
+                            <AccionesTratamiento
+                              onCorregir={() => {
                                 setTratamientoSeleccionado(t);
                                 setIsTratamientoOpen(true);
                               }}
-                              className="text-slate-400 hover:text-navy transition-colors inline-block"
-                              title="Editar tratamiento"
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </button></RequireRole>
+                              onAnular={() => {
+                                anularTratamientoMutation.reset();
+                                setMotivoAnulacion('');
+                                setTratamientoAAnular(t);
+                              }}
+                            />
                           </td>
                         </tr>
                       );
@@ -1135,21 +1145,70 @@ export default function ExpedienteAnimal() {
           setIsTratamientoOpen(false);
           setTratamientoSeleccionado(null);
         }}
-        initialData={tratamientoSeleccionado ? {
-          ...tratamientoSeleccionado,
-          via: tratamientoSeleccionado.via ?? undefined,
-          veterinario: tratamientoSeleccionado.veterinario ?? undefined,
-          documentoUrl: tratamientoSeleccionado.documentoUrl ?? undefined,
-        } : null}
+        initialData={tratamientoSeleccionado}
         animalSexo={animal?.sexo}
-        onSubmit={(data) => {
-          if (tratamientoSeleccionado) {
-            updateTratamientoMutation.mutate({ id: tratamientoSeleccionado.id, data });
-          } else {
-            tratamientoMutation.mutate(data);
-          }
-        }}
+        onSubmit={(data) =>
+          tratamientoSeleccionado
+            ? corregirTratamientoMutation.mutateAsync({ id: tratamientoSeleccionado.id, data })
+            : tratamientoMutation.mutateAsync(data)
+        }
       />
+      {tratamientoAAnular && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/60 backdrop-blur-sm p-4">
+          <form
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 p-6 space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              anularTratamientoMutation.mutate({ id: tratamientoAAnular.id, motivo: motivoAnulacion.trim() });
+            }}
+          >
+            <div>
+              <h2 className="text-lg font-bold text-navy">Anular tratamiento</h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {tratamientoAAnular.farmaco} — {formatearFecha(tratamientoAAnular.fecha)}. El registro se conserva en el historial auditable y deja de contar para el retiro.
+              </p>
+            </div>
+            {anularTratamientoMutation.isError && (
+              <div className="p-3 rounded-xl bg-danger-bg border border-danger/30 text-danger text-xs font-medium">
+                {anularTratamientoMutation.error instanceof Error
+                  ? anularTratamientoMutation.error.message
+                  : 'No se pudo anular el tratamiento.'}
+              </div>
+            )}
+            <label className="block space-y-1.5">
+              <span className="block text-sm font-semibold text-navy">Motivo *</span>
+              <textarea
+                required
+                minLength={3}
+                maxLength={500}
+                rows={3}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700"
+                value={motivoAnulacion}
+                onChange={(e) => setMotivoAnulacion(e.target.value)}
+                placeholder="ej. Registrado en el animal equivocado"
+              />
+            </label>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setTratamientoAAnular(null)}
+                disabled={anularTratamientoMutation.isPending}
+                className="px-5 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={anularTratamientoMutation.isPending || motivoAnulacion.trim().length < 3}
+                className="px-5 py-2 bg-danger text-white rounded-lg text-sm font-semibold hover:bg-danger/90 shadow-sm transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {anularTratamientoMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+                Anular
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
       <ModalEditarOrigen
         isOpen={isOrigenOpen}
         onClose={() => setIsOrigenOpen(false)}
