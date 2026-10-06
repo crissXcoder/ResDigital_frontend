@@ -3,16 +3,21 @@
 import React, { useState, useEffect } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { darDeBajaAnimal } from '@/lib/api/animales';
+import { darDeBajaAnimal, type Animal, type BajaAnimalInput } from '@/lib/api/animales';
 import { hoyLocal } from '@/lib/reproductivo/fechas';
 
 interface ModalDarBajaProps {
   isOpen: boolean;
   onClose: () => void;
-  animal: any;
+  animal: Animal | null;
 }
 
-export function ModalDarBaja({ isOpen, onClose, animal }: ModalDarBajaProps) {
+export function ModalDarBaja(props: ModalDarBajaProps) {
+  if (!props.isOpen || !props.animal) return null;
+  return <ModalDarBajaForm {...props} animal={props.animal} key={props.animal.id} />;
+}
+
+function ModalDarBajaForm({ isOpen, onClose, animal }: Omit<ModalDarBajaProps, 'animal'> & { animal: Animal }) {
   const queryClient = useQueryClient();
   
   const [formData, setFormData] = useState({
@@ -33,15 +38,15 @@ export function ModalDarBaja({ isOpen, onClose, animal }: ModalDarBajaProps) {
   }, [isOpen]);
 
   const bajaMutation = useMutation({
-    mutationFn: (data: any) => darDeBajaAnimal(animal.id, data),
+    mutationFn: (data: BajaAnimalInput) => darDeBajaAnimal(animal.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['animales'] });
       queryClient.invalidateQueries({ queryKey: ['animal', animal?.id] });
       onClose();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       console.error(error);
-      alert(error.response?.data?.message || 'Hubo un error al dar de baja al animal');
+      alert(error.message || 'Hubo un error al dar de baja al animal');
     }
   });
 

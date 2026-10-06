@@ -325,3 +325,31 @@ test.describe('Dashboard MOD-04 — Flujo principal de usuario', () => {
     );
   });
 });
+
+
+test('QA-T004: Hato inicializa por animal, descarta borrador al reabrir y deriva búsqueda URL', async ({ page }) => {
+  await page.route('**/potreros', route => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.goto('/hato');
+  const row = page.getByRole('row').filter({ hasText: 'Canela' });
+  await row.getByRole('button').click();
+  await page.getByRole('button', { name: 'Editar Datos' }).click();
+  const name = page.getByPlaceholder('Ej. Mariposa');
+  await expect(name).toHaveValue('Canela');
+  await name.fill('Borrador descartado');
+  await page.getByRole('button', { name: 'Cancelar', exact: true }).click();
+  await row.getByRole('button').click();
+  await page.getByRole('button', { name: 'Editar Datos' }).click();
+  await expect(name).toHaveValue('Canela');
+  await page.getByRole('button', { name: 'Cancelar', exact: true }).click();
+  const second = page.getByRole('row').filter({ hasText: 'Estrella' });
+  await second.getByRole('button').click();
+  await page.getByRole('button', { name: 'Editar Datos' }).click();
+  await expect(name).toHaveValue('Estrella');
+  await page.getByRole('button', { name: 'Cancelar', exact: true }).click();
+  await page.goto('/hato?buscar=Canela');
+  await expect(page.getByPlaceholder('Buscar por arete (#104), nombre o raza...')).toHaveValue('Canela');
+  await expect(page.getByRole('row').filter({ hasText: 'Estrella' })).toHaveCount(0);
+  await page.goto('/hato?buscar=Estrella');
+  await expect(page.getByPlaceholder('Buscar por arete (#104), nombre o raza...')).toHaveValue('Estrella');
+  await expect(page.getByRole('row').filter({ hasText: 'Canela' })).toHaveCount(0);
+});

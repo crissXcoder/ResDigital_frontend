@@ -1,9 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import autoTable, { type Table } from 'jspdf-autotable';
+import type { UpdateAnimalInput, Pesaje } from '@/lib/api/animales';
+import type { TratamientoSanitario } from '@/lib/api/sanitary';
+import type { PesajeFormData } from '@/components/modals/ModalPesaje';
+import type { ServicioFormData } from '@/components/modals/ModalServicio';
+import type { DiagnosticoFormData } from '@/components/modals/ModalDiagnostico';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -82,7 +87,7 @@ export default function ExpedienteAnimal() {
   const [isDiagnosticoOpen, setIsDiagnosticoOpen] = useState(false);
   const [diagnosticoServicioId, setDiagnosticoServicioId] = useState('');
   const [isTratamientoOpen, setIsTratamientoOpen] = useState(false);
-  const [tratamientoSeleccionado, setTratamientoSeleccionado] = useState<any | null>(null);
+  const [tratamientoSeleccionado, setTratamientoSeleccionado] = useState<TratamientoSanitario | null>(null);
   const [isOrigenOpen, setIsOrigenOpen] = useState(false);
   const [isDocumentoOpen, setIsDocumentoOpen] = useState(false);
   const [isEditarAnimalOpen, setIsEditarAnimalOpen] = useState(false);
@@ -127,7 +132,7 @@ export default function ExpedienteAnimal() {
   });
 
   const pesajeMutation = useMutation({
-    mutationFn: (data: any) => createPesaje({
+    mutationFn: (data: PesajeFormData) => createPesaje({
       fecha: data.fecha,
       pesoActualKg: data.peso_actual ? parseFloat(data.peso_actual) : null,
       lecheMananaL: data.leche_manana ? parseFloat(data.leche_manana) : null,
@@ -141,7 +146,7 @@ export default function ExpedienteAnimal() {
   });
 
   const servicioMutation = useMutation({
-    mutationFn: (data: any) => createServicioReproductivo(animalId, {
+    mutationFn: (data: ServicioFormData) => createServicioReproductivo(animalId, {
       fechaEvento: data.fecha,
       tipoServicio: data.tipo_servicio,
       toroOPajilla: data.semental,
@@ -155,7 +160,7 @@ export default function ExpedienteAnimal() {
   });
 
   const diagnosticoMutation = useMutation({
-    mutationFn: (data: any) => createDiagnosticoReproductivo(animalId, data),
+    mutationFn: (data: DiagnosticoFormData) => createDiagnosticoReproductivo(animalId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['estadoReproductivo', animalId] });
       setIsDiagnosticoOpen(false);
@@ -185,7 +190,7 @@ export default function ExpedienteAnimal() {
   });
 
   const updateAnimalMutation = useMutation({
-    mutationFn: (data: any) => updateAnimal(animalId, data),
+    mutationFn: (data: UpdateAnimalInput) => updateAnimal(animalId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['animal', animalId] });
       setIsOrigenOpen(false);
@@ -270,7 +275,7 @@ export default function ExpedienteAnimal() {
       doc.text('Historial de Producción y Pesajes', 14, yPos);
       yPos += 5;
 
-      const tableData = pesajes.map((p: any) => {
+      const tableData = pesajes.map((p: Pesaje) => {
         const totalL = (Number(p.lecheMananaL) || 0) + (Number(p.lecheTardeL) || 0);
         return [
           formatearFechaCivil(p.fecha),
@@ -287,7 +292,7 @@ export default function ExpedienteAnimal() {
         styles: { fontSize: 9 },
         headStyles: { fillColor: [15, 23, 42] }
       });
-      yPos = (doc as any).lastAutoTable.finalY + 15;
+      yPos = ((doc as jsPDF & { lastAutoTable: Table }).lastAutoTable.finalY ?? yPos) + 15;
     } else {
       doc.setFontSize(14);
       doc.setTextColor(15, 23, 42);
@@ -308,7 +313,7 @@ export default function ExpedienteAnimal() {
       doc.text('Historial Sanitario', 14, yPos);
       yPos += 5;
 
-      const tableData = tratamientos.map((t: any) => [
+      const tableData = tratamientos.map((t: TratamientoSanitario) => [
         t.fecha ? formatearFechaCivil(t.fecha) : '-',
         t.diagnostico || '-',
         t.farmaco || '-',
@@ -324,7 +329,7 @@ export default function ExpedienteAnimal() {
         styles: { fontSize: 9 },
         headStyles: { fillColor: [15, 23, 42] }
       });
-      yPos = (doc as any).lastAutoTable.finalY + 15;
+      yPos = ((doc as jsPDF & { lastAutoTable: Table }).lastAutoTable.finalY ?? yPos) + 15;
     } else {
       if (yPos > 250) { doc.addPage(); yPos = 20; }
       doc.setFontSize(14);
@@ -347,11 +352,11 @@ export default function ExpedienteAnimal() {
       doc.text('Historial Reproductivo', 14, yPos);
       yPos += 5;
 
-      const tableData = serviciosActivos.map((s: any) => {
+      const tableData = serviciosActivos.map((s) => {
         return [
-          s.fechaEvento || s.fecha ? formatearFechaCivil(s.fechaEvento || s.fecha) : '-',
+          s.fechaServicio ? formatearFechaCivil(s.fechaServicio) : '-',
           s.tipoServicio || '-',
-          s.toroOPajilla || s.semental || '-',
+          s.toroOPajilla || '-',
           estadoReproductivo?.ultimoDiagnostico?.resultado || 'Pendiente'
         ];
       });
@@ -364,7 +369,7 @@ export default function ExpedienteAnimal() {
         styles: { fontSize: 9 },
         headStyles: { fillColor: [15, 23, 42] }
       });
-      yPos = (doc as any).lastAutoTable.finalY + 15;
+      yPos = ((doc as jsPDF & { lastAutoTable: Table }).lastAutoTable.finalY ?? yPos) + 15;
     } else {
       if (yPos > 250) { doc.addPage(); yPos = 20; }
       doc.setFontSize(14);
@@ -417,7 +422,7 @@ export default function ExpedienteAnimal() {
   let retiroLecheActivo: RetiroDetalle | null = null;
   let retiroCarneActivo: RetiroDetalle | null = null;
 
-  tratamientos?.forEach((t: any) => {
+  tratamientos?.forEach((t: TratamientoSanitario) => {
     const dLeche = t.diasRetiroLeche ?? t.diasRetiro ?? 0;
     const dCarne = t.diasRetiroCarne ?? t.diasRetiro ?? 0;
 
@@ -812,7 +817,7 @@ export default function ExpedienteAnimal() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-sm text-slate-600">
-                    {tratamientos?.map((t: any) => {
+                    {tratamientos?.map((t: TratamientoSanitario) => {
                       const dLeche = t.diasRetiroLeche ?? t.diasRetiro ?? 0;
                       const dCarne = t.diasRetiroCarne ?? t.diasRetiro ?? 0;
                       const libLeche =
@@ -939,7 +944,7 @@ export default function ExpedienteAnimal() {
                             <XAxis dataKey="fecha" tickFormatter={(val: string) => formatearFechaCivil(val)} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                             <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                             <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} labelFormatter={(val) => formatearFechaCivil(String(val))} />
-                            <Line type="monotone" dataKey={(p: any) => (Number(p.lecheMananaL) || 0) + (Number(p.lecheTardeL) || 0)} stroke="#0284c7" strokeWidth={3} dot={{ r: 4, fill: '#0284c7', strokeWidth: 0 }} activeDot={{ r: 6, fill: '#0284c7' }} name="Total Leche (L)" />
+                            <Line type="monotone" dataKey={(p: Pesaje) => (Number(p.lecheMananaL) || 0) + (Number(p.lecheTardeL) || 0)} stroke="#0284c7" strokeWidth={3} dot={{ r: 4, fill: '#0284c7', strokeWidth: 0 }} activeDot={{ r: 6, fill: '#0284c7' }} name="Total Leche (L)" />
                           </LineChart>
                         </ResponsiveContainer>
                       ) : (
@@ -960,7 +965,7 @@ export default function ExpedienteAnimal() {
                           <XAxis dataKey="fecha" tickFormatter={(val: string) => formatearFechaCivil(val)} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                           <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} domain={['dataMin - 10', 'auto']} />
                           <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} labelFormatter={(val) => formatearFechaCivil(String(val))} />
-                          <Line type="monotone" dataKey={(p: any) => Number(p.pesoActualKg) || 0} stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: '#10b981', strokeWidth: 0 }} activeDot={{ r: 6, fill: '#10b981' }} name="Peso (kg)" />
+                          <Line type="monotone" dataKey={(p: Pesaje) => Number(p.pesoActualKg) || 0} stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: '#10b981', strokeWidth: 0 }} activeDot={{ r: 6, fill: '#10b981' }} name="Peso (kg)" />
                         </LineChart>
                       </ResponsiveContainer>
                     ) : (
@@ -993,7 +998,7 @@ export default function ExpedienteAnimal() {
                         )}
                       </div>
                     )}
-                    {pesajes?.map((p: any) => {
+                    {pesajes?.map((p: Pesaje) => {
                       const totalLeche = (Number(p.lecheMananaL) || 0) + (Number(p.lecheTardeL) || 0);
                       return (
                         <div key={p.id} className="flex items-center justify-between py-2 border-b border-slate-100">

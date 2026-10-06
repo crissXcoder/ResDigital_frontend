@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getRazas, getAnimales, createAnimal } from '@/lib/api/animales';
+import { getRazas, getAnimales, createAnimal, type CreateAnimalInput } from '@/lib/api/animales';
 import { getPotreros } from '@/lib/api/potreros';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -107,8 +107,8 @@ export default function NuevoAnimalPage() {
           .getPublicUrl(filePath);
           
         uploadedFotoUrl = data.publicUrl;
-      } catch (error: any) {
-        alert('Error subiendo imagen: ' + error.message);
+      } catch (error: unknown) {
+        alert('Error subiendo imagen: ' + (error instanceof Error ? error.message : 'No se pudo subir la imagen.'));
         setIsUploading(false);
         return;
       }
@@ -127,35 +127,28 @@ export default function NuevoAnimalPage() {
       if (refs.length > 0) refFinal = refs.join(' | ');
     }
 
-    const payload: any = {
-      ...formData,
+    const { referenciaSinpe: _sinpe, referenciaDeposito: _deposito, pesoActualKg,
+      valorCompraCrc, origen, metodoCompra, ...fields } = formData;
+    void _sinpe;
+    void _deposito;
+    const payload: CreateAnimalInput = {
+      ...fields,
+      origen: origen === 'Externa' ? 'Externa' : 'Finca',
       referenciaPago: refFinal || undefined,
       fotoUrl: uploadedFotoUrl || undefined,
+      pesoActualKg: pesoActualKg ? Number(pesoActualKg) : undefined,
+      valorCompraCrc: valorCompraCrc ? Number(valorCompraCrc) : undefined,
+      metodoCompra: metodoCompra === 'Sinpe' || metodoCompra === 'Depósito' ||
+        metodoCompra === 'Efectivo' || metodoCompra === 'Combinado' ? metodoCompra : undefined,
     };
-
-    delete payload.referenciaSinpe;
-    delete payload.referenciaDeposito;
-
-    // Convert numeric fields and clear empty strings
-    if (payload.pesoActualKg) payload.pesoActualKg = Number(payload.pesoActualKg);
-    else delete payload.pesoActualKg;
-
-    if (payload.valorCompraCrc) payload.valorCompraCrc = Number(payload.valorCompraCrc);
-    else delete payload.valorCompraCrc;
-
     if (!payload.fechaCompra) delete payload.fechaCompra;
     if (!payload.fechaNacimiento) delete payload.fechaNacimiento;
     if (!payload.potreroId) delete payload.potreroId;
     if (!payload.madreId) delete payload.madreId;
     if (!payload.padreId) delete payload.padreId;
-    if (!payload.numeroOficialDiio) delete payload.numeroOficialDiio;
     if (!payload.numeroGuia) delete payload.numeroGuia;
     if (!payload.compradoA) delete payload.compradoA;
-    
-    if (payload.metodoCompra !== 'Combinado') {
-      delete payload.metodosCombinados;
-    }
-    if (!payload.metodoCompra) delete payload.metodoCompra;
+    if (payload.metodoCompra !== 'Combinado') delete payload.metodosCombinados;
     if (!payload.razaOtra) delete payload.razaOtra;
 
     createMutation.mutate(payload);
@@ -299,7 +292,7 @@ export default function NuevoAnimalPage() {
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light bg-white"
                 >
                   <option value="">— Seleccione —</option>
-                  {razas.map((raza: any) => (
+                  {razas.map((raza) => (
                     <option key={raza.id} value={raza.id}>{raza.nombre}</option>
                   ))}
                 </select>
@@ -427,7 +420,7 @@ export default function NuevoAnimalPage() {
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light bg-white"
                   >
                     <option value="">— Seleccionar Toro Padre —</option>
-                    {animales.filter((a: any) => a.sexo === 'Macho').map((toro: any) => (
+                    {animales.filter((a) => a.sexo === 'Macho').map((toro) => (
                       <option key={toro.id} value={toro.id}>{toro.areteInterno} - {toro.nombre}</option>
                     ))}
                   </select>
@@ -441,7 +434,7 @@ export default function NuevoAnimalPage() {
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light bg-white"
                   >
                     <option value="">— Seleccionar Vaca Madre —</option>
-                    {animales.filter((a: any) => a.sexo === 'Hembra').map((vaca: any) => (
+                    {animales.filter((a) => a.sexo === 'Hembra').map((vaca) => (
                       <option key={vaca.id} value={vaca.id}>{vaca.areteInterno} - {vaca.nombre}</option>
                     ))}
                   </select>

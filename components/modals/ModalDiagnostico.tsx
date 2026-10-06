@@ -1,13 +1,14 @@
 'use client';
 
+import { METODOS_DIAGNOSTICO, RESULTADOS_DIAGNOSTICO, type MetodoDiagnostico, type ResultadoDiagnostico } from '@/lib/reproductivo/tipos';
 import { useState, useEffect } from 'react';
 import { X, Loader2, AlertCircle } from 'lucide-react';
 import { hoyLocal } from '@/lib/reproductivo/fechas';
 
 export interface DiagnosticoFormData {
   fechaEvento: string;
-  metodo: string;
-  resultado: string;
+  metodo: MetodoDiagnostico;
+  resultado: ResultadoDiagnostico;
   notas: string;
   eventoServicioId: string;
 }
@@ -20,7 +21,7 @@ interface ModalDiagnosticoProps {
 }
 
 export default function ModalDiagnostico({ isOpen, onClose, onSubmit, eventoServicioId }: ModalDiagnosticoProps) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<Omit<DiagnosticoFormData, 'eventoServicioId'>>({
     fechaEvento: hoyLocal(),
     metodo: 'Palpación',
     resultado: 'Preñada',
@@ -100,7 +101,10 @@ export default function ModalDiagnostico({ isOpen, onClose, onSubmit, eventoServ
                 disabled={isSubmitting}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white disabled:opacity-60"
                 value={formData.metodo}
-                onChange={e => setFormData({ ...formData, metodo: e.target.value })}
+                onChange={e => {
+                  const value = METODOS_DIAGNOSTICO.find(value => value === e.target.value);
+                  if (value) setFormData({ ...formData, metodo: value });
+                }}
               >
                 <option value="Palpación">Palpación</option>
                 <option value="Ecografía">Ecografía</option>
@@ -114,7 +118,10 @@ export default function ModalDiagnostico({ isOpen, onClose, onSubmit, eventoServ
                 disabled={isSubmitting}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white disabled:opacity-60"
                 value={formData.resultado}
-                onChange={e => setFormData({ ...formData, resultado: e.target.value })}
+                onChange={e => {
+                  const value = RESULTADOS_DIAGNOSTICO.find(value => value === e.target.value);
+                  if (value) setFormData({ ...formData, resultado: value });
+                }}
               >
                 <option value="Preñada">Preñada (Positivo)</option>
                 <option value="Vacía">Vacía (Negativo)</option>

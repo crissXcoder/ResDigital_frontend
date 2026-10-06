@@ -1,10 +1,11 @@
 'use client';
 
+import { TIPOS_SERVICIO, type TipoServicio } from '@/lib/reproductivo/tipos';
 import { useState, useEffect } from 'react';
 import { X, Loader2, AlertCircle } from 'lucide-react';
 
 export interface ServicioFormData {
-  tipo_servicio: string;
+  tipo_servicio: TipoServicio;
   fecha: string;
   semental: string;
   inseminador: string;
@@ -89,11 +90,13 @@ export default function ModalServicio({ isOpen, onClose, onSubmit, animalSexo }:
                 disabled={isSubmitting}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white disabled:opacity-60"
                 value={formData.tipo_servicio}
-                onChange={e => setFormData({ ...formData, tipo_servicio: e.target.value })}
+                onChange={e => {
+                  const tipo = TIPOS_SERVICIO.find(value => value === e.target.value);
+                  if (tipo) setFormData({ ...formData, tipo_servicio: tipo });
+                }}
               >
                 <option value="Inseminación Artificial">Inseminación Artificial</option>
                 <option value="Monta Natural">Monta Natural</option>
-                <option value="Transferencia de Embriones">Transferencia de Embriones</option>
               </select>
             </div>
             

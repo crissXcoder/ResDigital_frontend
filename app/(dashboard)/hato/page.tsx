@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { getAnimales, getRazas } from '@/lib/api/animales';
+import { getAnimales, getRazas, type Animal } from '@/lib/api/animales';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Search, Plus, MoreVertical, Edit2, ArchiveX } from 'lucide-react';
 import Link from 'next/link';
@@ -16,20 +16,14 @@ function HatoContent() {
   const searchParams = useSearchParams();
   const queryParam = searchParams.get('buscar') || searchParams.get('search') || '';
 
-  const [searchTerm, setSearchTerm] = useState(queryParam);
+  const [searchInput, setSearchInput] = useState({ query: queryParam, value: queryParam });
+  const searchTerm = searchInput.query === queryParam ? searchInput.value : queryParam;
   const [filterRaza, setFilterRaza] = useState('');
   const [filterSanitario, setFilterSanitario] = useState('');
   const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
-  const [editingAnimal, setEditingAnimal] = useState<any | null>(null);
-  const [bajaAnimal, setBajaAnimal] = useState<any | null>(null);
+  const [editingAnimal, setEditingAnimal] = useState<Animal | null>(null);
+  const [bajaAnimal, setBajaAnimal] = useState<Animal | null>(null);
 
-  // Sincronizar término de búsqueda si cambia la URL
-  useEffect(() => {
-    if (queryParam) {
-      setSearchTerm(queryParam);
-    }
-  }, [queryParam]);
-  
   const { data: animales = [], isLoading, error } = useQuery({
     queryKey: ['animales'],
     queryFn: () => getAnimales(),
@@ -94,7 +88,7 @@ function HatoContent() {
               type="text"
               placeholder="Buscar por arete (#104), nombre o raza..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => setSearchInput({ query: queryParam, value: e.target.value })}
               className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light bg-white text-slate-700"
             />
           </div>
