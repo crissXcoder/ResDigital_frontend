@@ -60,9 +60,9 @@ function ModalEditarAnimalForm({ isOpen, onClose, animal }: Omit<ModalEditarAnim
       queryClient.invalidateQueries({ queryKey: ['animal', animal.id] });
       onClose();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       console.error(error);
-      const msg = error?.message || error?.response?.data?.message || 'Hubo un error al actualizar el animal';
+      const msg = error.message || 'Hubo un error al actualizar el animal';
       setErrorMensaje(msg);
       if (typeof window !== 'undefined' && typeof window.alert === 'function') {
         window.alert(msg);
