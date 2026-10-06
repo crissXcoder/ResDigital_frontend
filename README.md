@@ -2,6 +2,19 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+## Git y CI
+
+- `main` y `dev` reciben cambios por PR, con revisión de otro integrante, CODEOWNERS y todos los checks requeridos.
+- Node `24.14.x` y pnpm `10.32.1` son las versiones fijadas. No se añaden dependencias para estas barreras.
+- `pnpm git:setup-hooks` configura hooks solo en este clon; no corre automáticamente. El pre-commit escanea el index con Gitleaks y bloquea si no logra validar.
+- `pnpm git:workflows` valida el formato de workflows y referencias a Actions fijadas por SHA. Las herramientas se guardan en el directorio Git y se validan mediante SHA-256.
+- CI verifica título y plantilla del PR, secretos, dependencias, lint, tipos, pruebas, build y sintaxis/seguridad de workflows. Un check agregador falla si algún job falla o se omite.
+- Dependabot propone actualizaciones semanalmente. No se fusionan automáticamente.
+- Los tags de release requieren formato y versión coincidente, commit presente en `main` y check requerido aprobado; CI solo crea un borrador de release.
+- CD de aplicación queda pendiente hasta que se definan entornos, secretos, aprobadores y rollback.
+
+Ver plan operativo y procedimiento de aplicación de rulesets en la bóveda ResDigital: `00-Sistema/Git-y-Entrega.md`.
+
 First, run the development server:
 
 ```bash
