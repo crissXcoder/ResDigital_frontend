@@ -9,6 +9,8 @@ export interface Medicamento {
   viaAdministracion: string | null;
   diasRetiroLecheDefault: number;
   diasRetiroCarneDefault: number;
+  /** Fila del catálogo base sin persistir: su id no existe en la base. */
+  referencia?: boolean;
 }
 
 export interface Padecimiento {
@@ -18,6 +20,8 @@ export interface Padecimiento {
   categoria: string | null;
   medicamentoSugeridoId: string | null;
   medicamentoSugerido?: Medicamento | null;
+  /** Fila del catálogo base sin persistir: su id no existe en la base. */
+  referencia?: boolean;
 }
 
 /** Tratamiento vigente tal como lo devuelve la API (id = evento TRATAMIENTO). */

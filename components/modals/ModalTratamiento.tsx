@@ -14,6 +14,7 @@ import {
   type Padecimiento,
 } from '@/lib/api/sanitary';
 import { BUCKET_DOCUMENTOS } from '@/lib/supabase/buckets';
+import { medicamentoAplica, padecimientoAplica, VIA_SOLO_HEMBRA } from '@/lib/sanitario/compatibilidad';
 
 /** Máximo de días entre la aplicación y la última administración (igual que el backend). */
 const MAX_DIAS_PROTOCOLO = 60;
@@ -163,6 +164,14 @@ export default function ModalTratamiento({
     }
   }
 
+  // Se conserva la opción ya elegida (p. ej. al corregir un registro antiguo) para que el select no quede vacío.
+  const padecimientosVisibles = padecimientos.filter(
+    p => padecimientoAplica(p, animalSexo) || p.id === formData.padecimientoId,
+  );
+  const medicamentosVisibles = medicamentos.filter(
+    m => medicamentoAplica(m, animalSexo) || m.id === formData.medicamentoId,
+  );
+
   const aplicarMedicamento = (med: Medicamento, prev: FormState): FormState => ({
     ...prev,
     medicamentoId: med.id,
@@ -178,7 +187,7 @@ export default function ModalTratamiento({
     const medSugerido = pad?.medicamentoSugeridoId
       ? medicamentos.find(m => m.id === pad.medicamentoSugeridoId)
       : undefined;
-    if (medSugerido) {
+    if (medSugerido && medicamentoAplica(medSugerido, animalSexo)) {
       setSugerenciaActiva(medSugerido.nombreComercial);
       setFormData(prev => aplicarMedicamento(medSugerido, { ...prev, padecimientoId }));
       return;
@@ -233,17 +242,37 @@ export default function ModalTratamiento({
       setIsUploading(false);
     }
 
-    const productoLibre = formData.medicamentoId === OTRO;
-    const diagnosticoLibre = formData.padecimientoId === OTRO;
+    const medSeleccionado = medicamentos.find(m => m.id === formData.medicamentoId);
+    const padSeleccionado = padecimientos.find(p => p.id === formData.padecimientoId);
+
+    let medicamentoId: string | undefined = formData.medicamentoId;
+    let farmaco: string | undefined;
+    if (formData.medicamentoId === OTRO) {
+      medicamentoId = undefined;
+      farmaco = formData.farmacoLibre;
+    } else if (medSeleccionado?.referencia) {
+      medicamentoId = undefined;
+      farmaco = medSeleccionado.nombreComercial;
+    }
+
+    let padecimientoId: string | undefined = formData.padecimientoId;
+    let diagnostico: string | undefined;
+    if (formData.padecimientoId === OTRO) {
+      padecimientoId = undefined;
+      diagnostico = formData.diagnosticoLibre;
+    } else if (padSeleccionado?.referencia) {
+      padecimientoId = undefined;
+      diagnostico = padSeleccionado.nombre;
+    }
 
     setIsSubmitting(true);
     setErrorMessage(null);
     try {
       await onSubmit({
-        medicamentoId: productoLibre ? undefined : formData.medicamentoId,
-        farmaco: productoLibre ? formData.farmacoLibre : undefined,
-        padecimientoId: diagnosticoLibre ? undefined : formData.padecimientoId,
-        diagnostico: diagnosticoLibre ? formData.diagnosticoLibre : undefined,
+        medicamentoId,
+        farmaco,
+        padecimientoId,
+        diagnostico,
         dosis: formData.dosis,
         via: formData.via,
         fecha: formData.fecha,
@@ -317,6 +346,12 @@ export default function ModalTratamiento({
               <span>{errorMessage}</span>
             </div>
           )}
+          {(medicamentos.some(m => m.referencia) || padecimientos.some(p => p.referencia)) && (
+            <div className="p-3 rounded-xl bg-info-bg border border-info/30 text-info text-xs font-medium">
+              La finca todavía no tiene catálogo sanitario propio; se muestra el catálogo de referencia y el
+              tratamiento se guardará con el nombre del producto y del diagnóstico.
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Diagnóstico / Padecimiento */}
             <div className="space-y-1.5">
@@ -334,7 +369,7 @@ export default function ModalTratamiento({
                   <option value="">
                     {loadingPadecimientos ? 'Cargando padecimientos...' : '— Seleccione diagnóstico —'}
                   </option>
-                  {padecimientos.map((pad: Padecimiento) => (
+                  {padecimientosVisibles.map((pad: Padecimiento) => (
                     <option key={pad.id} value={pad.id}>
                       {pad.nombre} {pad.categoria ? `(${pad.categoria})` : ''}
                     </option>
@@ -376,7 +411,7 @@ export default function ModalTratamiento({
                   <option value="">
                     {loadingMedicamentos ? 'Cargando medicamentos...' : '— Seleccione medicamento —'}
                   </option>
-                  {medicamentos.map((med: Medicamento) => (
+                  {medicamentosVisibles.map((med: Medicamento) => (
                     <option key={med.id} value={med.id}>
                       {med.nombreComercial} {med.principioActivo ? `(${med.principioActivo})` : ''}
                     </option>
@@ -425,7 +460,7 @@ export default function ModalTratamiento({
                 <option value="Intravenosa">Intravenosa</option>
                 <option value="Oral">Oral</option>
                 <option value="Tópica">Tópica</option>
-                {animalSexo !== 'Macho' && <option value="Intramamaria">Intramamaria</option>}
+                {animalSexo !== 'Macho' && <option value={VIA_SOLO_HEMBRA}>Intramamaria</option>}
               </select>
             </div>
           </div>
