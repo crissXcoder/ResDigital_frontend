@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import jsPDF from 'jspdf';
 import autoTable, { type Table } from 'jspdf-autotable';
-import type { UpdateAnimalInput, Pesaje } from '@/lib/api/animales';
+import type { UpdateAnimalInput, Pesaje, DocumentoAnimal } from '@/lib/api/animales';
 import type { TratamientoSanitario } from '@/lib/api/sanitary';
 import type { PesajeFormData } from '@/components/modals/ModalPesaje';
 import type { ServicioFormData } from '@/components/modals/ModalServicio';
@@ -1043,7 +1043,7 @@ export default function ExpedienteAnimal() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {documentosDocumentos.map((doc: any) => (
+                    {documentosDocumentos.map((doc: DocumentoAnimal) => (
                       <div key={doc.id} className="border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col h-full hover:shadow-md transition-shadow">
                         <div className="flex-1">
                           <div className="w-10 h-10 rounded-lg bg-navy/5 border border-navy/10 flex items-center justify-center text-navy mb-4">

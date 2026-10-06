@@ -1,5 +1,6 @@
 'use client';
 
+import type { Animal } from '@/lib/api/animales';
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getPotrero } from '@/lib/api/potreros';
@@ -40,7 +41,7 @@ export default function PotreroDetailPage() {
     return diferenciaDiasCivil(potrero.fechaUltimoIngreso, hoyLocal()) ?? 0;
   };
 
-  const getStatusPill = (animal: any) => {
+  const getStatusPill = (animal: Animal) => {
     const status = animal.tipoBaja || (animal.activo ? 'APTO' : 'INACTIVO');
     let colorClass = 'bg-emerald-100 text-emerald-600 border-emerald-200';
     if (status.includes('RETIRO')) {

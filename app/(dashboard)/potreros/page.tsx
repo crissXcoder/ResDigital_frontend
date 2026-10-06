@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getPotreros } from '@/lib/api/potreros';
+import { getPotreros, type Potrero } from '@/lib/api/potreros';
 import { Plus } from 'lucide-react';
 import { FormPotrero } from './components/FormPotrero';
 import Link from 'next/link';
@@ -11,7 +11,7 @@ import { RequireRole } from '@/components/auth/RequireRole';
 export default function PotrerosPage() {
   const [activeFilter, setActiveFilter] = useState('Todos');
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingPotrero, setEditingPotrero] = useState<any>(null);
+  const [editingPotrero, setEditingPotrero] = useState<Potrero | null>(null);
 
   const { data: potreros = [], isLoading } = useQuery({
     queryKey: ['potreros'],
@@ -59,7 +59,7 @@ export default function PotrerosPage() {
     }
   };
 
-  const handleEdit = (potrero: any) => {
+  const handleEdit = (potrero: Potrero) => {
     setEditingPotrero(potrero);
     setIsFormOpen(true);
   };
