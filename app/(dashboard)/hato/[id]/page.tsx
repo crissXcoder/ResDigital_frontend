@@ -1055,15 +1055,19 @@ export default function ExpedienteAnimal() {
                           </p>
                         </div>
                         <div className="mt-5 pt-4 border-t border-slate-100">
-                          <a
-                            href={doc.archivoUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="w-full flex items-center justify-center gap-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-100 hover:border-slate-300 transition-all"
-                          >
-                            <Download className="w-3 h-3" />
-                            Ver / Descargar
-                          </a>
+                          {doc.archivoUrl ? (
+                            <a
+                              href={doc.archivoUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="w-full flex items-center justify-center gap-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-100 hover:border-slate-300 transition-all"
+                            >
+                              <Download className="w-3 h-3" />
+                              Ver / Descargar
+                            </a>
+                          ) : (
+                            <span className="text-xs text-slate-500">Enlace del documento no disponible.</span>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -1105,7 +1109,12 @@ export default function ExpedienteAnimal() {
           setIsTratamientoOpen(false);
           setTratamientoSeleccionado(null);
         }}
-        initialData={tratamientoSeleccionado}
+        initialData={tratamientoSeleccionado ? {
+          ...tratamientoSeleccionado,
+          via: tratamientoSeleccionado.via ?? undefined,
+          veterinario: tratamientoSeleccionado.veterinario ?? undefined,
+          documentoUrl: tratamientoSeleccionado.documentoUrl ?? undefined,
+        } : null}
         animalSexo={animal?.sexo}
         onSubmit={(data) => {
           if (tratamientoSeleccionado) {
