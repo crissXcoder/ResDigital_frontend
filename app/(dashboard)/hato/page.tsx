@@ -9,6 +9,7 @@ import { Search, Plus, MoreVertical, Edit2, ArchiveX } from 'lucide-react';
 import Link from 'next/link';
 import { ModalEditarAnimal } from '@/components/modals/ModalEditarAnimal';
 import { ModalDarBaja } from '@/components/modals/ModalDarBaja';
+import { RequireRole } from '@/components/auth/RequireRole';
 
 function HatoContent() {
   const searchParams = useSearchParams();
@@ -75,13 +76,13 @@ function HatoContent() {
         {/* Top Actions (simulating top bar) */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h1 className="text-2xl md:text-3xl font-bold text-navy">Hato Ganadero</h1>
-          <Link 
+          <RequireRole roles={['propietario', 'administrador']}><Link
             href="/hato/nuevo" 
             className="flex items-center gap-2 bg-navy text-white px-5 py-2.5 rounded-full hover:bg-navy-light transition-colors text-sm font-semibold shadow-sm"
           >
             <Plus size={18} />
             Nuevo Animal
-          </Link>
+          </Link></RequireRole>
         </div>
 
         {/* Filters and Search */}
@@ -222,7 +223,7 @@ function HatoContent() {
                             Expediente
                           </Link>
                           
-                          <div className="relative">
+                          <RequireRole roles={['propietario', 'administrador']}><div className="relative">
                             <button 
                               onClick={() => setActiveDropdownId(activeDropdownId === animal.id ? null : animal.id)}
                               className="p-1.5 text-slate-400 hover:text-navy border border-slate-200 rounded-full hover:bg-slate-50 transition-colors"
@@ -252,7 +253,7 @@ function HatoContent() {
                                 </button>
                               </div>
                             )}
-                          </div>
+                          </div></RequireRole>
                         </div>
                       </td>
                     </tr>

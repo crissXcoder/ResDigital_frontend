@@ -6,6 +6,7 @@ import { getPotreros } from '@/lib/api/potreros';
 import { Plus } from 'lucide-react';
 import { FormPotrero } from './components/FormPotrero';
 import Link from 'next/link';
+import { RequireRole } from '@/components/auth/RequireRole';
 
 export default function PotrerosPage() {
   const [activeFilter, setActiveFilter] = useState('Todos');
@@ -78,11 +79,11 @@ export default function PotrerosPage() {
             <div className="pb-3 border-b-2 border-navy text-navy font-bold text-sm cursor-pointer">
               Lista
             </div>
-            <Link href="/potreros/asignar" className="pb-3 text-slate-400 font-semibold text-sm cursor-pointer hover:text-slate-600 transition-colors">
+            <RequireRole roles={['propietario', 'administrador', 'peon']}><Link href="/potreros/asignar" className="pb-3 text-slate-400 font-semibold text-sm cursor-pointer hover:text-slate-600 transition-colors">
               Asignar Animales
-            </Link>
+            </Link></RequireRole>
           </div>
-          <div className="pb-3">
+          <RequireRole roles={['propietario', 'administrador']}><div className="pb-3">
             <button 
               onClick={() => {
                 setEditingPotrero(null);
@@ -93,7 +94,7 @@ export default function PotrerosPage() {
               <Plus size={18} strokeWidth={3} />
               Nuevo Potrero
             </button>
-          </div>
+          </div></RequireRole>
         </div>
 
         {/* Summary Cards */}
@@ -218,12 +219,12 @@ export default function PotrerosPage() {
                             >
                               Ver Detalle
                             </Link>
-                            <button 
+                            <RequireRole roles={['propietario', 'administrador']}><button
                               onClick={() => handleEdit(potrero)}
                               className="px-4 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
                             >
                               Editar
-                            </button>
+                            </button></RequireRole>
                           </div>
                         </td>
                       </tr>

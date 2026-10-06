@@ -54,6 +54,7 @@ import ModalEditarOrigen from '@/components/modals/ModalEditarOrigen';
 import ModalDocumento from '@/components/modals/ModalDocumento';
 import ModalQrAnimal from '@/components/modals/ModalQrAnimal';
 import { useAuthUser } from '@/lib/hooks/useAuthUser';
+import { RequireRole } from '@/components/auth/RequireRole';
 import { ModalEditarAnimal } from '@/components/modals/ModalEditarAnimal';
 import { ModalDarBaja } from '@/components/modals/ModalDarBaja';
 import TabReproductivo from '@/components/reproductivo/TabReproductivo';
@@ -465,14 +466,15 @@ export default function ExpedienteAnimal() {
               <QrCode className="w-4 h-4 text-navy" />
               <span>Código QR</span>
             </button>
-            {animal.activo && (
+            <RequireRole roles={['propietario', 'administrador']}>{animal.activo && (
               <button
                 onClick={() => setIsBajaOpen(true)}
                 className="flex items-center gap-2 px-4 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-50 bg-white transition-colors"
               >
                 Dar de Baja
               </button>
-            )}
+            )}</RequireRole>
+            <RequireRole roles={['propietario', 'administrador']}>
             <button
               onClick={() => setIsEditarAnimalOpen(true)}
               className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 bg-white transition-colors"
@@ -480,6 +482,7 @@ export default function ExpedienteAnimal() {
               <Pencil className="w-4 h-4" />
               Editar Animal
             </button>
+            </RequireRole>
           </div>
         </div>
 
@@ -540,26 +543,26 @@ export default function ExpedienteAnimal() {
 
             {/* Action Buttons */}
             <div className="flex flex-col gap-2 shrink-0">
-              <button
+              <RequireRole roles={['propietario', 'administrador', 'peon']}><button
                 onClick={() => setIsPesajeOpen(true)}
                 className="w-full sm:w-auto px-5 py-2.5 bg-navy text-white rounded-lg text-sm font-bold shadow-sm hover:bg-navy-light transition-colors"
               >
                 Registrar Pesaje
-              </button>
-              {!isMacho && (
+              </button></RequireRole>
+              {!isMacho && <RequireRole roles={['propietario', 'administrador', 'peon', 'veterinario']}>
                 <button
                   onClick={() => setIsServicioOpen(true)}
                   className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-bold shadow-sm hover:bg-blue-700 transition-colors"
                 >
                   Registrar Servicio
                 </button>
-              )}
-              <button
+              </RequireRole>}
+              <RequireRole roles={['propietario', 'administrador', 'peon', 'veterinario']}><button
                 onClick={() => setIsTratamientoOpen(true)}
                 className="w-full sm:w-auto px-5 py-2.5 bg-red-600 text-white rounded-lg text-sm font-bold shadow-sm hover:bg-red-700 transition-colors"
               >
                 Aplicar Tratamiento
-              </button>
+              </button></RequireRole>
               <button
                 onClick={handleDownloadPDF}
                 className="w-full sm:w-auto px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-50 transition-colors"
@@ -782,7 +785,7 @@ export default function ExpedienteAnimal() {
                     Registro cronológico de aplicaciones veterinarias y periodos de retiro oficial
                   </p>
                 </div>
-                <button
+                <RequireRole roles={['propietario', 'administrador', 'peon', 'veterinario']}><button
                   onClick={() => {
                     setTratamientoSeleccionado(null);
                     setIsTratamientoOpen(true);
@@ -790,7 +793,7 @@ export default function ExpedienteAnimal() {
                   className="px-4 py-2 bg-danger text-white rounded-lg text-sm font-bold shadow-sm hover:bg-danger/90 transition-colors flex items-center gap-2"
                 >
                   <Plus className="w-4 h-4" /> Aplicar Tratamiento
-                </button>
+                </button></RequireRole>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
@@ -888,7 +891,7 @@ export default function ExpedienteAnimal() {
                                 <FileText className="w-4 h-4" />
                               </a>
                             )}
-                            <button
+                            <RequireRole roles={['propietario', 'administrador', 'veterinario']}><button
                               onClick={() => {
                                 setTratamientoSeleccionado(t);
                                 setIsTratamientoOpen(true);
@@ -971,12 +974,12 @@ export default function ExpedienteAnimal() {
                   <h3 className="text-lg font-bold text-navy">
                     {isMacho ? 'Historial de Pesajes' : 'Historial de Pesajes y Producción'}
                   </h3>
-                  <button
+                  <RequireRole roles={['propietario', 'administrador', 'peon']}><button
                     onClick={() => setIsPesajeOpen(true)}
                     className="px-4 py-2 bg-navy text-white rounded-lg text-sm font-bold shadow-sm hover:bg-navy-light transition-colors"
                   >
                     + Registrar Pesaje
-                  </button>
+                  </button></RequireRole>
                 </div>
                 <div className="p-6">
                   <div className="space-y-4">

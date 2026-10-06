@@ -7,6 +7,7 @@ import { ArrowLeft, Edit2, Plus, ArrowRightLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { FormPotrero } from '../components/FormPotrero';
+import { RequireRole } from '@/components/auth/RequireRole';
 
 export default function PotreroDetailPage() {
   const params = useParams();
@@ -80,9 +81,9 @@ export default function PotreroDetailPage() {
             <div className="pb-3 border-b-2 border-navy text-navy font-bold text-sm cursor-pointer">
               Detalle
             </div>
-            <Link href="/potreros/asignar" className="pb-3 text-slate-400 font-semibold text-sm cursor-pointer hover:text-slate-600 transition-colors">
+            <RequireRole roles={['propietario', 'administrador', 'peon']}><Link href="/potreros/asignar" className="pb-3 text-slate-400 font-semibold text-sm cursor-pointer hover:text-slate-600 transition-colors">
               Asignar Animales
-            </Link>
+            </Link></RequireRole>
           </div>
           <div className="pb-3">
             <Link 
@@ -103,18 +104,22 @@ export default function PotreroDetailPage() {
           </Link>
           
           <div className="flex gap-3">
+            <RequireRole roles={['propietario', 'administrador']}>
             <button 
               onClick={() => setIsFormOpen(true)}
               className="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 hover:text-navy hover:border-slate-300 font-bold text-sm rounded-xl transition-colors shadow-sm"
             >
               Editar Potrero
             </button>
+            </RequireRole>
+            <RequireRole roles={['propietario', 'administrador', 'peon']}>
             <Link 
               href="/potreros/asignar"
               className="px-5 py-2.5 bg-navy text-white hover:bg-navy-light font-bold text-sm rounded-xl transition-colors shadow-sm"
             >
               Mover Animales
             </Link>
+            </RequireRole>
           </div>
         </div>
 
