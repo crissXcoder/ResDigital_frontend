@@ -36,6 +36,7 @@ import {
 } from '@/lib/api/sanitary';
 import { createClient } from '@/lib/supabase/client';
 import { BUCKET_ANIMAL_DOCS } from '@/lib/supabase/buckets';
+import { isDefinitiveApiRejection } from '@/lib/api/client';
 import {
   ChevronLeft,
   Plus,
@@ -233,6 +234,9 @@ export default function ExpedienteAnimal() {
       if (!fileExt || !['pdf', 'png', 'jpg'].includes(fileExt)) {
         throw new Error('El documento debe ser PDF, PNG o JPG.');
       }
+      if (file.size === 0 || file.size > 10 * 1024 * 1024) {
+        throw new Error('El documento debe tener un tamaño mayor que 0 y máximo 10 MB.');
+      }
       const category = tipo.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
         .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
       const documentId = crypto.randomUUID();
@@ -247,8 +251,13 @@ export default function ExpedienteAnimal() {
       try {
         await documentoMutation.mutateAsync({ tipo, objectPath });
       } catch (error) {
-        const { error: cleanupError } = await supabase.storage.from(BUCKET_ANIMAL_DOCS).remove([objectPath]);
-        if (cleanupError) console.error('No se pudo retirar el archivo sin registro:', cleanupError);
+        // Solo una respuesta HTTP 4xx confirma que la API rechazó el registro.
+        // Una falla de red o 5xx puede ocurrir después del commit; borrar aquí
+        // dejaría la fila confirmada apuntando a un objeto inexistente.
+        if (isDefinitiveApiRejection(error)) {
+          const { error: cleanupError } = await supabase.storage.from(BUCKET_ANIMAL_DOCS).remove([objectPath]);
+          if (cleanupError) console.error('No se pudo retirar el archivo sin registro:', cleanupError);
+        }
         throw error;
       }
 

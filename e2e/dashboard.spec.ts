@@ -180,6 +180,51 @@ for (const role of ['propietario', 'administrador', 'peon', 'veterinario']) {
   });
 }
 
+test('CORE-T004: no borra un archivo si la respuesta del registro puede haberse perdido tras el commit', async ({ page }) => {
+  const animalId = 'animal-upload-timeout-test';
+  let deleteRequests = 0;
+  page.on('dialog', dialog => dialog.accept());
+  await page.route(`**/animales/${animalId}/documentos`, async (route) => {
+    if (route.request().method() === 'POST') {
+      await route.fulfill({ status: 500, contentType: 'application/json', body: '{"message":"Respuesta incierta"}' });
+    } else {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    }
+  });
+  await page.route(`**/animales/${animalId}`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: animalId,
+        tenantId: 'tenant-test',
+        nombre: 'Animal de prueba',
+        areteInterno: 'UPLOAD-001',
+        sexo: 'Hembra',
+        razaId: 'raza-test',
+        fechaNacimiento: '2020-01-01',
+        categoria: 'Vaca',
+        activo: true,
+      }),
+    });
+  });
+  await page.route('**/storage/v1/object/animal_docs/**', async (route) => {
+    if (route.request().method() === 'DELETE') deleteRequests += 1;
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ Key: 'synthetic' }) });
+  });
+  await page.goto(`/hato/${animalId}`);
+  await page.getByRole('button', { name: 'Documentos', exact: true }).click();
+  await page.getByRole('button', { name: 'Agregar Documento' }).click();
+  await page.locator('input[list="docTypes"]').fill('Certificado de Prueba');
+  await page.locator('input[type="file"]').setInputFiles({
+    name: 'prueba.pdf',
+    mimeType: 'application/pdf',
+    buffer: Buffer.from('%PDF-1.4\nfixture'),
+  });
+  await page.getByRole('button', { name: 'Guardar Documento' }).click();
+  await expect.poll(() => deleteRequests).toBe(0);
+});
+
 test.describe('Dashboard MOD-04 — Flujo principal de usuario', () => {
   test('debe cargar el Dashboard con los 4 KPIs principales y widgets', async ({ page }) => {
     await page.goto('/dashboard');
