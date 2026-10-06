@@ -2,21 +2,10 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
+import type { components } from '@/lib/api/openapi.generated';
 
-export type RolUsuario =
-  | 'propietario'
-  | 'administrador'
-  | 'peon'
-  | 'veterinario';
-
-export interface AuthUserProfile {
-  userId: string;
-  tenantId: string;
-  rol: RolUsuario;
-  nombreCompleto: string;
-  correo: string;
-  nombreFinca: string;
-}
+export type AuthUserProfile = components['schemas']['UserProfileResponseDto'];
+export type RolUsuario = AuthUserProfile['rol'];
 
 /**
  * Hook que consume GET /auth/perfil del backend NestJS

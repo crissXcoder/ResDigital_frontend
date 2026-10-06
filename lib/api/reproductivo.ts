@@ -1,88 +1,52 @@
 import { fetchApi } from './client';
+import type { components } from './openapi.generated';
 import type {
   EstadoReproductivoResponse,
   EventoHistorial,
-  FacilidadParto,
-  HitosReproductivos,
-  MetodoDiagnostico,
-  ResultadoDiagnostico,
-  TipoEventoFeed,
-  TipoServicio,
 } from '../reproductivo/tipos';
 
-/**
- * Capa de API del módulo Reproductivo (MOD-03).
- *
- * Sigue la convención de lib/api/animales.ts (funciones async sueltas sobre
- * fetchApi), con una diferencia deliberada: nada acá es `any`, ni de entrada
- * ni de salida. `getEstadoReproductivo` ya existía en animales.ts devolviendo
- * `Promise<any>` — se deja ahí porque el PDF de la ficha la usa, pero los
- * hooks nuevos consumen la versión tipada de este archivo.
- */
-
-export interface ProximoEvento {
-  animalId: string;
-  arete: string;
-  nombre: string;
-  tipo: TipoEventoFeed;
-  fecha: string;
-  diasRestantes: number;
-  urgente: boolean;
-}
-
-export interface ServicioInput {
-  fechaEvento: string;
-  tipoServicio: TipoServicio;
-  toroOPajilla: string;
-  responsable?: string;
-  notas?: string;
-}
-
-export interface DiagnosticoInput {
-  fechaEvento: string;
-  eventoServicioId: string;
-  metodo: MetodoDiagnostico;
-  resultado: ResultadoDiagnostico;
-  notas?: string;
-}
-
-export interface PartoInput {
-  fechaEvento: string;
-  eventoServicioId?: string;
-  criaAnimalId?: string;
-  facilidadParto?: FacilidadParto;
-  observaciones?: string;
-}
-
-export interface SecadoInput {
-  fechaEvento: string;
-  notas?: string;
-}
+export type ProximoEvento = components['schemas']['ProximoEventoReproductivoDto'];
+export type ServicioInput = components['schemas']['RegistrarServicioDto'];
+export type DiagnosticoInput = components['schemas']['RegistrarDiagnosticoDto'];
+export type PartoInput = components['schemas']['RegistrarPartoDto'];
+export type SecadoInput = components['schemas']['RegistrarSecadoDto'];
+export type RegistrarServicioResponse =
+  components['schemas']['RegistrarServicioResponseDto'];
+export type RegistrarDiagnosticoResponse =
+  components['schemas']['RegistrarDiagnosticoResponseDto'];
+export type RegistrarPartoResponse =
+  components['schemas']['RegistrarPartoResponseDto'];
+export type RegistrarSecadoResponse =
+  components['schemas']['RegistrarSecadoResponseDto'];
 
 export const getEstadoReproductivoTipado = async (
   animalId: string,
 ): Promise<EstadoReproductivoResponse> => {
-  return fetchApi(`/animales/${animalId}/estado-reproductivo`);
+  return fetchApi<EstadoReproductivoResponse>(
+    `/animales/${animalId}/estado-reproductivo`,
+  );
 };
 
 export const getHistorialReproductivo = async (
   animalId: string,
 ): Promise<EventoHistorial[]> => {
-  return fetchApi(`/animales/${animalId}/eventos-reproductivos`);
+  return fetchApi<EventoHistorial[]>(
+    `/animales/${animalId}/eventos-reproductivos`,
+  );
 };
 
 export const getProximosEventos = async (
   diasVentana?: number,
 ): Promise<ProximoEvento[]> => {
   const query = diasVentana ? `?diasVentana=${diasVentana}` : '';
-  return fetchApi(`/reproductivo/proximos-eventos${query}`);
+  return fetchApi<ProximoEvento[]>(`/reproductivo/proximos-eventos${query}`);
 };
 
 export const registrarServicioReproductivo = async (
   animalId: string,
   data: ServicioInput,
-): Promise<HitosReproductivos> => {
-  return fetchApi(`/animales/${animalId}/servicios`, {
+): Promise<RegistrarServicioResponse> => {
+  return fetchApi<RegistrarServicioResponse>(`/animales/${animalId}/servicios`, {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -91,18 +55,21 @@ export const registrarServicioReproductivo = async (
 export const registrarDiagnosticoReproductivo = async (
   animalId: string,
   data: DiagnosticoInput,
-): Promise<unknown> => {
-  return fetchApi(`/animales/${animalId}/diagnosticos`, {
+): Promise<RegistrarDiagnosticoResponse> => {
+  return fetchApi<RegistrarDiagnosticoResponse>(
+    `/animales/${animalId}/diagnosticos`,
+    {
     method: 'POST',
     body: JSON.stringify(data),
-  });
+    },
+  );
 };
 
 export const registrarPartoReproductivo = async (
   animalId: string,
   data: PartoInput,
-): Promise<unknown> => {
-  return fetchApi(`/animales/${animalId}/partos`, {
+): Promise<RegistrarPartoResponse> => {
+  return fetchApi<RegistrarPartoResponse>(`/animales/${animalId}/partos`, {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -111,8 +78,8 @@ export const registrarPartoReproductivo = async (
 export const registrarSecadoReproductivo = async (
   animalId: string,
   data: SecadoInput,
-): Promise<unknown> => {
-  return fetchApi(`/animales/${animalId}/secados`, {
+): Promise<RegistrarSecadoResponse> => {
+  return fetchApi<RegistrarSecadoResponse>(`/animales/${animalId}/secados`, {
     method: 'POST',
     body: JSON.stringify(data),
   });

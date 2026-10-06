@@ -1,5 +1,6 @@
 import { fetchApi } from './client';
-import type { EstadoReproductivoResponse, HitosReproductivos } from '../reproductivo/tipos';
+import type { components } from './openapi.generated';
+import type { EstadoReproductivoResponse } from '../reproductivo/tipos';
 import type { ServicioInput, DiagnosticoInput } from './reproductivo';
 import type { CreateTratamientoDto, UpdateTratamientoDto, TratamientoSanitario } from './sanitary';
 
@@ -92,105 +93,99 @@ export interface Pesaje extends CreatePesajeInput {
   createdAt: string;
   updatedAt: string;
 }
-export interface DocumentoAnimal {
-  id: string;
-  animalId: string;
-  tenantId: string;
-  tipo: string;
-  archivoUrl: string | null;
-  objectPath: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+export type DocumentoAnimal = components['schemas']['DocumentoAnimalResponseDto'];
 
 export const getRazas = async (): Promise<Raza[]> => {
-  return await fetchApi('/catalogos/razas');
+  return await fetchApi<Raza[]>('/catalogos/razas');
 };
 
 export const getAnimales = async (filters: Record<string, string> = {}): Promise<Animal[]> => {
   const queryParams = new URLSearchParams(filters).toString();
   const url = queryParams ? `/animales?${queryParams}` : '/animales';
-  return await fetchApi(url);
+  return await fetchApi<Animal[]>(url);
 };
 
 export const getAnimal = async (id: string): Promise<Animal> => {
-  return fetchApi(`/animales/${id}`);
+  return fetchApi<Animal>(`/animales/${id}`);
 };
 
 export const createAnimal = async (animalData: CreateAnimalInput): Promise<Animal> => {
-  return fetchApi('/animales', {
+  return fetchApi<Animal>('/animales', {
     method: 'POST',
     body: JSON.stringify(animalData),
   });
 };
 
 export const getDocumentos = async (animalId: string): Promise<DocumentoAnimal[]> => {
-  return fetchApi(`/animales/${animalId}/documentos`);
+  return fetchApi<DocumentoAnimal[]>(`/animales/${animalId}/documentos`);
 };
 
-export const createDocumento = async (animalId: string, docData: { tipo: string, objectPath: string }) => {
-  return fetchApi(`/animales/${animalId}/documentos`, {
+export const createDocumento = async (
+  animalId: string,
+  docData: components['schemas']['CreateDocumentoDto'],
+): Promise<DocumentoAnimal> => {
+  return fetchApi<DocumentoAnimal>(`/animales/${animalId}/documentos`, {
     method: 'POST',
     body: JSON.stringify(docData),
   });
 };
 
 export const updateAnimal = async (id: string, animalData: UpdateAnimalInput): Promise<Animal> => {
-  return fetchApi(`/animales/${id}`, {
+  return fetchApi<Animal>(`/animales/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(animalData),
   });
 };
 
 export const darDeBajaAnimal = async (id: string, data: BajaAnimalInput): Promise<Animal> => {
-  return fetchApi(`/animales/${id}/baja`, {
+  return fetchApi<Animal>(`/animales/${id}/baja`, {
     method: 'POST',
     body: JSON.stringify(data),
   });
 };
 
 export const createPesaje = async (pesaje: CreatePesajeInput): Promise<Pesaje> => {
-  return fetchApi('/pesajes', {
+  return fetchApi<Pesaje>('/pesajes', {
     method: 'POST',
     body: JSON.stringify(pesaje),
   });
 };
 
 export const getPesajesByAnimal = async (animalId: string): Promise<Pesaje[]> => {
-  return fetchApi(`/pesajes/animal/${animalId}`);
+  return fetchApi<Pesaje[]>(`/pesajes/animal/${animalId}`);
 };
 
 export const getEstadoReproductivo = async (animalId: string): Promise<EstadoReproductivoResponse> => {
-  return fetchApi(`/animales/${animalId}/estado-reproductivo`);
+  return fetchApi<EstadoReproductivoResponse>(`/animales/${animalId}/estado-reproductivo`);
 };
 
-export const createServicioReproductivo = async (animalId: string, data: ServicioInput): Promise<HitosReproductivos> => {
-  return fetchApi(`/animales/${animalId}/servicios`, {
+export const createServicioReproductivo = async (animalId: string, data: ServicioInput): Promise<components['schemas']['RegistrarServicioResponseDto']> => {
+  return fetchApi<components['schemas']['RegistrarServicioResponseDto']>(`/animales/${animalId}/servicios`, {
     method: 'POST',
     body: JSON.stringify(data),
   });
 };
 
 export const createTratamiento = async (tratamiento: CreateTratamientoDto): Promise<TratamientoSanitario> => {
-  return fetchApi('/tratamientos', {
+  return fetchApi<TratamientoSanitario>('/tratamientos', {
     method: 'POST',
     body: JSON.stringify(tratamiento),
   });
 };
 
 export const getTratamientosByAnimal = async (animalId: string): Promise<TratamientoSanitario[]> => {
-  return fetchApi(`/tratamientos/animal/${animalId}`);
+  return fetchApi<TratamientoSanitario[]>(`/tratamientos/animal/${animalId}`);
 };
 
 export const updateTratamiento = async (id: string, data: UpdateTratamientoDto): Promise<TratamientoSanitario> => {
-  return fetchApi(`/tratamientos/${id}`, {
+  return fetchApi<TratamientoSanitario>(`/tratamientos/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
   });
 };
 
-export const createDiagnosticoReproductivo = async (animalId: string, data: DiagnosticoInput): Promise<unknown> => {
-  return fetchApi(`/animales/${animalId}/diagnosticos`, {
+export const createDiagnosticoReproductivo = async (animalId: string, data: DiagnosticoInput): Promise<components['schemas']['RegistrarDiagnosticoResponseDto']> => {
+  return fetchApi<components['schemas']['RegistrarDiagnosticoResponseDto']>(`/animales/${animalId}/diagnosticos`, {
     method: 'POST',
     body: JSON.stringify(data),
   });

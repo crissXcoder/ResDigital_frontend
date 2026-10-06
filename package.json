@@ -15,7 +15,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "openapi:generate": "openapi-typescript lib/api/openapi.json -o lib/api/openapi.generated.d.ts",
+    "openapi:check": "openapi-typescript lib/api/openapi.json -o lib/api/openapi.generated.d.ts --check"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -50,6 +52,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.6",
     "jsdom": "^30.0.1",
+    "openapi-typescript": "7.13.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^5.0.0"

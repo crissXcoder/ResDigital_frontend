@@ -13,7 +13,10 @@ export function isDefinitiveApiRejection(error: unknown): error is ApiError {
   return error instanceof ApiError && error.status >= 400 && error.status < 500;
 }
 
-export async function fetchApi(endpoint: string, options: RequestInit = {}) {
+export async function fetchApi<T>(
+  endpoint: string,
+  options: RequestInit = {},
+): Promise<T> {
   const supabase = createClient();
   const { data: { session } } = await supabase.auth.getSession();
 
@@ -41,5 +44,5 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
     throw new ApiError(errorData?.message || `API Error: ${response.status} ${response.statusText}`, response.status);
   }
 
-  return response.json();
+  return (await response.json()) as T;
 }
