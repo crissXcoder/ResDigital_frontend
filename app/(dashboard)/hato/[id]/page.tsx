@@ -1046,13 +1046,15 @@ export default function ExpedienteAnimal() {
             <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden mt-6">
               <div className="p-6 border-b border-slate-100 flex items-center justify-between">
                 <h3 className="text-lg font-bold text-navy">Documentos del Animal</h3>
-                <button
-                  onClick={() => setIsDocumentoOpen(true)}
-                  className="px-4 py-2 bg-navy text-white rounded-lg text-sm font-bold shadow-sm hover:bg-navy-light transition-colors flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Agregar Documento
-                </button>
+                <RequireRole roles={['propietario', 'administrador']}>
+                  <button
+                    onClick={() => setIsDocumentoOpen(true)}
+                    className="px-4 py-2 bg-navy text-white rounded-lg text-sm font-bold shadow-sm hover:bg-navy-light transition-colors flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Agregar Documento
+                  </button>
+                </RequireRole>
               </div>
               <div className="p-6">
                 {!documentosDocumentos || documentosDocumentos.length === 0 ? (

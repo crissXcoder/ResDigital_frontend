@@ -58,7 +58,8 @@ const ANIMALES_MOCK_API = [
   },
 ];
 
-test.beforeEach(async ({ context, page }) => {
+test.beforeEach(async ({ context, page }, testInfo) => {
+  const role = testInfo.title.match(/AUTH-T002 role: (\w+)/)?.[1] ?? 'propietario';
   // Inyectar cookie de sesión de prueba para pasar el middleware de autenticación
   const now = Math.floor(Date.now() / 1000);
   const session = {
@@ -68,12 +69,12 @@ test.beforeEach(async ({ context, page }) => {
     expires_in: 3600,
     expires_at: now + 3600,
     user: {
-      id: 'owner-test',
+      id: `${role}-test`,
       aud: 'authenticated',
       role: 'authenticated',
-      email: 'propietario@example.test',
-      app_metadata: { rol: 'propietario', tenant_id: 'tenant-test' },
-      user_metadata: { nombre_completo: 'Propietario de prueba' },
+      email: `${role}@example.test`,
+      app_metadata: { rol: role, tenant_id: 'tenant-test' },
+      user_metadata: { nombre_completo: `Usuario ${role} de prueba` },
     },
   };
   await context.addCookies([
@@ -96,11 +97,11 @@ test.beforeEach(async ({ context, page }) => {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        userId: 'owner-test',
+        userId: `${role}-test`,
         tenantId: 'tenant-test',
-        rol: 'propietario',
-        nombreCompleto: 'Propietario de prueba',
-        correo: 'propietario@example.test',
+        rol: role,
+        nombreCompleto: `Usuario ${role} de prueba`,
+        correo: `${role}@example.test`,
         nombreFinca: 'Finca de prueba',
       }),
     });
@@ -135,6 +136,49 @@ test.beforeEach(async ({ context, page }) => {
     });
   });
 });
+
+for (const role of ['propietario', 'administrador', 'peon', 'veterinario']) {
+  test(`AUTH-T002 role: ${role}: permisos visibles de acciones y documentos`, async ({ page }) => {
+    await page.goto('/dashboard');
+    for (const action of ['tratamiento', 'reproductivo']) {
+      await expect(page.getByTestId(`accion-rapida-${action}`)).toBeEnabled();
+    }
+    const milkAction = page.getByTestId('accion-rapida-leche');
+    if (role === 'veterinario') await expect(milkAction).toBeDisabled();
+    else await expect(milkAction).toBeEnabled();
+
+    const animalId = `auth-role-${role}`;
+    await page.route(`**/animales/${animalId}*`, async (route) => {
+      const path = new URL(route.request().url()).pathname;
+      const body = path.endsWith('/documentos') ? [] : {
+        id: animalId,
+        tenantId: 'tenant-test',
+        nombre: 'Animal autorizado',
+        areteInterno: 'AUTH-001',
+        sexo: 'Hembra',
+        razaId: 'raza-test',
+        fechaNacimiento: '2020-01-01',
+        categoria: 'Vaca',
+        activo: true,
+      };
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+    });
+    await page.route(`**/pesajes/${animalId}*`, route =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+    );
+    await page.route(`**/tratamientos/animal/${animalId}*`, route =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+    );
+    await page.goto(`/hato/${animalId}`);
+    await page.getByRole('button', { name: 'Documentos', exact: true }).click();
+    const uploadButton = page.getByRole('button', { name: 'Agregar Documento' });
+    if (role === 'propietario' || role === 'administrador') {
+      await expect(uploadButton).toBeVisible();
+    } else {
+      await expect(uploadButton).toHaveCount(0);
+    }
+  });
+}
 
 test.describe('Dashboard MOD-04 — Flujo principal de usuario', () => {
   test('debe cargar el Dashboard con los 4 KPIs principales y widgets', async ({ page }) => {
