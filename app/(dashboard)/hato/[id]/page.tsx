@@ -243,7 +243,7 @@ export default function ExpedienteAnimal() {
     // Título
     doc.setFontSize(18);
     doc.setTextColor(15, 23, 42);
-    doc.text(`Expediente Animal: #${animal.areteInterno} ${animal.nombre || ''}`, 14, yPos);
+    doc.text(`Expediente Animal: #${animal.areteInterno} ${animal.nombre || ''}${animal.numeroOficialDiio ? ` (DIIO: ${animal.numeroOficialDiio})` : ''}`, 14, yPos);
     yPos += 10;
 
     // Info General
@@ -512,6 +512,11 @@ export default function ExpedienteAnimal() {
                   <h1 className="text-3xl font-extrabold text-navy tracking-tight">
                     #{animal.areteInterno} <span className="font-semibold text-slate-700">{animal.nombre}</span>
                   </h1>
+                  {animal.numeroOficialDiio && (
+                    <span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-semibold border border-blue-200">
+                      DIIO: {animal.numeroOficialDiio}
+                    </span>
+                  )}
                   {animal.activo && (
                     <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold uppercase tracking-wide border border-green-200">
                       ACTIVO

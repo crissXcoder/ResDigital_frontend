@@ -6,7 +6,7 @@ import { getRazas, getAnimales, createAnimal } from '@/lib/api/animales';
 import { getPotreros } from '@/lib/api/potreros';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { X, UploadCloud, Loader2 } from 'lucide-react';
+import { X, UploadCloud, Loader2, AlertCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { BUCKET_ANIMALES_FOTOS } from '@/lib/supabase/buckets';
 
@@ -18,9 +18,11 @@ export default function NuevoAnimalPage() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [errorMensaje, setErrorMensaje] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     areteInterno: '',
+    numeroOficialDiio: '',
     nombre: '',
     sexo: 'Hembra', // 'Hembra' o 'Macho'
     categoria: '',
@@ -65,7 +67,7 @@ export default function NuevoAnimalPage() {
       router.push('/hato');
     },
     onError: (error: Error) => {
-      alert(`Error: ${error.message}`);
+      setErrorMensaje(error.message);
     }
   });
 
@@ -83,6 +85,7 @@ export default function NuevoAnimalPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMensaje(null);
     
     let uploadedFotoUrl = '';
 
@@ -127,8 +130,13 @@ export default function NuevoAnimalPage() {
       if (refs.length > 0) refFinal = refs.join(' | ');
     }
 
+    const trimmedArete = formData.areteInterno.trim();
+    const trimmedDiio = formData.numeroOficialDiio?.trim();
+
     const payload: any = {
       ...formData,
+      areteInterno: trimmedArete,
+      numeroOficialDiio: trimmedDiio || undefined,
       referenciaPago: refFinal || undefined,
       fotoUrl: uploadedFotoUrl || undefined,
     };
@@ -186,6 +194,22 @@ export default function NuevoAnimalPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-8">
+          {errorMensaje && (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 text-red-700 text-sm">
+              <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-semibold">Error al registrar el animal</p>
+                <p className="text-red-600 mt-0.5">{errorMensaje}</p>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setErrorMensaje(null)}
+                className="text-red-400 hover:text-red-600 p-1"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
           
           {/* Top Section: Foto y Sexo */}
           <div className="flex flex-col sm:flex-row gap-6 items-start">
@@ -271,9 +295,32 @@ export default function NuevoAnimalPage() {
                   name="areteInterno"
                   value={formData.areteInterno}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light"
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 ${
+                    errorMensaje?.includes('arete')
+                      ? 'border-red-500 ring-2 ring-red-200'
+                      : 'border-slate-300 focus:ring-navy-light'
+                  }`}
                   placeholder="201"
                 />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-sm font-semibold text-navy">
+                  Número Oficial DIIO (SENASA)
+                </label>
+                <input 
+                  type="text" 
+                  name="numeroOficialDiio"
+                  value={formData.numeroOficialDiio}
+                  onChange={handleChange}
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 ${
+                    errorMensaje?.includes('DIIO')
+                      ? 'border-red-500 ring-2 ring-red-200'
+                      : 'border-slate-300 focus:ring-navy-light'
+                  }`}
+                  placeholder="Ej. CR-12345678"
+                />
+                <p className="text-[11px] text-slate-400">Opcional. Identificador oficial de trazabilidad.</p>
               </div>
 
               <div className="space-y-1.5">
