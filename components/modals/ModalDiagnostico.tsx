@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X, Loader2, AlertCircle } from 'lucide-react';
+import { hoyLocal } from '@/lib/reproductivo/fechas';
 
 export interface DiagnosticoFormData {
   fechaEvento: string;
@@ -20,7 +21,7 @@ interface ModalDiagnosticoProps {
 
 export default function ModalDiagnostico({ isOpen, onClose, onSubmit, eventoServicioId }: ModalDiagnosticoProps) {
   const [formData, setFormData] = useState({
-    fechaEvento: new Date().toISOString().slice(0, 10),
+    fechaEvento: hoyLocal(),
     metodo: 'Palpación',
     resultado: 'Preñada',
     notas: '',

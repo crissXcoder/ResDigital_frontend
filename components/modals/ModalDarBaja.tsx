@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { darDeBajaAnimal } from '@/lib/api/animales';
+import { hoyLocal } from '@/lib/reproductivo/fechas';
 
 interface ModalDarBajaProps {
   isOpen: boolean;
@@ -52,7 +53,7 @@ export function ModalDarBaja({ isOpen, onClose, animal }: ModalDarBajaProps) {
       tipoBaja: formData.tipoBaja,
       motivoBaja: formData.motivoBaja,
       pesoFinalKg: formData.pesoFinalKg ? Number(formData.pesoFinalKg) : null,
-      fechaBaja: new Date().toISOString().split('T')[0], // hoy
+      fechaBaja: hoyLocal(),
     };
     bajaMutation.mutate(payload);
   };

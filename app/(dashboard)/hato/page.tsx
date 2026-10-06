@@ -9,6 +9,7 @@ import { Search, Plus, MoreVertical, Edit2, ArchiveX } from 'lucide-react';
 import Link from 'next/link';
 import { ModalEditarAnimal } from '@/components/modals/ModalEditarAnimal';
 import { ModalDarBaja } from '@/components/modals/ModalDarBaja';
+import { formatearFecha, hoyLocal, normalizarFechaCivil } from '@/lib/reproductivo/fechas';
 import { RequireRole } from '@/components/auth/RequireRole';
 
 function HatoContent() {
@@ -180,21 +181,27 @@ function HatoContent() {
                         {animal.razaOtra ? `Otra (${animal.razaOtra})` : animal.raza?.nombre || 'Desconocida'}
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-slate-600 text-xs">{animal.fechaNacimiento ? new Date(animal.fechaNacimiento).toLocaleDateString() : 'N/A'}</div>
+                        <div className="text-slate-600 text-xs">{animal.fechaNacimiento ? formatearFecha(animal.fechaNacimiento) : 'N/A'}</div>
                         <div className="text-blue-500 text-xs font-semibold mt-0.5">
                           {(() => {
                             if (!animal.fechaNacimiento) return '-';
-                            const birth = new Date(animal.fechaNacimiento);
-                            const now = new Date();
-                            
-                            let years = now.getFullYear() - birth.getFullYear();
-                            let months = now.getMonth() - birth.getMonth();
+                            const fechaNacimiento = normalizarFechaCivil(animal.fechaNacimiento);
+                            if (!fechaNacimiento) return '-';
+                            const [anioNacimiento, mesNacimiento, diaNacimiento] = fechaNacimiento.split('-').map(Number);
+                            const [anioHoy, mesHoy, diaHoy] = hoyLocal().split('-').map(Number);
+                            let years = anioHoy - anioNacimiento;
+                            let months = mesHoy - mesNacimiento;
 
-                            if (months < 0 || (months === 0 && now.getDate() < birth.getDate())) {
+                            const diaLimiteMes = Math.min(
+                              diaNacimiento,
+                              new Date(Date.UTC(anioHoy, mesHoy, 0)).getUTCDate(),
+                            );
+                            if (months < 0 || (months === 0 && diaHoy < diaLimiteMes)) {
                               years--;
                               months += 12;
                             }
-                            
+                            if (diaHoy < diaLimiteMes) months--;
+                            if (months < 0) months += 12;
                             if (years > 0) {
                               return `${years} año${years !== 1 ? 's' : ''}`;
                             } else if (months > 0) {

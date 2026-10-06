@@ -7,6 +7,7 @@ import { ArrowLeft, Edit2, Plus, ArrowRightLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { FormPotrero } from '../components/FormPotrero';
+import { diferenciaDiasCivil, hoyLocal } from '@/lib/reproductivo/fechas';
 import { RequireRole } from '@/components/auth/RequireRole';
 
 export default function PotreroDetailPage() {
@@ -36,7 +37,7 @@ export default function PotreroDetailPage() {
 
   const getDaysSince = () => {
     if (!potrero.fechaUltimoIngreso) return 0;
-    return Math.floor((new Date().getTime() - new Date(potrero.fechaUltimoIngreso).getTime()) / (1000 * 3600 * 24));
+    return diferenciaDiasCivil(potrero.fechaUltimoIngreso, hoyLocal()) ?? 0;
   };
 
   const getStatusPill = (animal: any) => {

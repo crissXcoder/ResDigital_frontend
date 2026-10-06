@@ -13,6 +13,10 @@ import type { EstadoReproductivoResponse } from '@/lib/reproductivo/tipos';
  */
 interface EstadoReproductivoPanelProps {
   estado: EstadoReproductivoResponse;
+  puedeRegistrarServicio: boolean;
+  puedeRegistrarDiagnostico: boolean;
+  puedeRegistrarSecado: boolean;
+  puedeRegistrarParto: boolean;
   onRegistrarServicio: () => void;
   onRegistrarDiagnostico: () => void;
   onRegistrarSecado: () => void;
@@ -21,6 +25,10 @@ interface EstadoReproductivoPanelProps {
 
 export default function EstadoReproductivoPanel({
   estado,
+  puedeRegistrarServicio,
+  puedeRegistrarDiagnostico,
+  puedeRegistrarSecado,
+  puedeRegistrarParto,
   onRegistrarServicio,
   onRegistrarDiagnostico,
   onRegistrarSecado,
@@ -41,29 +49,29 @@ export default function EstadoReproductivoPanel({
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {estadoActual === 'Vacía' && (
+          {estadoActual === 'Vacía' && puedeRegistrarServicio && (
             <BotonAccion onClick={onRegistrarServicio}>Registrar servicio</BotonAccion>
           )}
           {estadoActual === 'Servida' && (
             <>
-              <BotonAccion onClick={onRegistrarDiagnostico}>
+              {puedeRegistrarDiagnostico && <BotonAccion onClick={onRegistrarDiagnostico}>
                 Registrar diagnóstico
-              </BotonAccion>
-              <BotonAccion variante="secundario" onClick={onRegistrarServicio}>
+              </BotonAccion>}
+              {puedeRegistrarServicio && <BotonAccion variante="secundario" onClick={onRegistrarServicio}>
                 Registrar servicio
-              </BotonAccion>
+              </BotonAccion>}
             </>
           )}
           {estadoActual === 'Preñada' && (
             <>
-              <BotonAccion variante="secundario" onClick={onRegistrarSecado}>
+              {puedeRegistrarSecado && <BotonAccion variante="secundario" onClick={onRegistrarSecado}>
                 Registrar secado
-              </BotonAccion>
-              <BotonAccion onClick={onRegistrarParto}>Registrar parto</BotonAccion>
+              </BotonAccion>}
+              {puedeRegistrarParto && <BotonAccion onClick={onRegistrarParto}>Registrar parto</BotonAccion>}
             </>
           )}
           {estadoActual === 'En Secado' && (
-            <BotonAccion onClick={onRegistrarParto}>Registrar parto</BotonAccion>
+            puedeRegistrarParto && <BotonAccion onClick={onRegistrarParto}>Registrar parto</BotonAccion>
           )}
         </div>
       </div>

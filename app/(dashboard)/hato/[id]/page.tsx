@@ -54,6 +54,7 @@ import ModalEditarOrigen from '@/components/modals/ModalEditarOrigen';
 import ModalDocumento from '@/components/modals/ModalDocumento';
 import ModalQrAnimal from '@/components/modals/ModalQrAnimal';
 import { useAuthUser } from '@/lib/hooks/useAuthUser';
+import { formatearFecha as formatearFechaCivil, hoyLocal } from '@/lib/reproductivo/fechas';
 import { RequireRole } from '@/components/auth/RequireRole';
 import { ModalEditarAnimal } from '@/components/modals/ModalEditarAnimal';
 import { ModalDarBaja } from '@/components/modals/ModalDarBaja';
@@ -258,7 +259,7 @@ export default function ExpedienteAnimal() {
     doc.text(`Peso Actual: ${animal.pesoActualKg || 0} kg`, 14, yPos);
     doc.text(`Potrero: ${animal.potrero?.nombre || 'N/A'}`, 80, yPos);
     if (animal.fechaNacimiento) {
-      doc.text(`Fecha Nac.: ${new Date(animal.fechaNacimiento).toLocaleDateString()}`, 150, yPos);
+      doc.text(`Fecha Nac.: ${formatearFechaCivil(animal.fechaNacimiento)}`, 150, yPos);
     }
     yPos += 15;
 
@@ -272,7 +273,7 @@ export default function ExpedienteAnimal() {
       const tableData = pesajes.map((p: any) => {
         const totalL = (Number(p.lecheMananaL) || 0) + (Number(p.lecheTardeL) || 0);
         return [
-          new Date(p.fecha).toLocaleDateString(),
+          formatearFechaCivil(p.fecha),
           p.pesoActualKg ? `${p.pesoActualKg} kg` : '-',
           totalL > 0 ? `${totalL.toFixed(1)} L` : '-'
         ];
@@ -308,7 +309,7 @@ export default function ExpedienteAnimal() {
       yPos += 5;
 
       const tableData = tratamientos.map((t: any) => [
-        t.fecha ? new Date(t.fecha).toLocaleDateString() : '-',
+        t.fecha ? formatearFechaCivil(t.fecha) : '-',
         t.diagnostico || '-',
         t.farmaco || '-',
         t.dosis || '-',
@@ -348,7 +349,7 @@ export default function ExpedienteAnimal() {
 
       const tableData = serviciosActivos.map((s: any) => {
         return [
-          s.fechaEvento || s.fecha ? new Date(s.fechaEvento || s.fecha).toLocaleDateString() : '-',
+          s.fechaEvento || s.fecha ? formatearFechaCivil(s.fechaEvento || s.fecha) : '-',
           s.tipoServicio || '-',
           s.toroOPajilla || s.semental || '-',
           estadoReproductivo?.ultimoDiagnostico?.resultado || 'Pendiente'
@@ -377,7 +378,7 @@ export default function ExpedienteAnimal() {
     }
 
     // Descargar
-    doc.save(`Expediente_${animal.areteInterno}_${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(`Expediente_${animal.areteInterno}_${hoyLocal()}.pdf`);
   };
 
   const isMacho = animal?.sexo === 'Macho';
@@ -531,7 +532,7 @@ export default function ExpedienteAnimal() {
                   <p className="font-semibold">{animal.categoria || 'Sin Categoría'}</p>
                   <p className="font-semibold">{animal.potrero?.nombre || 'Sin Potrero'}</p>
                   {animal.fechaNacimiento && (
-                    <p>{new Date(animal.fechaNacimiento).toLocaleDateString()}</p>
+                    <p>{formatearFechaCivil(animal.fechaNacimiento)}</p>
                   )}
                   {animal.padreId && <p>Padre: <span className="font-semibold">{animal.padreId}</span></p>}
                   {animal.madreId && (
@@ -935,9 +936,9 @@ export default function ExpedienteAnimal() {
                           {/* design-exception: Recharts requiere valores estáticos/hex para sus props */}
                           <LineChart data={[...pesajes].reverse()} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                            <XAxis dataKey="fecha" tickFormatter={(val: any) => new Date(val).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                            <XAxis dataKey="fecha" tickFormatter={(val: string) => formatearFechaCivil(val)} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                             <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                            <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} labelFormatter={(val: any) => new Date(val).toLocaleDateString()} />
+                            <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} labelFormatter={(val) => formatearFechaCivil(String(val))} />
                             <Line type="monotone" dataKey={(p: any) => (Number(p.lecheMananaL) || 0) + (Number(p.lecheTardeL) || 0)} stroke="#0284c7" strokeWidth={3} dot={{ r: 4, fill: '#0284c7', strokeWidth: 0 }} activeDot={{ r: 6, fill: '#0284c7' }} name="Total Leche (L)" />
                           </LineChart>
                         </ResponsiveContainer>
@@ -956,9 +957,9 @@ export default function ExpedienteAnimal() {
                         {/* design-exception: Recharts requiere valores estáticos/hex para sus props */}
                         <LineChart data={[...pesajes].reverse()} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                          <XAxis dataKey="fecha" tickFormatter={(val: any) => new Date(val).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                          <XAxis dataKey="fecha" tickFormatter={(val: string) => formatearFechaCivil(val)} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                           <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} domain={['dataMin - 10', 'auto']} />
-                          <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} labelFormatter={(val: any) => new Date(val).toLocaleDateString()} />
+                          <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} labelFormatter={(val) => formatearFechaCivil(String(val))} />
                           <Line type="monotone" dataKey={(p: any) => Number(p.pesoActualKg) || 0} stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: '#10b981', strokeWidth: 0 }} activeDot={{ r: 6, fill: '#10b981' }} name="Peso (kg)" />
                         </LineChart>
                       </ResponsiveContainer>
@@ -996,7 +997,7 @@ export default function ExpedienteAnimal() {
                       const totalLeche = (Number(p.lecheMananaL) || 0) + (Number(p.lecheTardeL) || 0);
                       return (
                         <div key={p.id} className="flex items-center justify-between py-2 border-b border-slate-100">
-                          <span className="text-sm text-slate-500 w-1/3">{new Date(p.fecha).toLocaleDateString()}</span>
+                          <span className="text-sm text-slate-500 w-1/3">{formatearFechaCivil(p.fecha)}</span>
                           <span className="text-sm font-bold text-navy w-1/3">{p.pesoActualKg ? `${p.pesoActualKg} kg` : '-'}</span>
                           {!isMacho && (
                             <span className="text-sm font-bold text-green-600 w-1/3 text-right">
@@ -1045,7 +1046,7 @@ export default function ExpedienteAnimal() {
                           </div>
                           <h4 className="font-bold text-navy text-sm mb-1">{doc.tipo}</h4>
                           <p className="text-xs text-slate-400">
-                            Cargado el {new Date(doc.createdAt).toLocaleDateString()}
+                            Cargado el {formatearFechaCivil(doc.createdAt)}
                           </p>
                         </div>
                         <div className="mt-5 pt-4 border-t border-slate-100">

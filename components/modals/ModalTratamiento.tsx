@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { X, Upload, Link as LinkIcon, Loader2, AlertTriangle, Sparkles, AlertCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { hoyLocal, normalizarFechaCivil } from '@/lib/reproductivo/fechas';
 import {
   getMedicamentos,
   getPadecimientos,
@@ -69,7 +70,7 @@ function getInitialState(
         dosis: initialData.dosis || '',
         via: initialData.via || 'Intramuscular',
         fecha: initialData.fecha
-          ? new Date(initialData.fecha).toISOString().split('T')[0]
+          ? normalizarFechaCivil(initialData.fecha) ?? ''
           : '',
         diagnostico: isCustomDiagnostico ? 'Otro' : (initialData.diagnostico || ''),
         veterinario: initialData.veterinario || '',
@@ -87,7 +88,7 @@ function getInitialState(
       farmaco: '',
       dosis: '',
       via: 'Intramuscular',
-      fecha: new Date().toISOString().split('T')[0],
+      fecha: hoyLocal(),
       diagnostico: '',
       veterinario: '',
       dias_retiro_leche: '0',

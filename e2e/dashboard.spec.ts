@@ -60,6 +60,22 @@ const ANIMALES_MOCK_API = [
 
 test.beforeEach(async ({ context, page }) => {
   // Inyectar cookie de sesión de prueba para pasar el middleware de autenticación
+  const now = Math.floor(Date.now() / 1000);
+  const session = {
+    access_token: 'playwright.test.token',
+    refresh_token: 'playwright.test.refresh',
+    token_type: 'bearer',
+    expires_in: 3600,
+    expires_at: now + 3600,
+    user: {
+      id: 'owner-test',
+      aud: 'authenticated',
+      role: 'authenticated',
+      email: 'propietario@example.test',
+      app_metadata: { rol: 'propietario', tenant_id: 'tenant-test' },
+      user_metadata: { nombre_completo: 'Propietario de prueba' },
+    },
+  };
   await context.addCookies([
     {
       name: 'playwright_test_session',
@@ -67,7 +83,28 @@ test.beforeEach(async ({ context, page }) => {
       domain: 'localhost',
       path: '/',
     },
+    {
+      name: 'sb-jchrtqgzvidlcezzhols-auth-token',
+      value: `base64-${Buffer.from(JSON.stringify(session)).toString('base64url')}`,
+      domain: 'localhost',
+      path: '/',
+    },
   ]);
+
+  await page.route('**/auth/perfil', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        userId: 'owner-test',
+        tenantId: 'tenant-test',
+        rol: 'propietario',
+        nombreCompleto: 'Propietario de prueba',
+        correo: 'propietario@example.test',
+        nombreFinca: 'Finca de prueba',
+      }),
+    });
+  });
 
   // Interceptar llamadas a la API de backend para que la prueba sea determinista y aislada
   await page.route('**/animales*', async (route) => {
@@ -162,9 +199,20 @@ test.describe('Dashboard MOD-04 — Flujo principal de usuario', () => {
 
     // 5. Debe cerrarse el selector y abrirse directamente el formulario ModalTratamiento
     await expect(selectorModal).not.toBeVisible();
-    const modalTratamiento = page.locator('div.fixed.inset-0').filter({ hasText: /Aplicar Tratamiento Médico/i });
-    await expect(modalTratamiento.getByRole('heading', { name: 'Aplicar Tratamiento Médico' })).toBeVisible();
+    const modalTratamiento = page.locator('div.fixed.inset-0').filter({ hasText: /Registrar Tratamiento Veterinario/i });
+    await expect(modalTratamiento.getByRole('heading', { name: 'Registrar Tratamiento Veterinario' })).toBeVisible();
     await expect(modalTratamiento.getByText(/Fármaco \*/i)).toBeVisible();
+    const fechaCostaRica = await page.evaluate(() =>
+      new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Costa_Rica',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(new Date()),
+    );
+    await expect(modalTratamiento.locator('input[type="date"]')).toHaveValue(
+      fechaCostaRica,
+    );
 
     // Cerrar el modal de tratamiento
     await modalTratamiento.getByRole('button', { name: 'Cancelar' }).click();
@@ -201,5 +249,79 @@ test.describe('Dashboard MOD-04 — Flujo principal de usuario', () => {
     // Cerrar modal
     await modalServicio.getByRole('button', { name: 'Cancelar' }).click();
     await expect(modalServicio).not.toBeVisible();
+  });
+
+  test('el expediente conserva DateOnly y el PDF usa hoy de Costa Rica', async ({ page }) => {
+    const animalId = 'animal-date-test';
+    await page.route('**/animales/**', async (route) => {
+      const path = new URL(route.request().url()).pathname;
+      if (path === `/animales/${animalId}`) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            id: animalId,
+            tenantId: 'tenant-test',
+            nombre: 'Fecha Civil',
+            areteInterno: 'DATE-001',
+            sexo: 'Hembra',
+            razaId: 'raza-test',
+            fechaNacimiento: '2020-01-01',
+            categoria: 'Vaca',
+            activo: true,
+          }),
+        });
+      } else if (path.endsWith('/estado-reproductivo')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ animalId, sexo: 'Hembra', estadoActual: 'Vacía' }),
+        });
+      } else {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([]),
+        });
+      }
+    });
+    await page.route('**/pesajes/**', async (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+    );
+    await page.route('**/tratamientos/animal/**', async (route) => {
+      const path = new URL(route.request().url()).pathname;
+      const body = path.endsWith('/estado-sanitario')
+        ? {
+            animalId,
+            enRetiro: false,
+            liberacionLeche: null,
+            liberacionCarne: null,
+            diasRestantesLeche: 0,
+            diasRestantesCarne: 0,
+            tratamientoReferencia: null,
+          }
+        : [];
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(body),
+      });
+    });
+
+    await page.goto(`/hato/${animalId}`);
+    await expect(page.getByText('01/01/2020', { exact: true })).toBeVisible();
+    const hoyCostaRica = await page.evaluate(() =>
+      new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Costa_Rica',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(new Date()),
+    );
+    const descarga = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Descargar PDF' }).click();
+    expect((await descarga).suggestedFilename()).toBe(
+      `Expediente_DATE-001_${hoyCostaRica}.pdf`,
+    );
   });
 });
