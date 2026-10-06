@@ -8,6 +8,7 @@ import DiagnosticoForm from './forms/DiagnosticoForm';
 import PartoForm from './forms/PartoForm';
 import SecadoForm from './forms/SecadoForm';
 import { useEstadoReproductivo, useHistorialReproductivo } from '@/lib/hooks/use-reproductivo';
+import { useAuthUser } from '@/lib/hooks/useAuthUser';
 
 /**
  * Contenedor de la pestaña "Ciclo Reproductivo" del Expediente 360°.
@@ -26,6 +27,7 @@ type ModalActivo = 'servicio' | 'diagnostico' | 'parto' | 'secado' | null;
 
 export default function TabReproductivo({ animalId, sexo }: TabReproductivoProps) {
   const [modalActivo, setModalActivo] = useState<ModalActivo>(null);
+  const { role } = useAuthUser();
 
   const habilitado = sexo !== 'Macho';
 
@@ -65,6 +67,10 @@ export default function TabReproductivo({ animalId, sexo }: TabReproductivoProps
     <div className="mt-6 space-y-6">
       <EstadoReproductivoPanel
         estado={estado}
+        puedeRegistrarServicio={['propietario', 'administrador', 'peon', 'veterinario'].includes(role ?? '')}
+        puedeRegistrarDiagnostico={['propietario', 'administrador', 'veterinario'].includes(role ?? '')}
+        puedeRegistrarSecado={['propietario', 'administrador', 'peon', 'veterinario'].includes(role ?? '')}
+        puedeRegistrarParto={['propietario', 'administrador', 'peon', 'veterinario'].includes(role ?? '')}
         onRegistrarServicio={() => setModalActivo('servicio')}
         onRegistrarDiagnostico={() => setModalActivo('diagnostico')}
         onRegistrarSecado={() => setModalActivo('secado')}

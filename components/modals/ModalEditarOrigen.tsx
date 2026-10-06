@@ -1,39 +1,42 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { getAnimales } from '@/lib/api/animales';
+import { getAnimales, type Animal } from '@/lib/api/animales';
+
+export interface OrigenFormData {
+  origen: 'Finca' | 'Externa';
+  padre: string;
+  madre: string;
+  compradoA: string;
+  fechaCompra: string;
+  valorCompraCrc: number | null;
+  numeroGuia: string;
+}
 
 interface ModalEditarOrigenProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: any) => void;
-  animal: any;
+  onSubmit: (data: OrigenFormData) => void;
+  animal: Animal | null;
 }
 
-export default function ModalEditarOrigen({ isOpen, onClose, onSubmit, animal }: ModalEditarOrigenProps) {
+export default function ModalEditarOrigen(props: ModalEditarOrigenProps) {
+  if (!props.isOpen || !props.animal) return null;
+  return <ModalEditarOrigenForm {...props} animal={props.animal} key={props.animal.id} />;
+}
+
+function ModalEditarOrigenForm({ isOpen, onClose, onSubmit, animal }: Omit<ModalEditarOrigenProps, 'animal'> & { animal: Animal }) {
   const [origen, setOrigen] = useState<'Finca' | 'Externa'>(animal?.origen || 'Finca');
   const [padre, setPadre] = useState(animal?.padreId || '');
   const [madre, setMadre] = useState(animal?.madreId || '');
   
   // Campos de compra
   const [compradoA, setCompradoA] = useState(animal?.compradoA || '');
-  const [fechaCompra, setFechaCompra] = useState(animal?.fechaCompra || '');
-  const [valorCompraCrc, setValorCompraCrc] = useState(animal?.valorCompraCrc || '');
+  const [fechaCompra, setFechaCompra] = useState(animal.fechaCompra?.split('T')[0] || '');
+  const [valorCompraCrc, setValorCompraCrc] = useState(animal.valorCompraCrc == null ? '' : String(animal.valorCompraCrc));
   const [numeroGuia, setNumeroGuia] = useState(animal?.numeroGuia || '');
-
-  useEffect(() => {
-    if (isOpen && animal) {
-      setOrigen(animal.origen || 'Finca');
-      setPadre(animal.padreId || '');
-      setMadre(animal.madreId || '');
-      setCompradoA(animal.compradoA || '');
-      setFechaCompra(animal.fechaCompra ? animal.fechaCompra.split('T')[0] : '');
-      setValorCompraCrc(animal.valorCompraCrc || '');
-      setNumeroGuia(animal.numeroGuia || '');
-    }
-  }, [isOpen, animal]);
 
   const { data: animales, isLoading } = useQuery({
     queryKey: ['animales'],

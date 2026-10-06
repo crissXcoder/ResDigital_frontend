@@ -8,6 +8,10 @@ import * as animalesApi from '@/lib/api/animales';
 vi.mock('@/lib/api/animales', () => ({
   updateAnimal: vi.fn(),
   getAnimales: vi.fn().mockResolvedValue([]),
+  getRazas: vi.fn().mockResolvedValue([
+    { id: 'raza-1', nombre: 'Brahman' },
+    { id: 'raza-2', nombre: 'Otra' },
+  ]),
 }));
 
 vi.mock('@/lib/api/catalogos', () => ({
@@ -26,6 +30,7 @@ describe('Formularios de Identidad y Unicidad DIIO (HATO-T002)', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(window, 'alert').mockImplementation(() => {});
     queryClient = new QueryClient({
       defaultOptions: {
         queries: { retry: false },
@@ -42,14 +47,16 @@ describe('Formularios de Identidad y Unicidad DIIO (HATO-T002)', () => {
     );
   };
 
-  const animalMock = {
+  const animalMock: animalesApi.Animal = {
     id: 'animal-123',
+    tenantId: 'tenant-1',
     areteInterno: '101',
     nombre: 'Esperanza',
     numeroOficialDiio: 'CR-998877',
     sexo: 'Hembra',
     razaId: 'raza-1',
     categoria: 'Vaca',
+    activo: true,
     pesoActualKg: 450,
     potreroId: '',
   };

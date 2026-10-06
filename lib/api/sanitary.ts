@@ -147,15 +147,15 @@ export function toUpdateTratamientoPayload(
 }
 
 export async function getMedicamentos(): Promise<Medicamento[]> {
-  return await fetchApi('/catalogos/medicamentos');
+  return await fetchApi<Medicamento[]>('/catalogos/medicamentos');
 }
 
 export async function getPadecimientos(): Promise<Padecimiento[]> {
-  return await fetchApi('/catalogos/padecimientos');
+  return await fetchApi<Padecimiento[]>('/catalogos/padecimientos');
 }
 
 export async function getTratamientosByAnimal(animalId: string): Promise<TratamientoSanitario[]> {
-  return await fetchApi(`/tratamientos/animal/${animalId}`);
+  return await fetchApi<TratamientoSanitario[]>(`/tratamientos/animal/${animalId}`);
 }
 
 export async function getEstadoSanitario(
@@ -165,11 +165,11 @@ export async function getEstadoSanitario(
   const qs = fechaReferencia
     ? `?fechaReferencia=${encodeURIComponent(fechaReferencia)}`
     : '';
-  return await fetchApi(`/tratamientos/animal/${animalId}/estado-sanitario${qs}`);
+  return await fetchApi<EstadoSanitario>(`/tratamientos/animal/${animalId}/estado-sanitario${qs}`);
 }
 
 export async function createTratamiento(payload: CreateTratamientoDto): Promise<TratamientoSanitario> {
-  return await fetchApi('/tratamientos', {
+  return await fetchApi<TratamientoSanitario>('/tratamientos', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
@@ -179,7 +179,7 @@ export async function updateTratamiento(
   id: string,
   payload: UpdateTratamientoDto,
 ): Promise<TratamientoSanitario> {
-  return await fetchApi(`/tratamientos/${id}`, {
+  return await fetchApi<TratamientoSanitario>(`/tratamientos/${id}`, {
     method: 'PUT',
     body: JSON.stringify(payload),
   });

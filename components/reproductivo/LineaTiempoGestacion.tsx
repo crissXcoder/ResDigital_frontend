@@ -1,7 +1,7 @@
 'use client';
 
 import { CheckCircle2 } from 'lucide-react';
-import { formatearFecha } from '@/lib/reproductivo/fechas';
+import { formatearFecha, hoyLocal } from '@/lib/reproductivo/fechas';
 import { CLASES_HITO } from '@/lib/reproductivo/estado-colores';
 import type { EstadoReproductivoResponse } from '@/lib/reproductivo/tipos';
 
@@ -41,7 +41,7 @@ export default function LineaTiempoGestacion({ estado }: LineaTiempoGestacionPro
     );
   }
 
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = hoyLocal();
   const hitosPorTipo = new Map((estado?.proximosHitos ?? []).map((h) => [h.tipo, h]));
 
   const pasos: PasoTimeline[] = [

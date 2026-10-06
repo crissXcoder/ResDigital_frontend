@@ -27,10 +27,31 @@ import {
 const MARGEN_DIAS = 1;
 
 function diasHastaFecha(fechaIso: string): number {
-  const msPorDia = 1000 * 60 * 60 * 24;
-  const objetivo = new Date(fechaIso);
-  const inicioHoy = new Date(new Date().toDateString());
-  return Math.round((objetivo.getTime() - inicioHoy.getTime()) / msPorDia);
+  const hoy = fechaHoyCostaRica().split('-').map(Number);
+  const fecha = fechaIso.split('-').map(Number);
+  return (
+    Date.UTC(fecha[0], fecha[1] - 1, fecha[2]) -
+    Date.UTC(hoy[0], hoy[1] - 1, hoy[2])
+  ) / (24 * 60 * 60 * 1000);
+}
+
+function fechaHoyCostaRica(): string {
+  const partes = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Costa_Rica',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const valor = (tipo: Intl.DateTimeFormatPartTypes) =>
+    partes.find((parte) => parte.type === tipo)?.value;
+  return `${valor('year')}-${valor('month')}-${valor('day')}`;
+}
+
+function fechaEsperadaCostaRica(dias: number): string {
+  const [anio, mes, dia] = fechaHoyCostaRica().split('-').map(Number);
+  return new Date(Date.UTC(anio, mes - 1, dia + dias))
+    .toISOString()
+    .slice(0, 10);
 }
 
 // ─── Fechas de retiros sanitarios ──────────────────────────────────────────────
@@ -66,11 +87,9 @@ describe('Fechas de retiro sanitario (getMockAnimalesEnRetiro)', () => {
     // la fecha desde `hoy` y sumando días con setDate, no desde un string ISO.
     for (const r of retiros) {
       if (r.fechaLiberacionLeche && r.diasRestantesLeche !== null) {
-        // Reconstruimos la fecha esperada sin ambigüedad de zona horaria:
-        const esperada = new Date();
-        esperada.setDate(esperada.getDate() + r.diasRestantesLeche);
-        const esperadaIso = esperada.toISOString().slice(0, 10);
-        expect(r.fechaLiberacionLeche).toBe(esperadaIso);
+        expect(r.fechaLiberacionLeche).toBe(
+          fechaEsperadaCostaRica(r.diasRestantesLeche),
+        );
       }
     }
   });
@@ -96,10 +115,7 @@ describe('Fechas de próximos eventos reproductivos (getMockProximosEventosRepro
 
   it('no hay corrimiento de zona horaria en las fechas de eventos', () => {
     for (const e of eventos) {
-      const esperada = new Date();
-      esperada.setDate(esperada.getDate() + e.diasRestantes);
-      const esperadaIso = esperada.toISOString().slice(0, 10);
-      expect(e.fecha).toBe(esperadaIso);
+      expect(e.fecha).toBe(fechaEsperadaCostaRica(e.diasRestantes));
     }
   });
 
@@ -107,9 +123,9 @@ describe('Fechas de próximos eventos reproductivos (getMockProximosEventosRepro
     // El mock no garantiza orden, pero si lo están, debe mantenerse al conectar datos reales.
     // Esta prueba sirve como documentación de expectativa — si falla al conectar el backend,
     // hay que agregar un .sort() en el hook useProximosEventosReproductivos.
-    const fechas = eventos.map((e) => new Date(e.fecha).getTime());
+    const fechas = eventos.map((evento) => evento.fecha);
     for (let i = 0; i < fechas.length - 1; i++) {
-      expect(fechas[i]).toBeLessThanOrEqual(fechas[i + 1]);
+      expect(fechas[i] <= fechas[i + 1]).toBe(true);
     }
   });
 });

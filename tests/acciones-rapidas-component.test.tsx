@@ -176,19 +176,20 @@ describe('AccionesRapidas Component — Autorización por rol y flujo real (DASH
       });
     });
 
-    it('deshabilita todas las acciones rápidas del dashboard y muestra advertencia de rol', () => {
+    it('permite las tres acciones rápidas que autoriza la matriz', () => {
       renderWithQueryClient(<AccionesRapidas />);
 
       const btnTratamiento = screen.getByTestId('accion-rapida-tratamiento') as HTMLButtonElement;
       const btnReproductivo = screen.getByTestId('accion-rapida-reproductivo') as HTMLButtonElement;
       const btnLeche = screen.getByTestId('accion-rapida-leche') as HTMLButtonElement;
 
-      expect(btnTratamiento.disabled).toBe(true);
-      expect(btnReproductivo.disabled).toBe(true);
-      expect(btnLeche.disabled).toBe(true);
+      expect(btnTratamiento.disabled).toBe(false);
+      expect(btnReproductivo.disabled).toBe(false);
+      expect(btnLeche.disabled).toBe(false);
+      expect(screen.queryByText('Rol no autorizado')).toBeNull();
 
-      const badges = screen.getAllByText('Rol no autorizado');
-      expect(badges).toHaveLength(3);
+      fireEvent.click(btnReproductivo);
+      expect(screen.getByText('Seleccionar Hembra para Evento Reproductivo')).toBeDefined();
     });
   });
 });

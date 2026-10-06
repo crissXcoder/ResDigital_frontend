@@ -187,10 +187,10 @@ describe('puedeEjecutarAccion — Matriz de Roles y Autorización (DASH-T005 / A
   });
 
   describe('Rol: peon', () => {
-    it('no tiene permiso directo en acciones rápidas del dashboard', () => {
-      expect(puedeEjecutarAccion('tratamiento', 'peon')).toBe(false);
-      expect(puedeEjecutarAccion('reproductivo', 'peon')).toBe(false);
-      expect(puedeEjecutarAccion('leche', 'peon')).toBe(false);
+    it('puede ejecutar las acciones rápidas permitidas por la matriz', () => {
+      expect(puedeEjecutarAccion('tratamiento', 'peon')).toBe(true);
+      expect(puedeEjecutarAccion('reproductivo', 'peon')).toBe(true);
+      expect(puedeEjecutarAccion('leche', 'peon')).toBe(true);
     });
   });
 });

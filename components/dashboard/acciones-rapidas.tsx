@@ -21,9 +21,9 @@ import { useAuthUser, type RolUsuario } from "@/lib/hooks/useAuthUser";
 export type TipoAccionRapida = "tratamiento" | "reproductivo" | "leche";
 
 export const ROLES_PERMITIDOS_ACCION: Record<TipoAccionRapida, RolUsuario[]> = {
-  tratamiento: ["propietario", "administrador", "veterinario"],
-  reproductivo: ["propietario", "administrador", "veterinario"],
-  leche: ["propietario", "administrador"],
+  tratamiento: ["propietario", "administrador", "peon", "veterinario"],
+  reproductivo: ["propietario", "administrador", "peon", "veterinario"],
+  leche: ["propietario", "administrador", "peon"],
 };
 
 export function puedeEjecutarAccion(
