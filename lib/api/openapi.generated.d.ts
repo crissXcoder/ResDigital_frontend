@@ -128,7 +128,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Consultar el evento de baja histórico del animal */
+        get: operations["AnimalesController_getBaja"];
         put?: never;
         post: operations["AnimalesController_darDeBaja"];
         delete?: never;
@@ -1145,6 +1146,33 @@ export interface operations {
         };
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AnimalesController_getBaja: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Evento histórico de baja del animal */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Animal no encontrado o sin registro de baja */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
