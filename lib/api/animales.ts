@@ -40,7 +40,9 @@ export interface Animal {
   referenciaPago?: string;
   
   // Campos faltantes (TS Errors)
-  pesoActualKg?: number;
+  pesoActualKg?: number | null;
+  uaCalculada?: number;
+  metodoCalculoUa?: 'PESO' | 'CATEGORIA';
   potreroId?: string;
   potrero?: { id: string; nombre: string; };
   tipoBaja?: string;

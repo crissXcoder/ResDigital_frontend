@@ -204,7 +204,12 @@ export default function PotreroDetailPage() {
                 </div>
                 <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
                   <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Animales</p>
-                  <p className="text-lg font-bold text-navy">{potrero.animalesAsignadosCount}</p>
+                  <p className="text-lg font-bold text-navy">
+                    {potrero.animalesAsignadosCount}{' '}
+                    <span className="text-xs font-semibold text-slate-500">
+                      cabezas ({potrero.uaTotal.toFixed(2)} UA)
+                    </span>
+                  </p>
                 </div>
                 <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
                   <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Pasto</p>
@@ -220,7 +225,7 @@ export default function PotreroDetailPage() {
                 </div>
                 <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
                   <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Carga Actual</p>
-                  <p className="text-lg font-bold text-navy">{potrero.cargaActualUaHa.toFixed(1)} UA/ha</p>
+                  <p className="text-lg font-bold text-navy">{potrero.cargaActualUaHa.toFixed(2)} UA/ha</p>
                 </div>
               </div>
             </div>
@@ -249,8 +254,17 @@ export default function PotreroDetailPage() {
                         <p className="font-extrabold text-navy text-sm">
                           #{animal.areteInterno} {animal.nombre || ''}
                         </p>
-                        <p className="text-slate-400 text-xs font-medium">
-                          {animal.raza?.nombre || animal.razaOtra || 'Sin raza'} {animal.pesoActualKg ? `· ${animal.pesoActualKg}kg` : ''}
+                        <p className="text-slate-400 text-xs font-medium flex items-center gap-1.5 flex-wrap">
+                          <span>{animal.raza?.nombre || animal.razaOtra || 'Sin raza'}</span>
+                          {animal.pesoActualKg ? <span>· {animal.pesoActualKg}kg</span> : null}
+                          {animal.uaCalculada !== undefined && (
+                            <span
+                              className="text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200"
+                              title={animal.metodoCalculoUa === 'PESO' ? 'Derivado de peso vivo (base 450 kg)' : 'Factor zootécnico por categoría'}
+                            >
+                              {animal.uaCalculada.toFixed(2)} UA ({animal.metodoCalculoUa === 'PESO' ? 'peso' : 'cat'})
+                            </span>
+                          )}
                         </p>
                       </div>
                     </div>

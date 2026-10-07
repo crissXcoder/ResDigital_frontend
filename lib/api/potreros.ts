@@ -22,6 +22,11 @@ export interface Potrero {
   estadoOperativo: 'DISPONIBLE' | 'OCUPADO' | 'EN RECUPERACIÓN' | 'EN MANTENIMIENTO' | string;
   sobrecargado: boolean;
   animalesAsignadosCount: number;
+  desgloseUa?: {
+    porPeso: number;
+    porCategoria: number;
+    total: number;
+  };
 
   animales?: Animal[];
 }
