@@ -130,6 +130,7 @@ function ModalDarBajaForm({ isOpen, onClose, animal }: Omit<ModalDarBajaProps, '
             </label>
             <input
               type="number"
+              min="0"
               step="0.1"
               value={formData.pesoFinalKg}
               onChange={(e) => setFormData({ ...formData, pesoFinalKg: e.target.value })}

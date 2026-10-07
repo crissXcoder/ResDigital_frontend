@@ -134,6 +134,7 @@ export default function ExpedienteAnimal() {
   const { data: estadoReproductivo } = useQuery({
     queryKey: ['estadoReproductivo', animalId],
     queryFn: () => getEstadoReproductivo(animalId),
+    enabled: Boolean(animal && animal.sexo === 'Hembra'),
   });
 
   const { data: tratamientos } = useQuery({
@@ -582,26 +583,6 @@ export default function ExpedienteAnimal() {
 
             {/* Action Buttons */}
             <div className="flex flex-col gap-2 shrink-0">
-              <RequireRole roles={['propietario', 'administrador', 'peon']}><button
-                onClick={() => setIsPesajeOpen(true)}
-                className="w-full sm:w-auto px-5 py-2.5 bg-navy text-white rounded-lg text-sm font-bold shadow-sm hover:bg-navy-light transition-colors"
-              >
-                Registrar Pesaje
-              </button></RequireRole>
-              {!isMacho && <RequireRole roles={['propietario', 'administrador', 'peon', 'veterinario']}>
-                <button
-                  onClick={() => setIsServicioOpen(true)}
-                  className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-bold shadow-sm hover:bg-blue-700 transition-colors"
-                >
-                  Registrar Servicio
-                </button>
-              </RequireRole>}
-              <RequireRole roles={['propietario', 'administrador', 'peon', 'veterinario']}><button
-                onClick={() => setIsTratamientoOpen(true)}
-                className="w-full sm:w-auto px-5 py-2.5 bg-red-600 text-white rounded-lg text-sm font-bold shadow-sm hover:bg-red-700 transition-colors"
-              >
-                Aplicar Tratamiento
-              </button></RequireRole>
               <button
                 onClick={handleDownloadPDF}
                 className="w-full sm:w-auto px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-50 transition-colors"
@@ -1159,8 +1140,8 @@ export default function ExpedienteAnimal() {
         isOpen={isOrigenOpen}
         onClose={() => setIsOrigenOpen(false)}
         animal={animal}
-        onSubmit={(data) => {
-          updateAnimalMutation.mutate({
+        onSubmit={async (data) => {
+          await updateAnimalMutation.mutateAsync({
             origen: data.origen,
             padreId: data.padre || null,
             madreId: data.madre || null,

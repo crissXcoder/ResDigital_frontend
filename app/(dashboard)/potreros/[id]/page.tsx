@@ -3,12 +3,12 @@
 import type { Animal } from '@/lib/api/animales';
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getPotrero } from '@/lib/api/potreros';
+import { getPotrero, getMovimientosPotrero } from '@/lib/api/potreros';
 import { ArrowLeft, Edit2, Plus, ArrowRightLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { FormPotrero } from '../components/FormPotrero';
-import { diferenciaDiasCivil, hoyLocal } from '@/lib/reproductivo/fechas';
+import { diferenciaDiasCivil, hoyLocal, formatearFecha } from '@/lib/reproductivo/fechas';
 import { RequireRole } from '@/components/auth/RequireRole';
 
 export default function PotreroDetailPage() {
@@ -21,6 +21,11 @@ export default function PotreroDetailPage() {
   const { data: potrero, isLoading } = useQuery({
     queryKey: ['potrero', id],
     queryFn: () => getPotrero(id),
+  });
+
+  const { data: movimientos = [], isLoading: loadingMovimientos } = useQuery({
+    queryKey: ['potrero-movimientos', id],
+    queryFn: () => getMovimientosPotrero(id),
   });
 
   if (isLoading) return <div className="p-8 text-slate-500 font-medium">Cargando potrero...</div>;
@@ -267,7 +272,94 @@ export default function PotreroDetailPage() {
 
           </div>
         </div>
+
+        {/* Historial de Movimientos de Potrero */}
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 md:p-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div>
+              <h3 className="text-xl font-extrabold text-navy">Historial de Movimientos</h3>
+              <p className="text-sm text-slate-500 font-medium">
+                Trazabilidad cronológica de entradas y salidas registradas en este potrero.
+              </p>
+            </div>
+            <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3.5 py-1.5 rounded-full self-start sm:self-auto">
+              {movimientos.length} movimiento(s)
+            </span>
+          </div>
+
+          {loadingMovimientos ? (
+            <div className="p-8 text-center text-slate-400 font-medium">Cargando historial de movimientos...</div>
+          ) : movimientos.length === 0 ? (
+            <div className="p-8 text-center text-slate-400 font-medium border border-dashed border-slate-200 rounded-2xl">
+              No hay movimientos históricos registrados para este potrero.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-100">
+                    <th className="py-3 px-4 text-xs font-extrabold text-slate-400 uppercase tracking-wider">Fecha</th>
+                    <th className="py-3 px-4 text-xs font-extrabold text-slate-400 uppercase tracking-wider">Tipo</th>
+                    <th className="py-3 px-4 text-xs font-extrabold text-slate-400 uppercase tracking-wider">Animal</th>
+                    <th className="py-3 px-4 text-xs font-extrabold text-slate-400 uppercase tracking-wider">Origen / Destino</th>
+                    <th className="py-3 px-4 text-xs font-extrabold text-slate-400 uppercase tracking-wider">Motivo</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {movimientos.map((m) => {
+                    const esIngreso = m.tipo === 'INGRESO';
+                    return (
+                      <tr key={m.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-3.5 px-4 font-bold text-navy text-sm whitespace-nowrap">
+                          {formatearFecha(m.fechaEvento)}
+                        </td>
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider ${
+                              esIngreso
+                                ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                                : 'bg-amber-50 text-amber-600 border-amber-200'
+                            }`}
+                          >
+                            {m.tipo}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <span className="font-extrabold text-navy text-sm">
+                            #{m.animal?.areteInterno || '—'}
+                          </span>{' '}
+                          <span className="text-slate-500 font-medium text-sm">
+                            {m.animal?.nombre || ''}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-sm text-slate-600 whitespace-nowrap">
+                          {esIngreso ? (
+                            <span>
+                              Desde:{' '}
+                              <strong className="text-navy">
+                                {m.potreroOrigen?.nombre || 'Sin potrero previo'}
+                              </strong>
+                            </span>
+                          ) : (
+                            <span>
+                              Hacia:{' '}
+                              <strong className="text-navy">{m.potreroDestino?.nombre}</strong>
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4 text-sm text-slate-500">
+                          {m.motivo || 'Rotación regular'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
+
       
       {isFormOpen && (
         <FormPotrero potrero={potrero} onClose={() => {
