@@ -86,9 +86,9 @@ function ModalEditarOrigenForm({ isOpen, onClose, onSubmit, animal }: Omit<Modal
     }
 
     try {
-      await onSubmit({ 
-        origen, 
-        padre, 
+      await onSubmit({
+        origen,
+        padre,
         madre,
         compradoA,
         fechaCompra,

@@ -89,4 +89,3 @@ export const getMovimientosPotrero = async (id: string): Promise<MovimientoPotre
 export const getMovimientosAnimal = async (animalId: string): Promise<MovimientoPotrero[]> => {
   return await fetchApi<MovimientoPotrero[]>(`/potreros/animal/${animalId}/movimientos`);
 };
-
