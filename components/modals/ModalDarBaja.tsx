@@ -90,10 +90,11 @@ function ModalDarBajaForm({ isOpen, onClose, animal }: Omit<ModalDarBajaProps, '
             Al dar de baja a este animal, se registrará su salida y ya no aparecerá en el inventario activo.
           </p>
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+            <label htmlFor="tipo-baja-select" className="block text-sm font-semibold text-slate-700 mb-1.5">
               Tipo de Baja *
             </label>
             <select
+              id="tipo-baja-select"
               required
               value={formData.tipoBaja}
               onChange={(e) => setFormData({ ...formData, tipoBaja: e.target.value })}
@@ -110,10 +111,11 @@ function ModalDarBajaForm({ isOpen, onClose, animal }: Omit<ModalDarBajaProps, '
 
           {(formData.tipoBaja && formData.tipoBaja !== 'Venta Comercial') && (
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+              <label htmlFor="motivo-baja-input" className="block text-sm font-semibold text-slate-700 mb-1.5">
                 Motivo / Causa / Destino
               </label>
               <input
+                id="motivo-baja-input"
                 required={isOtroMotivo}
                 type="text"
                 value={formData.motivoBaja}
@@ -125,10 +127,11 @@ function ModalDarBajaForm({ isOpen, onClose, animal }: Omit<ModalDarBajaProps, '
           )}
 
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+            <label htmlFor="peso-final-input" className="block text-sm font-semibold text-slate-700 mb-1.5">
               Peso Final (kg)
             </label>
             <input
+              id="peso-final-input"
               type="number"
               min="0"
               step="0.1"

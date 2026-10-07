@@ -45,6 +45,8 @@ export interface Animal {
   potrero?: { id: string; nombre: string; };
   tipoBaja?: string;
   motivoBaja?: string;
+  fechaBaja?: string | null;
+  precioVentaCrc?: number | null;
   pesoFinalKg?: number;
 }
 
@@ -79,6 +81,16 @@ export interface BajaAnimalInput {
   fechaBaja: string;
   precioVentaCrc?: number;
   pesoFinalKg?: number | null;
+}
+export interface EventoBajaResponse {
+  eventoId: string | null;
+  tipoBaja: string;
+  motivo?: string | null;
+  fechaBaja: string;
+  fechaRegistro?: string;
+  precioVentaCrc?: number | null;
+  pesoFinalKg?: number | null;
+  usuarioId?: string | null;
 }
 export interface CreatePesajeInput {
   animalId: string;
@@ -142,6 +154,10 @@ export const darDeBajaAnimal = async (id: string, data: BajaAnimalInput): Promis
     method: 'POST',
     body: JSON.stringify(data),
   });
+};
+
+export const getBajaAnimal = async (id: string): Promise<EventoBajaResponse> => {
+  return fetchApi<EventoBajaResponse>(`/animales/${id}/baja`);
 };
 
 export const createPesaje = async (pesaje: CreatePesajeInput): Promise<Pesaje> => {
