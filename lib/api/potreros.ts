@@ -13,13 +13,16 @@ export interface Potrero {
   fuenteAgua: string | null;
   notas: string | null;
   estadoManual: string | null;
-  
+
   // Computed fields
   cargaActualUaHa: number;
   uaTotal: number;
-  estadoCalculado: 'DISPONIBLE' | 'EN RECUPERACIÓN' | 'SOBRECARGADO' | 'DESCANSO PROGRAMADO' | string;
+  estadoCalculado: 'DISPONIBLE' | 'EN RECUPERACIÓN' | 'SOBRECARGADO' | 'DESCANSO PROGRAMADO' | 'EN MANTENIMIENTO' | string;
+  estadoCarga: 'SOBRECARGADO' | 'ÓPTIMO' | 'SIN_CARGA' | string;
+  estadoOperativo: 'DISPONIBLE' | 'OCUPADO' | 'EN RECUPERACIÓN' | 'EN MANTENIMIENTO' | string;
+  sobrecargado: boolean;
   animalesAsignadosCount: number;
-  
+
   animales?: Animal[];
 }
 

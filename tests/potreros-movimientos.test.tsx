@@ -38,6 +38,9 @@ describe('POT-T001 — Historial de Movimientos de Potrero', () => {
     cargaActualUaHa: 1.2,
     uaTotal: 18,
     estadoCalculado: 'DISPONIBLE',
+    estadoCarga: 'ÓPTIMO',
+    estadoOperativo: 'OCUPADO',
+    sobrecargado: false,
     animalesAsignadosCount: 2,
     animales: [],
   };
@@ -118,5 +121,64 @@ describe('POT-T001 — Historial de Movimientos de Potrero', () => {
     ).toBeDefined();
     expect(screen.getByText('0 movimiento(s)')).toBeDefined();
   });
+});
 
+describe('POT-T002 — Separación de Estado Operativo y Carga Derivada', () => {
+  let queryClient: QueryClient;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+  });
+
+  const renderWithClient = (ui: React.ReactElement) => {
+    return render(
+      <QueryClientProvider client={queryClient}>
+        {ui}
+      </QueryClientProvider>,
+    );
+  };
+
+  it('muestra banner de alerta de sobrecarga crítica y desglose operativo y de carga cuando sobrecargado es true', async () => {
+    const potreroSobrecargado: potrerosApi.Potrero = {
+      id: 'potrero-123',
+      tenantId: 'tenant-test',
+      nombre: 'Potrero Sobrecargado',
+      areaHa: 2,
+      tipoPasto: 'Brizantha',
+      capacidadRecomendadaUaHa: 1.5,
+      diasDescansoRecomendados: 28,
+      fechaUltimoIngreso: '2026-10-06',
+      fuenteAgua: 'Bebedero',
+      notas: null,
+      estadoManual: 'DISPONIBLE',
+      cargaActualUaHa: 4.5,
+      uaTotal: 9,
+      estadoCalculado: 'SOBRECARGADO',
+      estadoCarga: 'SOBRECARGADO',
+      estadoOperativo: 'DISPONIBLE',
+      sobrecargado: true,
+      animalesAsignadosCount: 9,
+      animales: [],
+    };
+
+    vi.mocked(potrerosApi.getPotrero).mockResolvedValue(potreroSobrecargado);
+    vi.mocked(potrerosApi.getMovimientosPotrero).mockResolvedValue([]);
+
+    renderWithClient(<PotreroDetailPage />);
+
+    // Debe mostrar la alerta crítica sin ser ocultada por el estado manual
+    expect(await screen.findByText('Alerta de Sobrecarga Crítica')).toBeDefined();
+    expect(screen.getByText(/Carga actual: 4.5 UA\/ha/)).toBeDefined();
+    expect(screen.getByText(/Estado operativo manual: DISPONIBLE/)).toBeDefined();
+
+    // Debe mostrar ambos estados en la línea de rotación
+    expect(screen.getByText('Estado operativo')).toBeDefined();
+    expect(screen.getByText('Estado de carga')).toBeDefined();
+  });
 });
