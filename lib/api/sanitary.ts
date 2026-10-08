@@ -1,4 +1,5 @@
 import { fetchApi } from './client';
+import type { AnimalEnRetiro } from '@/lib/types/dashboard';
 
 export interface Medicamento {
   id: string;
@@ -8,6 +9,8 @@ export interface Medicamento {
   viaAdministracion: string | null;
   diasRetiroLecheDefault: number;
   diasRetiroCarneDefault: number;
+  /** Fila del catálogo base sin persistir: su id no existe en la base. */
+  referencia?: boolean;
 }
 
 export interface Padecimiento {
@@ -17,53 +20,58 @@ export interface Padecimiento {
   categoria: string | null;
   medicamentoSugeridoId: string | null;
   medicamentoSugerido?: Medicamento | null;
+  /** Fila del catálogo base sin persistir: su id no existe en la base. */
+  referencia?: boolean;
 }
 
+/** Tratamiento vigente tal como lo devuelve la API (id = evento TRATAMIENTO). */
 export interface TratamientoSanitario {
   id: string;
-  tenantId?: string;
   animalId: string;
+  fecha: string; // YYYY-MM-DD, aplicación
+  fechaUltimaAdministracion: string;
+  medicamentoId: string | null;
   farmaco: string;
+  padecimientoId: string | null;
+  diagnostico: string;
   dosis: string;
   via: string | null;
-  fecha: string; // YYYY-MM-DD
-  diagnostico: string;
   veterinario: string | null;
-  diasRetiro: number;
   diasRetiroLeche: number;
   diasRetiroCarne: number;
-  fechaLiberacionLeche: string | null;
-  fechaLiberacionCarne: string | null;
+  fechaLiberacionLeche: string;
+  fechaLiberacionCarne: string;
   documentoUrl: string | null;
-  createdAt?: string;
-  updatedAt?: string;
+  usuarioId: string;
+  eventoCorrigeId: string | null;
+  fechaRegistro: string;
 }
 
-export interface CreateTratamientoDto {
-  animalId: string;
-  farmaco: string;
+export interface DatosTratamientoDto {
+  medicamentoId?: string;
+  farmaco?: string;
+  padecimientoId?: string;
+  diagnostico?: string;
   dosis: string;
   via?: string;
   fecha: string;
-  diagnostico: string;
+  fechaUltimaAdministracion?: string;
   veterinario?: string;
-  diasRetiro?: number;
-  diasRetiroLeche?: number;
-  diasRetiroCarne?: number;
-  documentoUrl?: string | null;
+  diasRetiroLeche: number;
+  diasRetiroCarne: number;
+  documentoUrl?: string;
 }
 
-export interface UpdateTratamientoDto {
-  farmaco?: string;
-  dosis?: string;
-  via?: string;
-  fecha?: string;
-  diagnostico?: string;
-  veterinario?: string;
-  diasRetiro?: number;
-  diasRetiroLeche?: number;
-  diasRetiroCarne?: number;
-  documentoUrl?: string | null;
+export interface CreateTratamientoDto extends DatosTratamientoDto {
+  animalId: string;
+}
+
+export type CorregirTratamientoDto = DatosTratamientoDto;
+
+export interface AnulacionTratamiento {
+  id: string;
+  eventoAnulacionId: string;
+  motivo: string;
 }
 
 export interface EstadoSanitario {
@@ -73,77 +81,69 @@ export interface EstadoSanitario {
   liberacionCarne: string | null;
   diasRestantesLeche: number;
   diasRestantesCarne: number;
-  tratamientoReferencia: { id: string; farmaco: string } | null;
+  tratamientoReferencia: {
+    id: string;
+    farmaco: string;
+    fechaAplicacion: string | null;
+  } | null;
 }
 
-const CREATE_WHITELIST = [
-  'animalId',
-  'farmaco',
-  'dosis',
-  'via',
-  'fecha',
-  'diagnostico',
-  'veterinario',
-  'diasRetiro',
-  'diasRetiroLeche',
-  'diasRetiroCarne',
-  'documentoUrl',
-] as const;
+export interface RetiroActivo extends AnimalEnRetiro {
+  tratamientoReferencia: EstadoSanitario['tratamientoReferencia'];
+}
+
+function texto(valor: unknown): string | undefined {
+  if (valor == null) return undefined;
+  const limpio = String(valor).trim();
+  return limpio === '' ? undefined : limpio;
+}
 
 /**
- * Mapea datos del modal (snake_case o camelCase) a un payload whitelist
- * compatible con ValidationPipe forbidNonWhitelisted.
+ * Construye el cuerpo exacto que acepta la API (ValidationPipe con
+ * forbidNonWhitelisted): solo claves conocidas y sin el legado `diasRetiro`.
  */
+export function toDatosTratamientoPayload(
+  input: Record<string, unknown>,
+): DatosTratamientoDto {
+  const payload: DatosTratamientoDto = {
+    dosis: String(input.dosis ?? '').trim(),
+    fecha: String(input.fecha ?? '').slice(0, 10),
+    diasRetiroLeche: Number(input.diasRetiroLeche) || 0,
+    diasRetiroCarne: Number(input.diasRetiroCarne) || 0,
+  };
+
+  const medicamentoId = texto(input.medicamentoId);
+  if (medicamentoId) payload.medicamentoId = medicamentoId;
+  else {
+    const farmaco = texto(input.farmaco);
+    if (farmaco) payload.farmaco = farmaco;
+  }
+
+  const padecimientoId = texto(input.padecimientoId);
+  if (padecimientoId) payload.padecimientoId = padecimientoId;
+  else {
+    const diagnostico = texto(input.diagnostico);
+    if (diagnostico) payload.diagnostico = diagnostico;
+  }
+
+  const ultima = texto(input.fechaUltimaAdministracion)?.slice(0, 10);
+  if (ultima && ultima !== payload.fecha) payload.fechaUltimaAdministracion = ultima;
+
+  const via = texto(input.via);
+  if (via) payload.via = via;
+  const veterinario = texto(input.veterinario);
+  if (veterinario) payload.veterinario = veterinario;
+  const documentoUrl = texto(input.documentoUrl);
+  if (documentoUrl) payload.documentoUrl = documentoUrl;
+
+  return payload;
+}
+
 export function toCreateTratamientoPayload(
   input: Record<string, unknown>,
   animalId: string,
 ): CreateTratamientoDto {
-  const lecheRaw =
-    input.diasRetiroLeche ?? input.dias_retiro_leche ?? input.diasRetiro ?? input.dias_retiro ?? 0;
-  const carneRaw =
-    input.diasRetiroCarne ?? input.dias_retiro_carne ?? input.diasRetiro ?? input.dias_retiro ?? 0;
-  const diasRetiroLeche = Number(lecheRaw) || 0;
-  const diasRetiroCarne = Number(carneRaw) || 0;
-  const diasRetiro =
-    Number(input.diasRetiro ?? input.dias_retiro) ||
-    Math.max(diasRetiroLeche, diasRetiroCarne);
-
-  const payload: CreateTratamientoDto = {
-    animalId,
-    farmaco: String(input.farmaco ?? ''),
-    dosis: String(input.dosis ?? ''),
-    fecha: String(input.fecha ?? '').slice(0, 10),
-    diagnostico: String(input.diagnostico ?? ''),
-    diasRetiro,
-    diasRetiroLeche,
-    diasRetiroCarne,
-  };
-
-  if (input.via != null && input.via !== '') payload.via = String(input.via);
-  if (input.veterinario != null && input.veterinario !== '') {
-    payload.veterinario = String(input.veterinario);
-  }
-  if (input.documentoUrl != null && input.documentoUrl !== '') {
-    payload.documentoUrl = String(input.documentoUrl);
-  }
-
-  // Garantizar que no escapen claves fuera de whitelist
-  const cleaned = {} as CreateTratamientoDto;
-  for (const key of CREATE_WHITELIST) {
-    if (key in payload && (payload as unknown as Record<string, unknown>)[key] !== undefined) {
-      (cleaned as unknown as Record<string, unknown>)[key] = (payload as unknown as Record<string, unknown>)[key];
-    }
-  }
-  return cleaned;
-}
-
-export function toUpdateTratamientoPayload(
-  input: Record<string, unknown>,
-): UpdateTratamientoDto {
-  const base = toCreateTratamientoPayload(input, '00000000-0000-0000-0000-000000000000');
-  const { animalId: _omit, ...rest } = base;
-  void _omit;
-  return rest;
+  return { animalId, ...toDatosTratamientoPayload(input) };
 }
 
 export async function getMedicamentos(): Promise<Medicamento[]> {
@@ -168,6 +168,13 @@ export async function getEstadoSanitario(
   return await fetchApi<EstadoSanitario>(`/tratamientos/animal/${animalId}/estado-sanitario${qs}`);
 }
 
+export async function getRetirosActivos(fechaReferencia?: string): Promise<RetiroActivo[]> {
+  const qs = fechaReferencia
+    ? `?fechaReferencia=${encodeURIComponent(fechaReferencia)}`
+    : '';
+  return await fetchApi<RetiroActivo[]>(`/tratamientos/retiros-activos${qs}`);
+}
+
 export async function createTratamiento(payload: CreateTratamientoDto): Promise<TratamientoSanitario> {
   return await fetchApi<TratamientoSanitario>('/tratamientos', {
     method: 'POST',
@@ -175,13 +182,23 @@ export async function createTratamiento(payload: CreateTratamientoDto): Promise<
   });
 }
 
-export async function updateTratamiento(
+export async function corregirTratamiento(
   id: string,
-  payload: UpdateTratamientoDto,
+  payload: CorregirTratamientoDto,
 ): Promise<TratamientoSanitario> {
-  return await fetchApi<TratamientoSanitario>(`/tratamientos/${id}`, {
-    method: 'PUT',
+  return await fetchApi<TratamientoSanitario>(`/tratamientos/${id}/correccion`, {
+    method: 'POST',
     body: JSON.stringify(payload),
+  });
+}
+
+export async function anularTratamiento(
+  id: string,
+  motivo: string,
+): Promise<AnulacionTratamiento> {
+  return await fetchApi<AnulacionTratamiento>(`/tratamientos/${id}/anulacion`, {
+    method: 'POST',
+    body: JSON.stringify({ motivo }),
   });
 }
 

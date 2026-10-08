@@ -24,15 +24,15 @@ import {
   createDiagnosticoReproductivo,
 } from '@/lib/api/animales';
 import {
-  calcularFechaLiberacion,
+  anularTratamiento,
+  corregirTratamiento,
   createTratamiento,
   diasRestantesRetiro,
   formatearFecha,
   getEstadoSanitario,
   getTratamientosByAnimal,
   toCreateTratamientoPayload,
-  toUpdateTratamientoPayload,
-  updateTratamiento,
+  toDatosTratamientoPayload,
 } from '@/lib/api/sanitary';
 import { createClient } from '@/lib/supabase/client';
 import { BUCKET_ANIMAL_DOCS } from '@/lib/supabase/buckets';
@@ -56,12 +56,22 @@ import ModalPesaje from '@/components/modals/ModalPesaje';
 import ModalServicio from '@/components/modals/ModalServicio';
 import ModalDiagnostico from '@/components/modals/ModalDiagnostico';
 import ModalTratamiento from '@/components/modals/ModalTratamiento';
+import { AccionesTratamiento } from '@/components/sanitario/AccionesTratamiento';
+import { BadgesRetiro } from '@/components/sanitario/BadgesRetiro';
+import { DocumentoTratamientoLink } from '@/components/sanitario/DocumentoTratamientoLink';
 import ModalEditarOrigen from '@/components/modals/ModalEditarOrigen';
 import ModalDocumento from '@/components/modals/ModalDocumento';
 import ModalQrAnimal from '@/components/modals/ModalQrAnimal';
 import { useAuthUser } from '@/lib/hooks/useAuthUser';
 import { formatearFecha as formatearFechaCivil, hoyLocal } from '@/lib/reproductivo/fechas';
 import { RequireRole } from '@/components/auth/RequireRole';
+import TabProduccion from '@/components/produccion/TabProduccion';
+import {
+  ETIQUETA_DISPOSICION,
+  ETIQUETA_TURNO,
+  getProduccionByAnimal,
+  toCreatePesajePayload,
+} from '@/lib/api/produccion';
 function DocumentLink({ objectPath, children, ...props }: React.ComponentProps<'a'> & { objectPath: string }) {
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -85,15 +95,6 @@ import { ModalEditarAnimal } from '@/components/modals/ModalEditarAnimal';
 import { ModalDarBaja } from '@/components/modals/ModalDarBaja';
 import TabReproductivo from '@/components/reproductivo/TabReproductivo';
 import LineaTiempoGestacion from '@/components/reproductivo/LineaTiempoGestacion';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer
-} from 'recharts';
 
 export default function ExpedienteAnimal() {
   const params = useParams();
@@ -131,6 +132,12 @@ export default function ExpedienteAnimal() {
     queryFn: () => getPesajesByAnimal(animalId),
   });
 
+  const { data: produccion } = useQuery({
+    queryKey: ['produccionLeche', animalId],
+    queryFn: () => getProduccionByAnimal(animalId),
+    enabled: !!animal && animal.sexo !== 'Macho',
+  });
+
   const { data: estadoReproductivo } = useQuery({
     queryKey: ['estadoReproductivo', animalId],
     queryFn: () => getEstadoReproductivo(animalId),
@@ -152,16 +159,11 @@ export default function ExpedienteAnimal() {
   });
 
   const pesajeMutation = useMutation({
-    mutationFn: (data: PesajeFormData) => createPesaje({
-      fecha: data.fecha,
-      pesoActualKg: data.peso_actual ? parseFloat(data.peso_actual) : null,
-      lecheMananaL: data.leche_manana ? parseFloat(data.leche_manana) : null,
-      lecheTardeL: data.leche_tarde ? parseFloat(data.leche_tarde) : null,
-      animalId
-    }),
+    mutationFn: (data: PesajeFormData) =>
+      createPesaje(toCreatePesajePayload({ animalId, fecha: data.fecha, pesoActualKg: data.peso_actual })),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pesajes', animalId] });
-      setIsPesajeOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['animal', animalId] });
     }
   });
 
@@ -187,25 +189,41 @@ export default function ExpedienteAnimal() {
     }
   });
 
+  const invalidarSanitario = () => {
+    queryClient.invalidateQueries({ queryKey: ['tratamientos', animalId] });
+    queryClient.invalidateQueries({ queryKey: ['estadoSanitario', animalId] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard', 'animales-en-retiro'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard', 'kpis'] });
+  };
+
   const tratamientoMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) =>
       createTratamiento(toCreateTratamientoPayload(data, animalId)),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tratamientos', animalId] });
-      queryClient.invalidateQueries({ queryKey: ['estadoSanitario', animalId] });
+      invalidarSanitario();
       setIsTratamientoOpen(false);
       setTratamientoSeleccionado(null);
     }
   });
 
-  const updateTratamientoMutation = useMutation({
+  const corregirTratamientoMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) =>
-      updateTratamiento(id, toUpdateTratamientoPayload(data)),
+      corregirTratamiento(id, toDatosTratamientoPayload(data)),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tratamientos', animalId] });
-      queryClient.invalidateQueries({ queryKey: ['estadoSanitario', animalId] });
+      invalidarSanitario();
       setIsTratamientoOpen(false);
       setTratamientoSeleccionado(null);
+    }
+  });
+
+  const [tratamientoAAnular, setTratamientoAAnular] = useState<TratamientoSanitario | null>(null);
+  const [motivoAnulacion, setMotivoAnulacion] = useState('');
+  const anularTratamientoMutation = useMutation({
+    mutationFn: ({ id, motivo }: { id: string; motivo: string }) => anularTratamiento(id, motivo),
+    onSuccess: () => {
+      invalidarSanitario();
+      setTratamientoAAnular(null);
+      setMotivoAnulacion('');
     }
   });
 
@@ -296,40 +314,50 @@ export default function ExpedienteAnimal() {
     }
     yPos += 15;
 
-    // Sección: Pesajes y Leche
-    if (pesajes && pesajes.length > 0) {
+    const seccionTabla = (titulo: string, head: string[], body: string[][]) => {
       doc.setFontSize(14);
       doc.setTextColor(15, 23, 42);
-      doc.text('Historial de Producción y Pesajes', 14, yPos);
-      yPos += 5;
+      doc.text(titulo, 14, yPos);
+      if (body.length > 0) {
+        yPos += 5;
+        autoTable(doc, {
+          startY: yPos,
+          head: [head],
+          body,
+          theme: 'striped',
+          styles: { fontSize: 9 },
+          headStyles: { fillColor: [15, 23, 42] }
+        });
+        yPos = ((doc as jsPDF & { lastAutoTable: Table }).lastAutoTable.finalY ?? yPos) + 15;
+      } else {
+        yPos += 8;
+        doc.setFontSize(10);
+        doc.setTextColor(100, 116, 139);
+        doc.text('Sin registros', 14, yPos);
+        yPos += 15;
+      }
+    };
 
-      const tableData = pesajes.map((p: Pesaje) => {
-        const totalL = (Number(p.lecheMananaL) || 0) + (Number(p.lecheTardeL) || 0);
-        return [
-          formatearFechaCivil(p.fecha),
-          p.pesoActualKg ? `${p.pesoActualKg} kg` : '-',
-          totalL > 0 ? `${totalL.toFixed(1)} L` : '-'
-        ];
-      });
+    seccionTabla(
+      'Historial de Pesajes',
+      ['Fecha', 'Peso (kg)'],
+      (pesajes ?? []).map((p: Pesaje) => [
+        formatearFechaCivil(p.fecha),
+        p.pesoActualKg != null ? `${p.pesoActualKg} kg` : '-',
+      ]),
+    );
 
-      autoTable(doc, {
-        startY: yPos,
-        head: [['Fecha', 'Peso (kg)', 'Leche Total (L)']],
-        body: tableData,
-        theme: 'striped',
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: [15, 23, 42] }
-      });
-      yPos = ((doc as jsPDF & { lastAutoTable: Table }).lastAutoTable.finalY ?? yPos) + 15;
-    } else {
-      doc.setFontSize(14);
-      doc.setTextColor(15, 23, 42);
-      doc.text('Historial de Producción y Pesajes', 14, yPos);
-      yPos += 8;
-      doc.setFontSize(10);
-      doc.setTextColor(100, 116, 139);
-      doc.text('Sin registros', 14, yPos);
-      yPos += 15;
+    if (animal.sexo !== 'Macho') {
+      seccionTabla(
+        'Historial de Producción de Leche',
+        ['Fecha', 'Turno', 'Litros', 'Disposición'],
+        (produccion ?? []).map((r) => [
+          formatearFechaCivil(r.fecha),
+          ETIQUETA_TURNO[r.turno],
+          `${Number(r.litros).toFixed(1)} L`,
+          r.revertido ? `${ETIQUETA_DISPOSICION[r.disposicion]} (anulado)` : ETIQUETA_DISPOSICION[r.disposicion],
+        ]),
+      );
     }
 
     // Sección: Sanitario
@@ -441,37 +469,25 @@ export default function ExpedienteAnimal() {
     );
   }
 
-  // Cálculo de retiros sanitarios activos (leche y carne) según MOD-02 y Patron-Evento-Estado-Alerta
+  // Retiros activos a partir de las fechas de liberación persistidas por el backend (MOD-02)
   interface RetiroDetalle {
     fechaLiberacion: string;
     diasRestantes: number;
     farmaco: string;
   }
+  const hoyFinca = hoyLocal();
   let retiroLecheActivo: RetiroDetalle | null = null;
   let retiroCarneActivo: RetiroDetalle | null = null;
 
   tratamientos?.forEach((t: TratamientoSanitario) => {
-    const dLeche = t.diasRetiroLeche ?? t.diasRetiro ?? 0;
-    const dCarne = t.diasRetiroCarne ?? t.diasRetiro ?? 0;
-
-    if (dLeche > 0 && t.fecha) {
-      const libLeche = calcularFechaLiberacion(t.fecha, dLeche);
-      const restLeche = diasRestantesRetiro(libLeche);
-      if (restLeche > 0) {
-        if (!retiroLecheActivo || restLeche > retiroLecheActivo.diasRestantes) {
-          retiroLecheActivo = { fechaLiberacion: libLeche, diasRestantes: restLeche, farmaco: t.farmaco };
-        }
-      }
+    const restLeche = diasRestantesRetiro(t.fechaLiberacionLeche, hoyFinca);
+    if (restLeche > 0 && (!retiroLecheActivo || restLeche > retiroLecheActivo.diasRestantes)) {
+      retiroLecheActivo = { fechaLiberacion: t.fechaLiberacionLeche, diasRestantes: restLeche, farmaco: t.farmaco };
     }
 
-    if (dCarne > 0 && t.fecha) {
-      const libCarne = calcularFechaLiberacion(t.fecha, dCarne);
-      const restCarne = diasRestantesRetiro(libCarne);
-      if (restCarne > 0) {
-        if (!retiroCarneActivo || restCarne > retiroCarneActivo.diasRestantes) {
-          retiroCarneActivo = { fechaLiberacion: libCarne, diasRestantes: restCarne, farmaco: t.farmaco };
-        }
-      }
+    const restCarne = diasRestantesRetiro(t.fechaLiberacionCarne, hoyFinca);
+    if (restCarne > 0 && (!retiroCarneActivo || restCarne > retiroCarneActivo.diasRestantes)) {
+      retiroCarneActivo = { fechaLiberacion: t.fechaLiberacionCarne, diasRestantes: restCarne, farmaco: t.farmaco };
     }
   });
 
@@ -676,7 +692,7 @@ export default function ExpedienteAnimal() {
                     </div>
                     {alertaRetiro.leche && (
                       <p className="text-sm font-medium text-danger">
-                        <strong>Retiro Leche:</strong> Hasta <span className="font-bold">{formatearFecha(alertaRetiro.leche.fechaLiberacion)}</span> ({alertaRetiro.leche.diasRestantes} días restantes) — Fármaco: <span className="font-bold">{alertaRetiro.leche.farmaco}</span>. <span className="text-[11px] font-bold uppercase tracking-wider bg-danger text-white px-1.5 py-0.5 rounded ml-1">Bloqueo de Ordeño</span>
+                        <strong>Retiro Leche:</strong> Hasta <span className="font-bold">{formatearFecha(alertaRetiro.leche.fechaLiberacion)}</span> ({alertaRetiro.leche.diasRestantes} días restantes) — Fármaco: <span className="font-bold">{alertaRetiro.leche.farmaco}</span>. <span className="text-[11px] font-bold uppercase tracking-wider bg-danger text-white px-1.5 py-0.5 rounded ml-1">Leche no comercializable (descarte)</span>
                       </p>
                     )}
                     {alertaRetiro.carne && (
@@ -772,6 +788,7 @@ export default function ExpedienteAnimal() {
 
           {activeTab === 'sanitario' && (
             <div className="space-y-6 mt-6">
+              {estadoSanitario && <BadgesRetiro estado={estadoSanitario} />}
               {estadoSanitario?.enRetiro ? (
                 <div className="bg-danger-bg border border-danger/30 rounded-xl p-5 flex items-start gap-4 shadow-sm">
                   <AlertTriangle className="w-6 h-6 text-danger shrink-0 mt-0.5" />
@@ -851,22 +868,26 @@ export default function ExpedienteAnimal() {
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-sm text-slate-600">
                     {tratamientos?.map((t: TratamientoSanitario) => {
-                      const dLeche = t.diasRetiroLeche ?? t.diasRetiro ?? 0;
-                      const dCarne = t.diasRetiroCarne ?? t.diasRetiro ?? 0;
-                      const libLeche =
-                        t.fechaLiberacionLeche ||
-                        (t.fecha && dLeche > 0 ? calcularFechaLiberacion(t.fecha, dLeche) : null);
-                      const libCarne =
-                        t.fechaLiberacionCarne ||
-                        (t.fecha && dCarne > 0 ? calcularFechaLiberacion(t.fecha, dCarne) : null);
-                      const restLeche = libLeche ? diasRestantesRetiro(libLeche) : 0;
-                      const restCarne = libCarne ? diasRestantesRetiro(libCarne) : 0;
+                      const dLeche = t.diasRetiroLeche;
+                      const dCarne = t.diasRetiroCarne;
+                      const libLeche = t.fechaLiberacionLeche;
+                      const libCarne = t.fechaLiberacionCarne;
+                      const restLeche = diasRestantesRetiro(libLeche, hoyFinca);
+                      const restCarne = diasRestantesRetiro(libCarne, hoyFinca);
                       const estaEnRetiro = restLeche > 0 || restCarne > 0;
 
                       return (
                         <tr key={t.id} className="hover:bg-slate-50 transition-colors">
                           <td className="p-4 pl-6 sm:pl-8 font-medium text-slate-700">
                             {formatearFecha(t.fecha)}
+                            {t.fechaUltimaAdministracion && t.fechaUltimaAdministracion !== t.fecha && (
+                              <span className="text-xs text-slate-400 block">
+                                Última: {formatearFecha(t.fechaUltimaAdministracion)}
+                              </span>
+                            )}
+                            {t.eventoCorrigeId && (
+                              <span className="text-[11px] font-semibold text-info block">Corregido</span>
+                            )}
                           </td>
                           <td className="p-4 font-bold text-navy">{t.farmaco}</td>
                           <td className="p-4">{t.diagnostico}</td>
@@ -920,26 +941,24 @@ export default function ExpedienteAnimal() {
                           </td>
                           <td className="p-4 pr-6 sm:pr-8 text-right space-x-3">
                             {t.documentoUrl && (
-                              <a
-                                href={t.documentoUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                              <DocumentoTratamientoLink
+                                documento={t.documentoUrl}
                                 className="text-info hover:text-navy transition-colors inline-block"
-                                title="Ver comprobante adjunto"
                               >
-                                <FileText className="w-4 h-4" />
-                              </a>
+                                <FileText className="w-4 h-4" aria-label="Ver comprobante adjunto" />
+                              </DocumentoTratamientoLink>
                             )}
-                            <RequireRole roles={['propietario', 'administrador', 'veterinario']}><button
-                              onClick={() => {
+                            <AccionesTratamiento
+                              onCorregir={() => {
                                 setTratamientoSeleccionado(t);
                                 setIsTratamientoOpen(true);
                               }}
-                              className="text-slate-400 hover:text-navy transition-colors inline-block"
-                              title="Editar tratamiento"
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </button></RequireRole>
+                              onAnular={() => {
+                                anularTratamientoMutation.reset();
+                                setMotivoAnulacion('');
+                                setTratamientoAAnular(t);
+                              }}
+                            />
                           </td>
                         </tr>
                       );
@@ -963,97 +982,13 @@ export default function ExpedienteAnimal() {
           )}
 
           {activeTab === 'produccion' && (
-            <div className="space-y-6 mt-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {!isMacho && (
-                  <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-                    <h3 className="text-sm font-bold text-navy mb-4">Curva de Lactancia (L/día)</h3>
-                    <div className="h-48 w-full">
-                      {pesajes && pesajes.length > 0 ? (
-                        <ResponsiveContainer width="100%" height="100%">
-                          {/* design-exception: Recharts requiere valores estáticos/hex para sus props */}
-                          <LineChart data={[...pesajes].reverse()} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                            <XAxis dataKey="fecha" tickFormatter={(val: string) => formatearFechaCivil(val)} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                            <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                            <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} labelFormatter={(val) => formatearFechaCivil(String(val))} />
-                            <Line type="monotone" dataKey={(p: Pesaje) => (Number(p.lecheMananaL) || 0) + (Number(p.lecheTardeL) || 0)} stroke="#0284c7" strokeWidth={3} dot={{ r: 4, fill: '#0284c7', strokeWidth: 0 }} activeDot={{ r: 6, fill: '#0284c7' }} name="Total Leche (L)" />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-slate-300 text-xs">Sin datos de lactancia</div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-                  <h3 className="text-sm font-bold text-navy mb-4">Evolución de Peso (kg)</h3>
-                  <div className="h-48 w-full">
-                    {pesajes && pesajes.length > 0 ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        {/* design-exception: Recharts requiere valores estáticos/hex para sus props */}
-                        <LineChart data={[...pesajes].reverse()} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                          <XAxis dataKey="fecha" tickFormatter={(val: string) => formatearFechaCivil(val)} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                          <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} domain={['dataMin - 10', 'auto']} />
-                          <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} labelFormatter={(val) => formatearFechaCivil(String(val))} />
-                          <Line type="monotone" dataKey={(p: Pesaje) => Number(p.pesoActualKg) || 0} stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: '#10b981', strokeWidth: 0 }} activeDot={{ r: 6, fill: '#10b981' }} name="Peso (kg)" />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-300 text-xs">Sin datos de peso</div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-                <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                  <h3 className="text-lg font-bold text-navy">
-                    {isMacho ? 'Historial de Pesajes' : 'Historial de Pesajes y Producción'}
-                  </h3>
-                  <RequireRole roles={['propietario', 'administrador', 'peon']}><button
-                    onClick={() => setIsPesajeOpen(true)}
-                    className="px-4 py-2 bg-navy text-white rounded-lg text-sm font-bold shadow-sm hover:bg-navy-light transition-colors"
-                  >
-                    + Registrar Pesaje
-                  </button></RequireRole>
-                </div>
-                <div className="p-6">
-                  <div className="space-y-4">
-                    {pesajes && pesajes.length > 0 && (
-                      <div className="flex items-center justify-between pb-2 mb-2 border-b-2 border-slate-100">
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider w-1/3">Fecha</span>
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider w-1/3">Peso (kg)</span>
-                        {!isMacho && (
-                          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider w-1/3 text-right">Leche Total (L)</span>
-                        )}
-                      </div>
-                    )}
-                    {pesajes?.map((p: Pesaje) => {
-                      const totalLeche = (Number(p.lecheMananaL) || 0) + (Number(p.lecheTardeL) || 0);
-                      return (
-                        <div key={p.id} className="flex items-center justify-between py-2 border-b border-slate-100">
-                          <span className="text-sm text-slate-500 w-1/3">{formatearFechaCivil(p.fecha)}</span>
-                          <span className="text-sm font-bold text-navy w-1/3">{p.pesoActualKg ? `${p.pesoActualKg} kg` : '-'}</span>
-                          {!isMacho && (
-                            <span className="text-sm font-bold text-green-600 w-1/3 text-right">
-                              {totalLeche > 0 ? `${totalLeche.toFixed(1)} L` : '-'}
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                    {(!pesajes || pesajes.length === 0) && (
-                      <div className="py-8 text-center text-slate-400 text-sm">
-                        No hay pesajes registrados
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
+            <TabProduccion
+              animalId={animalId}
+              animalLabel={`#${animal.areteInterno}${animal.nombre ? ` ${animal.nombre}` : ''}`}
+              isMacho={isMacho}
+              pesajes={pesajes}
+              onRegistrarPesaje={() => setIsPesajeOpen(true)}
+            />
           )}
 
           {activeTab === 'documentos' && (
@@ -1120,8 +1055,7 @@ export default function ExpedienteAnimal() {
       <ModalPesaje
         isOpen={isPesajeOpen}
         onClose={() => setIsPesajeOpen(false)}
-        onSubmit={(data) => pesajeMutation.mutate(data)}
-        animalSexo={animal?.sexo}
+        onSubmit={(data) => pesajeMutation.mutateAsync(data)}
       />
       <ModalServicio
         isOpen={isServicioOpen}
@@ -1140,21 +1074,72 @@ export default function ExpedienteAnimal() {
           setIsTratamientoOpen(false);
           setTratamientoSeleccionado(null);
         }}
-        initialData={tratamientoSeleccionado ? {
-          ...tratamientoSeleccionado,
-          via: tratamientoSeleccionado.via ?? undefined,
-          veterinario: tratamientoSeleccionado.veterinario ?? undefined,
-          documentoUrl: tratamientoSeleccionado.documentoUrl ?? undefined,
-        } : null}
+        initialData={tratamientoSeleccionado}
         animalSexo={animal?.sexo}
-        onSubmit={(data) => {
-          if (tratamientoSeleccionado) {
-            updateTratamientoMutation.mutate({ id: tratamientoSeleccionado.id, data });
-          } else {
-            tratamientoMutation.mutate(data);
-          }
-        }}
+        animalId={animalId}
+        tenantId={authUser?.tenantId}
+        onSubmit={(data) =>
+          tratamientoSeleccionado
+            ? corregirTratamientoMutation.mutateAsync({ id: tratamientoSeleccionado.id, data })
+            : tratamientoMutation.mutateAsync(data)
+        }
       />
+      {tratamientoAAnular && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/60 backdrop-blur-sm p-4">
+          <form
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 p-6 space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              anularTratamientoMutation.mutate({ id: tratamientoAAnular.id, motivo: motivoAnulacion.trim() });
+            }}
+          >
+            <div>
+              <h2 className="text-lg font-bold text-navy">Anular tratamiento</h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {tratamientoAAnular.farmaco} — {formatearFecha(tratamientoAAnular.fecha)}. El registro se conserva en el historial auditable y deja de contar para el retiro.
+              </p>
+            </div>
+            {anularTratamientoMutation.isError && (
+              <div className="p-3 rounded-xl bg-danger-bg border border-danger/30 text-danger text-xs font-medium">
+                {anularTratamientoMutation.error instanceof Error
+                  ? anularTratamientoMutation.error.message
+                  : 'No se pudo anular el tratamiento.'}
+              </div>
+            )}
+            <label className="block space-y-1.5">
+              <span className="block text-sm font-semibold text-navy">Motivo *</span>
+              <textarea
+                required
+                minLength={3}
+                maxLength={500}
+                rows={3}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700"
+                value={motivoAnulacion}
+                onChange={(e) => setMotivoAnulacion(e.target.value)}
+                placeholder="ej. Registrado en el animal equivocado"
+              />
+            </label>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setTratamientoAAnular(null)}
+                disabled={anularTratamientoMutation.isPending}
+                className="px-5 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={anularTratamientoMutation.isPending || motivoAnulacion.trim().length < 3}
+                className="px-5 py-2 bg-danger text-white rounded-lg text-sm font-semibold hover:bg-danger/90 shadow-sm transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {anularTratamientoMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+                Anular
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
       <ModalEditarOrigen
         isOpen={isOrigenOpen}
         onClose={() => setIsOrigenOpen(false)}

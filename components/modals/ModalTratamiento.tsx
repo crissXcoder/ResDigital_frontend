@@ -3,8 +3,14 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { X, Upload, Link as LinkIcon, Loader2, AlertTriangle, Sparkles, AlertCircle } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
 import { hoyLocal, normalizarFechaCivil } from '@/lib/reproductivo/fechas';
+import { isDefinitiveApiRejection } from '@/lib/api/client';
+import {
+  retirarDocumentoTratamiento,
+  rutaDocumentoTratamiento,
+  subirDocumentoTratamiento,
+} from '@/lib/sanitario/documento';
+import { DocumentoTratamientoLink } from '@/components/sanitario/DocumentoTratamientoLink';
 import {
   getMedicamentos,
   getPadecimientos,
@@ -13,30 +19,39 @@ import {
   type Medicamento,
   type Padecimiento,
 } from '@/lib/api/sanitary';
-import { BUCKET_DOCUMENTOS } from '@/lib/supabase/buckets';
+import { medicamentoAplica, padecimientoAplica, VIA_SOLO_HEMBRA } from '@/lib/sanitario/compatibilidad';
+
+/** Máximo de días entre la aplicación y la última administración (igual que el backend). */
+const MAX_DIAS_PROTOCOLO = 60;
+const OTRO = 'otro';
 
 export interface InitialTratamientoData {
   id?: string;
+  medicamentoId?: string | null;
   farmaco?: string;
-  dosis?: string;
-  via?: string;
-  fecha?: string;
+  padecimientoId?: string | null;
   diagnostico?: string;
-  veterinario?: string;
-  diasRetiro?: number;
+  dosis?: string;
+  via?: string | null;
+  fecha?: string;
+  fechaUltimaAdministracion?: string;
+  veterinario?: string | null;
   diasRetiroLeche?: number;
   diasRetiroCarne?: number;
-  documentoUrl?: string;
+  documentoUrl?: string | null;
 }
 
+/** Campos que entiende `toDatosTratamientoPayload`. */
 export interface TratamientoFormData {
-  farmaco: string;
+  medicamentoId?: string;
+  farmaco?: string;
+  padecimientoId?: string;
+  diagnostico?: string;
   dosis: string;
   via: string;
   fecha: string;
-  diagnostico: string;
+  fechaUltimaAdministracion: string;
   veterinario: string;
-  diasRetiro: number;
   diasRetiroLeche: number;
   diasRetiroCarne: number;
   documentoUrl?: string;
@@ -49,55 +64,69 @@ interface ModalTratamientoProps {
   onSubmit: (data: TratamientoFormData) => Promise<unknown> | void;
   initialData?: InitialTratamientoData | null;
   animalSexo?: string;
+  /** Necesarios para subir la receta a la carpeta privada de la finca. */
+  animalId?: string;
+  tenantId?: string;
 }
 
-function getInitialState(
-  initialData: InitialTratamientoData | null | undefined,
-  medicamentos: Medicamento[],
-  padecimientos: Padecimiento[],
-) {
-  if (initialData) {
-    const isCustomFarmaco =
-      initialData.farmaco &&
-      !medicamentos.some(m => m.nombreComercial === initialData.farmaco);
-    const isCustomDiagnostico =
-      initialData.diagnostico &&
-      !padecimientos.some(p => p.nombre === initialData.diagnostico);
+interface FormState {
+  medicamentoId: string;
+  farmacoLibre: string;
+  padecimientoId: string;
+  diagnosticoLibre: string;
+  dosis: string;
+  via: string;
+  fecha: string;
+  fechaUltimaAdministracion: string;
+  veterinario: string;
+  diasRetiroLeche: string;
+  diasRetiroCarne: string;
+  documentoUrl: string;
+}
 
+function getInitialState(initialData: InitialTratamientoData | null | undefined): FormState {
+  if (initialData) {
+    const fecha = initialData.fecha ? normalizarFechaCivil(initialData.fecha) ?? '' : '';
     return {
-      formData: {
-        farmaco: isCustomFarmaco ? 'Otro' : (initialData.farmaco || ''),
-        dosis: initialData.dosis || '',
-        via: initialData.via || 'Intramuscular',
-        fecha: initialData.fecha
-          ? normalizarFechaCivil(initialData.fecha) ?? ''
-          : '',
-        diagnostico: isCustomDiagnostico ? 'Otro' : (initialData.diagnostico || ''),
-        veterinario: initialData.veterinario || '',
-        dias_retiro_leche: (initialData.diasRetiroLeche ?? initialData.diasRetiro ?? 0).toString(),
-        dias_retiro_carne: (initialData.diasRetiroCarne ?? initialData.diasRetiro ?? 0).toString(),
-        documentoUrl: initialData.documentoUrl || '',
-      },
-      customFarmaco: isCustomFarmaco ? initialData.farmaco || '' : '',
-      customDiagnostico: isCustomDiagnostico ? initialData.diagnostico || '' : '',
+      medicamentoId: initialData.medicamentoId || (initialData.farmaco ? OTRO : ''),
+      farmacoLibre: initialData.medicamentoId ? '' : initialData.farmaco || '',
+      padecimientoId: initialData.padecimientoId || (initialData.diagnostico ? OTRO : ''),
+      diagnosticoLibre: initialData.padecimientoId ? '' : initialData.diagnostico || '',
+      dosis: initialData.dosis || '',
+      via: initialData.via || 'Intramuscular',
+      fecha,
+      fechaUltimaAdministracion: initialData.fechaUltimaAdministracion
+        ? normalizarFechaCivil(initialData.fechaUltimaAdministracion) ?? fecha
+        : fecha,
+      veterinario: initialData.veterinario || '',
+      diasRetiroLeche: String(initialData.diasRetiroLeche ?? 0),
+      diasRetiroCarne: String(initialData.diasRetiroCarne ?? 0),
+      documentoUrl: initialData.documentoUrl || '',
     };
   }
 
+  const hoy = hoyLocal();
   return {
-    formData: {
-      farmaco: '',
-      dosis: '',
-      via: 'Intramuscular',
-      fecha: hoyLocal(),
-      diagnostico: '',
-      veterinario: '',
-      dias_retiro_leche: '0',
-      dias_retiro_carne: '0',
-      documentoUrl: '',
-    },
-    customFarmaco: '',
-    customDiagnostico: '',
+    medicamentoId: '',
+    farmacoLibre: '',
+    padecimientoId: '',
+    diagnosticoLibre: '',
+    dosis: '',
+    via: 'Intramuscular',
+    fecha: hoy,
+    fechaUltimaAdministracion: hoy,
+    veterinario: '',
+    diasRetiroLeche: '0',
+    diasRetiroCarne: '0',
+    documentoUrl: '',
   };
+}
+
+function mensajeDeError(err: unknown): string {
+  const message = (err as { message?: unknown })?.message;
+  if (Array.isArray(message)) return message.join(' ');
+  if (typeof message === 'string' && message) return message;
+  return 'Error al guardar el tratamiento. Inténtalo de nuevo.';
 }
 
 export default function ModalTratamiento({
@@ -106,22 +135,10 @@ export default function ModalTratamiento({
   onSubmit,
   initialData,
   animalSexo,
+  animalId,
+  tenantId,
 }: ModalTratamientoProps) {
-  void animalSexo;
-  const [formData, setFormData] = useState({
-    farmaco: '',
-    dosis: '',
-    via: 'Intramuscular',
-    fecha: '',
-    diagnostico: '',
-    veterinario: '',
-    dias_retiro_leche: '0',
-    dias_retiro_carne: '0',
-    documentoUrl: '',
-  });
-
-  const [customFarmaco, setCustomFarmaco] = useState('');
-  const [customDiagnostico, setCustomDiagnostico] = useState('');
+  const [formData, setFormData] = useState<FormState>(() => getInitialState(null));
   const [sugerenciaActiva, setSugerenciaActiva] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -131,11 +148,10 @@ export default function ModalTratamiento({
   const [prevIsOpen, setPrevIsOpen] = useState(false);
   const [prevInitialData, setPrevInitialData] = useState<InitialTratamientoData | null | undefined>(undefined);
 
-  // Carga reactiva de catálogos desde el backend
   const { data: medicamentos = [], isLoading: loadingMedicamentos } = useQuery<Medicamento[]>({
     queryKey: ['catalogos', 'medicamentos'],
     queryFn: getMedicamentos,
-    staleTime: 1000 * 60 * 30, // 30 minutos
+    staleTime: 1000 * 60 * 30,
     enabled: isOpen,
   });
 
@@ -151,143 +167,145 @@ export default function ModalTratamiento({
     setPrevIsOpen(isOpen);
     setPrevInitialData(initialData);
     if (isOpen) {
-      const init = getInitialState(initialData, medicamentos, padecimientos);
-      setFormData(init.formData);
-      setCustomFarmaco(init.customFarmaco);
-      setCustomDiagnostico(init.customDiagnostico);
+      setFormData(getInitialState(initialData));
       setSugerenciaActiva(null);
       setFile(null);
       setErrorMessage(null);
     }
   }
 
-  // Manejador de cambio de padecimiento con sugerencia de medicamento
-  const handleDiagnosticoChange = (diagnosticoSeleccionado: string) => {
-    setFormData(prev => ({
-      ...prev,
-      diagnostico: diagnosticoSeleccionado,
-    }));
+  // Se conserva la opción ya elegida (p. ej. al corregir un registro antiguo) para que el select no quede vacío.
+  const padecimientosVisibles = padecimientos.filter(
+    p => padecimientoAplica(p, animalSexo) || p.id === formData.padecimientoId,
+  );
+  const medicamentosVisibles = medicamentos.filter(
+    m => medicamentoAplica(m, animalSexo) || m.id === formData.medicamentoId,
+  );
 
-    if (diagnosticoSeleccionado === 'Otro' || !diagnosticoSeleccionado) {
-      setSugerenciaActiva(null);
+  const aplicarMedicamento = (med: Medicamento, prev: FormState): FormState => ({
+    ...prev,
+    medicamentoId: med.id,
+    via: med.viaAdministracion || prev.via,
+    diasRetiroLeche: String(med.diasRetiroLecheDefault),
+    diasRetiroCarne: String(med.diasRetiroCarneDefault),
+  });
+
+  const handleDiagnosticoChange = (padecimientoId: string) => {
+    setFormData(prev => ({ ...prev, padecimientoId }));
+
+    const pad = padecimientos.find(p => p.id === padecimientoId);
+    const medSugerido = pad?.medicamentoSugeridoId
+      ? medicamentos.find(m => m.id === pad.medicamentoSugeridoId)
+      : undefined;
+    if (medSugerido && medicamentoAplica(medSugerido, animalSexo)) {
+      setSugerenciaActiva(medSugerido.nombreComercial);
+      setFormData(prev => aplicarMedicamento(medSugerido, { ...prev, padecimientoId }));
       return;
-    }
-
-    const pad = padecimientos.find(p => p.nombre === diagnosticoSeleccionado);
-    if (pad?.medicamentoSugeridoId) {
-      const medSugerido = medicamentos.find(m => m.id === pad.medicamentoSugeridoId);
-      if (medSugerido) {
-        setSugerenciaActiva(medSugerido.nombreComercial);
-        setFormData(prev => ({
-          ...prev,
-          diagnostico: diagnosticoSeleccionado,
-          farmaco: medSugerido.nombreComercial,
-          via: medSugerido.viaAdministracion || prev.via,
-          dias_retiro_leche: medSugerido.diasRetiroLecheDefault.toString(),
-          dias_retiro_carne: medSugerido.diasRetiroCarneDefault.toString(),
-        }));
-        return;
-      }
     }
     setSugerenciaActiva(null);
   };
 
-  // Manejador de cambio directo de fármaco
-  const handleFarmacoChange = (farmacoSeleccionado: string) => {
-    setFormData(prev => ({
-      ...prev,
-      farmaco: farmacoSeleccionado,
-    }));
+  const handleMedicamentoChange = (medicamentoId: string) => {
+    const med = medicamentos.find(m => m.id === medicamentoId);
+    setFormData(prev => (med ? aplicarMedicamento(med, prev) : { ...prev, medicamentoId }));
+  };
 
-    if (farmacoSeleccionado === 'Otro' || !farmacoSeleccionado) {
-      return;
-    }
-
-    const med = medicamentos.find(m => m.nombreComercial === farmacoSeleccionado);
-    if (med) {
-      setFormData(prev => ({
-        ...prev,
-        farmaco: farmacoSeleccionado,
-        via: med.viaAdministracion || prev.via,
-        dias_retiro_leche: med.diasRetiroLecheDefault.toString(),
-        dias_retiro_carne: med.diasRetiroCarneDefault.toString(),
-      }));
-    }
+  const handleFechaChange = (fecha: string) => {
+    setFormData(prev => {
+      const ultima = prev.fechaUltimaAdministracion;
+      const maxUltima = fecha ? calcularFechaLiberacion(fecha, MAX_DIAS_PROTOCOLO) : '';
+      const ajustada = !ultima || ultima < fecha || (maxUltima && ultima > maxUltima) ? fecha : ultima;
+      return { ...prev, fecha, fechaUltimaAdministracion: ajustada };
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     let finalDocumentoUrl = formData.documentoUrl;
+    let rutaSubida: string | null = null;
 
     if (file) {
       setIsUploading(true);
+      setErrorMessage(null);
       try {
-        const supabase = createClient();
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-        const filePath = `tratamientos/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from(BUCKET_DOCUMENTOS)
-          .upload(filePath, file);
-
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from(BUCKET_DOCUMENTOS)
-          .getPublicUrl(filePath);
-
-        finalDocumentoUrl = publicUrl;
+        if (!tenantId || !animalId) throw new Error('No se pudo validar la finca activa.');
+        const ruta = rutaDocumentoTratamiento(tenantId, animalId, file);
+        await subirDocumentoTratamiento(ruta, file);
+        rutaSubida = ruta;
+        finalDocumentoUrl = ruta;
       } catch (error) {
-        console.error('Error uploading document:', error);
-        setErrorMessage('Error al subir el documento. Por favor intente de nuevo.');
+        console.error('Error al subir el documento:', error);
+        setErrorMessage(error instanceof Error ? error.message : 'Error al subir el documento.');
         setIsUploading(false);
         return;
       }
       setIsUploading(false);
     }
 
-    const finalFarmaco = formData.farmaco === 'Otro' ? customFarmaco : formData.farmaco;
-    const finalDiagnostico = formData.diagnostico === 'Otro' ? customDiagnostico : formData.diagnostico;
-    const diasLeche = Number(formData.dias_retiro_leche) || 0;
-    const diasCarne = Number(formData.dias_retiro_carne) || 0;
-    const diasMayor = Math.max(diasLeche, diasCarne);
+    const medSeleccionado = medicamentos.find(m => m.id === formData.medicamentoId);
+    const padSeleccionado = padecimientos.find(p => p.id === formData.padecimientoId);
 
-    // Solo campos camelCase whitelist — sin snake_case ni spread de formData
+    let medicamentoId: string | undefined = formData.medicamentoId;
+    let farmaco: string | undefined;
+    if (formData.medicamentoId === OTRO) {
+      medicamentoId = undefined;
+      farmaco = formData.farmacoLibre;
+    } else if (medSeleccionado?.referencia) {
+      medicamentoId = undefined;
+      farmaco = medSeleccionado.nombreComercial;
+    }
+
+    let padecimientoId: string | undefined = formData.padecimientoId;
+    let diagnostico: string | undefined;
+    if (formData.padecimientoId === OTRO) {
+      padecimientoId = undefined;
+      diagnostico = formData.diagnosticoLibre;
+    } else if (padSeleccionado?.referencia) {
+      padecimientoId = undefined;
+      diagnostico = padSeleccionado.nombre;
+    }
+
     setIsSubmitting(true);
     setErrorMessage(null);
     try {
       await onSubmit({
-        farmaco: finalFarmaco,
+        medicamentoId,
+        farmaco,
+        padecimientoId,
+        diagnostico,
         dosis: formData.dosis,
         via: formData.via,
         fecha: formData.fecha,
-        diagnostico: finalDiagnostico,
+        fechaUltimaAdministracion: formData.fechaUltimaAdministracion || formData.fecha,
         veterinario: formData.veterinario,
-        diasRetiro: diasMayor,
-        diasRetiroLeche: diasLeche,
-        diasRetiroCarne: diasCarne,
+        diasRetiroLeche: Number(formData.diasRetiroLeche) || 0,
+        diasRetiroCarne: Number(formData.diasRetiroCarne) || 0,
         documentoUrl: finalDocumentoUrl || undefined,
       });
       onClose();
     } catch (err: unknown) {
       console.error('Error al registrar tratamiento:', err);
-      const errorObj = err as { response?: { data?: { message?: string } }; message?: string };
-      setErrorMessage(
-        errorObj?.response?.data?.message || errorObj?.message || 'Error al guardar el tratamiento. Inténtalo de nuevo.',
-      );
+      // Solo un 4xx confirma que la API no guardó el registro; tras un 5xx o un
+      // fallo de red el tratamiento pudo quedar guardado con esta ruta.
+      if (rutaSubida && isDefinitiveApiRejection(err)) await retirarDocumentoTratamiento(rutaSubida);
+      setErrorMessage(mensajeDeError(err));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const isEditing = !!initialData;
-  const fechaLiberacionLeche = calcularFechaLiberacion(formData.fecha, Number(formData.dias_retiro_leche) || 0);
-  const fechaLiberacionCarne = calcularFechaLiberacion(formData.fecha, Number(formData.dias_retiro_carne) || 0);
+  const hoy = hoyLocal();
+  const baseLiberacion = formData.fechaUltimaAdministracion || formData.fecha;
+  const maxUltimaAdministracion = formData.fecha
+    ? calcularFechaLiberacion(formData.fecha, MAX_DIAS_PROTOCOLO)
+    : undefined;
+  const fechaLiberacionLeche = calcularFechaLiberacion(baseLiberacion, Number(formData.diasRetiroLeche) || 0);
+  const fechaLiberacionCarne = calcularFechaLiberacion(baseLiberacion, Number(formData.diasRetiroCarne) || 0);
   const tieneRetiroActivo =
-    (Number(formData.dias_retiro_leche) > 0 || Number(formData.dias_retiro_carne) > 0) &&
-    Boolean(formData.fecha);
+    (Number(formData.diasRetiroLeche) > 0 || Number(formData.diasRetiroCarne) > 0) &&
+    Boolean(baseLiberacion);
 
   useEffect(() => {
     if (isOpen) {
@@ -308,10 +326,12 @@ export default function ModalTratamiento({
         <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-surface">
           <div>
             <h2 className="text-lg font-bold text-navy">
-              {isEditing ? 'Editar Tratamiento Veterinario' : 'Registrar Tratamiento Veterinario'}
+              {isEditing ? 'Corregir Tratamiento Veterinario' : 'Registrar Tratamiento Veterinario'}
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Protocolo sanitario oficial con cálculo de retiros en leche y carne
+              {isEditing
+                ? 'La corrección crea un nuevo registro y conserva el original en el historial auditable'
+                : 'Protocolo sanitario oficial con cálculo de retiros en leche y carne'}
             </p>
           </div>
           <button
@@ -330,6 +350,12 @@ export default function ModalTratamiento({
               <span>{errorMessage}</span>
             </div>
           )}
+          {(medicamentos.some(m => m.referencia) || padecimientos.some(p => p.referencia)) && (
+            <div className="p-3 rounded-xl bg-info-bg border border-info/30 text-info text-xs font-medium">
+              La finca todavía no tiene catálogo sanitario propio; se muestra el catálogo de referencia y el
+              tratamiento se guardará con el nombre del producto y del diagnóstico.
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Diagnóstico / Padecimiento */}
             <div className="space-y-1.5">
@@ -341,28 +367,28 @@ export default function ModalTratamiento({
                   required
                   disabled={loadingPadecimientos}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white"
-                  value={formData.diagnostico}
+                  value={formData.padecimientoId}
                   onChange={e => handleDiagnosticoChange(e.target.value)}
                 >
                   <option value="">
                     {loadingPadecimientos ? 'Cargando padecimientos...' : '— Seleccione diagnóstico —'}
                   </option>
-                  {padecimientos.map((pad: Padecimiento) => (
-                    <option key={pad.id} value={pad.nombre}>
+                  {padecimientosVisibles.map((pad: Padecimiento) => (
+                    <option key={pad.id} value={pad.id}>
                       {pad.nombre} {pad.categoria ? `(${pad.categoria})` : ''}
                     </option>
                   ))}
-                  <option value="Otro">Otro (personalizado)</option>
+                  <option value={OTRO}>Otro (personalizado)</option>
                 </select>
 
-                {formData.diagnostico === 'Otro' && (
+                {formData.padecimientoId === OTRO && (
                   <input
                     type="text"
                     required
                     placeholder="Especifique el diagnóstico"
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light"
-                    value={customDiagnostico}
-                    onChange={e => setCustomDiagnostico(e.target.value)}
+                    value={formData.diagnosticoLibre}
+                    onChange={e => setFormData({ ...formData, diagnosticoLibre: e.target.value })}
                   />
                 )}
               </div>
@@ -383,35 +409,35 @@ export default function ModalTratamiento({
                   required
                   disabled={loadingMedicamentos}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white"
-                  value={formData.farmaco}
-                  onChange={e => handleFarmacoChange(e.target.value)}
+                  value={formData.medicamentoId}
+                  onChange={e => handleMedicamentoChange(e.target.value)}
                 >
                   <option value="">
                     {loadingMedicamentos ? 'Cargando medicamentos...' : '— Seleccione medicamento —'}
                   </option>
-                  {medicamentos.map((med: Medicamento) => (
-                    <option key={med.id} value={med.nombreComercial}>
+                  {medicamentosVisibles.map((med: Medicamento) => (
+                    <option key={med.id} value={med.id}>
                       {med.nombreComercial} {med.principioActivo ? `(${med.principioActivo})` : ''}
                     </option>
                   ))}
-                  <option value="Otro">Otro (personalizado)</option>
+                  <option value={OTRO}>Otro (personalizado)</option>
                 </select>
 
-                {formData.farmaco === 'Otro' && (
+                {formData.medicamentoId === OTRO && (
                   <input
                     type="text"
                     required
                     placeholder="Especifique el fármaco"
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light"
-                    value={customFarmaco}
-                    onChange={e => setCustomFarmaco(e.target.value)}
+                    value={formData.farmacoLibre}
+                    onChange={e => setFormData({ ...formData, farmacoLibre: e.target.value })}
                   />
                 )}
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Dosis */}
             <div className="space-y-1.5">
               <label className="block text-sm font-semibold text-navy">Dosis *</label>
@@ -438,20 +464,40 @@ export default function ModalTratamiento({
                 <option value="Intravenosa">Intravenosa</option>
                 <option value="Oral">Oral</option>
                 <option value="Tópica">Tópica</option>
-                {animalSexo !== 'Macho' && <option value="Intramamaria">Intramamaria</option>}
+                {animalSexo !== 'Macho' && <option value={VIA_SOLO_HEMBRA}>Intramamaria</option>}
               </select>
             </div>
+          </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Fecha de Aplicación */}
             <div className="space-y-1.5">
               <label className="block text-sm font-semibold text-navy">Fecha de Aplicación *</label>
               <input
                 type="date"
                 required
+                max={hoy}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700"
                 value={formData.fecha}
-                onChange={e => setFormData({ ...formData, fecha: e.target.value })}
+                onChange={e => handleFechaChange(e.target.value)}
               />
+            </div>
+
+            {/* Última administración */}
+            <div className="space-y-1.5">
+              <label className="block text-sm font-semibold text-navy">Última Administración *</label>
+              <input
+                type="date"
+                required
+                min={formData.fecha || undefined}
+                max={maxUltimaAdministracion}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700"
+                value={formData.fechaUltimaAdministracion}
+                onChange={e => setFormData({ ...formData, fechaUltimaAdministracion: e.target.value })}
+              />
+              <span className="text-[11px] text-slate-500 block">
+                Última dosis del protocolo; los retiros se cuentan desde esta fecha
+              </span>
             </div>
           </div>
 
@@ -476,10 +522,12 @@ export default function ModalTratamiento({
               <input
                 type="number"
                 min="0"
+                max="365"
+                step="1"
                 required
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 font-bold"
-                value={formData.dias_retiro_leche}
-                onChange={e => setFormData({ ...formData, dias_retiro_leche: e.target.value })}
+                value={formData.diasRetiroLeche}
+                onChange={e => setFormData({ ...formData, diasRetiroLeche: e.target.value })}
               />
               <span className="text-[11px] text-slate-500 block">Días según catálogo o receta</span>
             </div>
@@ -492,10 +540,12 @@ export default function ModalTratamiento({
               <input
                 type="number"
                 min="0"
+                max="365"
+                step="1"
                 required
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 font-bold"
-                value={formData.dias_retiro_carne}
-                onChange={e => setFormData({ ...formData, dias_retiro_carne: e.target.value })}
+                value={formData.diasRetiroCarne}
+                onChange={e => setFormData({ ...formData, diasRetiroCarne: e.target.value })}
               />
               <span className="text-[11px] text-slate-500 block">Días según catálogo o receta</span>
             </div>
@@ -517,7 +567,7 @@ export default function ModalTratamiento({
                     {formatearFecha(fechaLiberacionLeche)}
                   </span>
                   <span className="text-slate-500 block text-[11px]">
-                    ({formData.dias_retiro_leche} días post-aplicación)
+                    ({formData.diasRetiroLeche} días desde la última administración)
                   </span>
                 </div>
                 <div className="bg-white/70 p-2.5 rounded-lg border border-danger/20">
@@ -526,7 +576,7 @@ export default function ModalTratamiento({
                     {formatearFecha(fechaLiberacionCarne)}
                   </span>
                   <span className="text-slate-500 block text-[11px]">
-                    ({formData.dias_retiro_carne} días post-aplicación)
+                    ({formData.diasRetiroCarne} días desde la última administración)
                   </span>
                 </div>
               </div>
@@ -542,14 +592,12 @@ export default function ModalTratamiento({
             {formData.documentoUrl && !file && (
               <div className="flex items-center gap-2 mb-3 p-3 bg-info-bg text-info rounded-lg text-sm">
                 <LinkIcon className="w-4 h-4" />
-                <a
-                  href={formData.documentoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <DocumentoTratamientoLink
+                  documento={formData.documentoUrl}
                   className="hover:underline flex-1 truncate font-medium"
                 >
                   Ver comprobante adjunto actual
-                </a>
+                </DocumentoTratamientoLink>
               </div>
             )}
 
@@ -570,7 +618,7 @@ export default function ModalTratamiento({
                   <p className="text-xs text-slate-600">
                     <span className="font-semibold text-navy">Haga clic para subir</span> comprobante o receta
                   </p>
-                  <p className="text-[11px] text-slate-400">PDF, PNG, JPG (Máx. 5MB)</p>
+                  <p className="text-[11px] text-slate-400">PDF, PNG, JPG (Máx. 10MB)</p>
                 </div>
               </label>
             </div>
@@ -599,7 +647,7 @@ export default function ModalTratamiento({
               {isUploading || isSubmitting ? (
                 <Loader2 className="w-4 h-4 animate-spin text-white" />
               ) : isEditing ? (
-                'Guardar Cambios'
+                'Guardar Corrección'
               ) : (
                 'Aplicar Tratamiento'
               )}
