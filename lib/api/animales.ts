@@ -78,15 +78,13 @@ export interface BajaAnimalInput {
   precioVentaCrc?: number;
   pesoFinalKg?: number | null;
 }
-export interface CreatePesajeInput {
+export type CreatePesajeInput = components['schemas']['CreatePesajeDto'];
+export interface Pesaje {
+  id: string;
   animalId: string;
   fecha: string;
-  pesoActualKg?: number | null;
-  lecheMananaL?: number | null;
-  lecheTardeL?: number | null;
-}
-export interface Pesaje extends CreatePesajeInput {
-  id: string;
+  /** La API serializa numeric como texto. */
+  pesoActualKg: number | string | null;
   tenantId: string;
   createdAt: string;
   updatedAt: string;

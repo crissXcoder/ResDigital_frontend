@@ -505,6 +505,134 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/produccion-leche": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["ProduccionLecheController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/produccion-leche/resumen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ProduccionLecheController_resumen"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/produccion-leche/animal/{animalId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ProduccionLecheController_findAllByAnimal"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/produccion-leche/{id}/anulacion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["ProduccionLecheController_anular"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lactancia/activas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["LactanciaController_getActivas"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lactancia/animal/{animalId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["LactanciaController_getEstado"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lactancia/animal/{animalId}/inicio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["LactanciaController_registrarInicio"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lactancia/animal/{animalId}/fin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["LactanciaController_registrarFin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -553,7 +681,17 @@ export interface components {
              */
             objectPath: string;
         };
-        CreatePesajeDto: Record<string, never>;
+        CreatePesajeDto: {
+            /** Format: uuid */
+            animalId: string;
+            /**
+             * @description Fecha del pesaje (YYYY-MM-DD). No puede ser futura.
+             * @example 2026-10-06
+             */
+            fecha: string;
+            /** @example 485 */
+            pesoActualKg: number;
+        };
         CreateTratamientoDto: Record<string, never>;
         CorregirTratamientoDto: Record<string, never>;
         AnularTratamientoDto: Record<string, never>;
@@ -952,6 +1090,116 @@ export interface components {
             diasRestantes: number;
             /** @example false */
             urgente: boolean;
+        };
+        CreateProduccionLecheDto: {
+            /** Format: uuid */
+            animalId: string;
+            /**
+             * @description Fecha del ordeño (YYYY-MM-DD). No puede ser futura.
+             * @example 2026-10-06
+             */
+            fecha: string;
+            /** @enum {string} */
+            turno: "MANANA" | "TARDE";
+            /** @example 12.5 */
+            litros: number;
+            notas?: string;
+        };
+        ProduccionLecheResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            animalId: string;
+            /** @example 2026-10-06 */
+            fecha: string;
+            /** @enum {string} */
+            turno: "MANANA" | "TARDE";
+            /** @example 12.5 */
+            litros: number;
+            /** @enum {string} */
+            disposicion: "COMERCIALIZABLE" | "DESCARTE";
+            /**
+             * Format: uuid
+             * @description Tratamiento cuyo retiro de leche originó el descarte.
+             */
+            tratamientoEventoId: string | null;
+            /** @example 2026-10-09 */
+            fechaLiberacionLeche: string | null;
+            revertido: boolean;
+            /** Format: uuid */
+            usuarioId: string;
+            notas: string | null;
+            /** Format: date-time */
+            fechaRegistro: string;
+        };
+        ResumenProduccionDiaDto: {
+            /** @example 2026-10-06 */
+            fecha: string;
+            litrosProducidos: number;
+            litrosComercializables: number;
+            litrosDescarte: number;
+            registros: number;
+        };
+        ResumenProduccionDto: {
+            /** @example 2026-09-07 */
+            desde: string;
+            /** @example 2026-10-06 */
+            hasta: string;
+            litrosProducidos: number;
+            litrosComercializables: number;
+            litrosDescarte: number;
+            registros: number;
+            porFecha: components["schemas"]["ResumenProduccionDiaDto"][];
+        };
+        AnularProduccionDto: {
+            motivo: string;
+        };
+        AnulacionProduccionResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            eventoAnulacionId: string;
+            motivo: string;
+        };
+        HembraEnLactanciaDto: {
+            /** Format: uuid */
+            animalId: string;
+            arete: string;
+            nombre: string;
+            /** @example 2026-08-01 */
+            fechaInicio: string;
+        };
+        EstadoLactanciaDto: {
+            /** Format: uuid */
+            animalId: string;
+            enLactancia: boolean;
+            /** @example 2026-08-01 */
+            fechaInicio: string | null;
+            /** Format: uuid */
+            eventoInicioId: string | null;
+            /** @example 2026-10-06 */
+            fechaReferencia: string;
+        };
+        RegistrarEventoLactanciaDto: {
+            /**
+             * @description Fecha del evento (YYYY-MM-DD). No puede ser futura.
+             * @example 2026-09-01
+             */
+            fecha: string;
+            notas?: string;
+        };
+        EventoLactanciaResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            animalId: string;
+            /** @enum {string} */
+            tipo: "INICIO_LACTANCIA" | "FIN_LACTANCIA";
+            /** @example 2026-09-01 */
+            fecha: string;
+            notas: string | null;
+            /** Format: uuid */
+            usuarioId: string;
         };
     };
     responses: never;
@@ -1912,6 +2160,195 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    ProduccionLecheController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProduccionLecheDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProduccionLecheResponseDto"];
+                };
+            };
+        };
+    };
+    ProduccionLecheController_resumen: {
+        parameters: {
+            query?: {
+                /** @description Inicio del rango (YYYY-MM-DD). Por defecto, 29 días antes de `hasta`. */
+                desde?: string;
+                /** @description Fin del rango (YYYY-MM-DD). Por defecto, hoy en la zona horaria de la finca. */
+                hasta?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumenProduccionDto"];
+                };
+            };
+        };
+    };
+    ProduccionLecheController_findAllByAnimal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                animalId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProduccionLecheResponseDto"][];
+                };
+            };
+        };
+    };
+    ProduccionLecheController_anular: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnularProduccionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnulacionProduccionResponseDto"];
+                };
+            };
+        };
+    };
+    LactanciaController_getActivas: {
+        parameters: {
+            query?: {
+                /** @description Fecha de referencia (YYYY-MM-DD). Por defecto, hoy en la zona horaria de la finca. */
+                fecha?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HembraEnLactanciaDto"][];
+                };
+            };
+        };
+    };
+    LactanciaController_getEstado: {
+        parameters: {
+            query?: {
+                /** @description Fecha de referencia (YYYY-MM-DD). Por defecto, hoy en la zona horaria de la finca. */
+                fecha?: string;
+            };
+            header?: never;
+            path: {
+                animalId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EstadoLactanciaDto"];
+                };
+            };
+        };
+    };
+    LactanciaController_registrarInicio: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                animalId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegistrarEventoLactanciaDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventoLactanciaResponseDto"];
+                };
+            };
+        };
+    };
+    LactanciaController_registrarFin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                animalId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegistrarEventoLactanciaDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventoLactanciaResponseDto"];
+                };
             };
         };
     };
