@@ -2,10 +2,13 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, CalendarClock } from 'lucide-react';
+import { AlertTriangle, CalendarClock, Download } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable, { type Table } from 'jspdf-autotable';
 import { useProximosEventosFinca } from '@/lib/hooks/use-reproductivo';
+import { useAuthUser } from '@/lib/hooks/useAuthUser';
 import { ChipHito } from '@/components/reproductivo/EstadoChip';
-import { formatearFecha, textoDiasRestantes } from '@/lib/reproductivo/fechas';
+import { formatearFecha, hoyLocal, textoDiasRestantes } from '@/lib/reproductivo/fechas';
 import type { TipoEventoFeed } from '@/lib/reproductivo/tipos';
 
 /**
@@ -32,6 +35,7 @@ const FILTROS: { label: string; tipo: TipoEventoFeed | 'Todos' }[] = [
 export default function ReproductivoPage() {
   const [diasVentana, setDiasVentana] = useState(DIAS_VENTANA_DEFAULT);
   const [filtro, setFiltro] = useState<TipoEventoFeed | 'Todos'>('Todos');
+  const { user } = useAuthUser();
 
   const { data: eventos, isLoading, isError } = useProximosEventosFinca(diasVentana);
 
@@ -44,14 +48,100 @@ export default function ReproductivoPage() {
   const urgentes = (eventos ?? []).filter((e) => e.urgente).length;
   const vencidos = (eventos ?? []).filter((e) => e.diasRestantes < 0).length;
 
+  const handleDownloadPDF = () => {
+    if (!eventos || eventos.length === 0) return;
+
+    const doc = new jsPDF();
+    let yPos = 20;
+
+    // Encabezado
+    doc.setFontSize(18);
+    doc.setTextColor(15, 23, 42);
+    doc.text('Programación Reproductiva y Partos Proyectados', 14, yPos);
+    yPos += 8;
+
+    // Finca y Fecha de Emisión
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139);
+    const fincaNombre = user?.nombreFinca ? `Finca: ${user.nombreFinca}` : 'Finca Activa';
+    const fechaEmision = `Fecha de emisión: ${hoyLocal()} (Costa Rica)`;
+    doc.text(`${fincaNombre}  |  ${fechaEmision}`, 14, yPos);
+    yPos += 6;
+
+    // Parámetros del Reporte
+    doc.text(`Horizonte: Próximos ${diasVentana} días  |  Filtro aplicado: ${filtro}`, 14, yPos);
+    yPos += 10;
+
+    // Resumen Ejecutivo
+    doc.setFontSize(11);
+    doc.setTextColor(30, 41, 59);
+    doc.text(
+      `Total hitos en ventana: ${eventosFiltrados.length}   |   Avisos urgentes (FPP-3): ${urgentes}   |   Vencidos pendientes: ${vencidos}`,
+      14,
+      yPos
+    );
+    yPos += 8;
+
+    // Tabla de Hitos y Partos Proyectados
+    const tableData = eventosFiltrados.map((e) => [
+      e.nombre ? `${e.nombre} (#${e.arete})` : `#${e.arete}`,
+      e.tipo === 'Parto' ? 'Parto FPP' : e.tipo,
+      formatearFecha(e.fecha),
+      textoDiasRestantes(e.diasRestantes),
+      e.urgente ? 'Urgente (FPP-3)' : e.diasRestantes < 0 ? 'Vencido' : 'Programado',
+    ]);
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [['Animal', 'Hito Reproductivo', 'Fecha Estimada', 'Días Restantes', 'Prioridad']],
+      body: tableData,
+      theme: 'striped',
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [15, 23, 42] },
+    });
+
+    const finalY = ((doc as jsPDF & { lastAutoTable: Table }).lastAutoTable?.finalY ?? yPos) + 15;
+    const footerY = finalY > 260 ? 20 : finalY;
+    if (finalY > 260) {
+      doc.addPage();
+    }
+
+    // Pie de página legal (LEG-T001 / REPORT-T001)
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184);
+    doc.text(
+      'Documento técnico para control y gestión interna de la finca. No constituye certificación oficial estatal ni asesoría médico-veterinaria.',
+      14,
+      footerY
+    );
+    doc.text(
+      `Generado por ResDigital  |  Horizonte de proyección: ${diasVentana} días`,
+      14,
+      footerY + 4
+    );
+
+    // Descarga directa
+    doc.save(`Programacion_Reproductiva_${diasVentana}d_${hoyLocal()}.pdf`);
+  };
+
   return (
     <main className="p-6 md:p-8 bg-slate-50 min-h-screen">
       <div className="max-w-[1400px] mx-auto space-y-6">
-        <div>
-          <h1 className="text-3xl font-extrabold text-navy">Reproducción</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Calendario reproductivo de toda la finca — palpaciones, secados y avisos de parto próximos.
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-extrabold text-navy">Reproducción</h1>
+            <p className="text-sm text-slate-500 mt-1">
+              Calendario reproductivo de toda la finca — palpaciones, secados y avisos de parto próximos.
+            </p>
+          </div>
+          <button
+            onClick={handleDownloadPDF}
+            disabled={isLoading || !eventos || eventos.length === 0}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-navy text-white text-sm font-bold rounded-xl hover:bg-navy-light transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer self-start sm:self-auto"
+          >
+            <Download className="w-4 h-4" />
+            Descargar Reporte PDF
+          </button>
         </div>
 
         {/* Summary Cards */}

@@ -279,20 +279,50 @@ export default function ExpedienteAnimal() {
     doc.setFontSize(18);
     doc.setTextColor(15, 23, 42);
     doc.text(`Expediente Animal: #${animal.areteInterno} ${animal.nombre || ''}`, 14, yPos);
+    yPos += 8;
+
+    // Finca y Fecha de Emisión (Auditoría técnica de vigencia)
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139);
+    const fincaNombre = authUser?.nombreFinca ? `Finca: ${authUser.nombreFinca}` : 'Finca Activa';
+    const fechaEmision = `Fecha de emisión: ${hoyLocal()} (Costa Rica)`;
+    doc.text(`${fincaNombre}  |  ${fechaEmision}`, 14, yPos);
     yPos += 10;
 
     // Info General
-    doc.setFontSize(12);
-    doc.setTextColor(100, 116, 139);
+    doc.setFontSize(11);
+    doc.setTextColor(71, 85, 105);
     doc.text(`Raza: ${animal.raza?.nombre || 'N/A'}`, 14, yPos);
     doc.text(`Categoría: ${animal.categoria || 'N/A'}`, 80, yPos);
     doc.text(`Sexo: ${animal.sexo || 'N/A'}`, 150, yPos);
-    yPos += 8;
+    yPos += 7;
 
     doc.text(`Peso Actual: ${animal.pesoActualKg || 0} kg`, 14, yPos);
     doc.text(`Potrero: ${animal.potrero?.nombre || 'N/A'}`, 80, yPos);
     if (animal.fechaNacimiento) {
       doc.text(`Fecha Nac.: ${formatearFechaCivil(animal.fechaNacimiento)}`, 150, yPos);
+    }
+    yPos += 7;
+
+    // Estado Sanitario y Reproductivo vigente
+    const estadoSanitarioTexto = estadoSanitario?.enRetiro
+      ? `Retiro Sanitario ACTIVO (Leche: ${estadoSanitario.diasRestantesLeche}d, Carne: ${estadoSanitario.diasRestantesCarne}d)`
+      : 'Sin retiros sanitarios activos';
+    const estadoReproTexto = !isMacho && estadoReproductivo?.estadoActual
+      ? `Estado Reproductivo: ${estadoReproductivo.estadoActual}`
+      : null;
+
+    doc.setFontSize(9);
+    if (estadoSanitario?.enRetiro) {
+      doc.setTextColor(185, 28, 28);
+    } else {
+      doc.setTextColor(22, 101, 52);
+    }
+    doc.text(`Estado Sanitario: ${estadoSanitarioTexto}`, 14, yPos);
+
+    if (estadoReproTexto) {
+      doc.setTextColor(71, 85, 105);
+      doc.text(estadoReproTexto, 120, yPos);
     }
     yPos += 15;
 
@@ -334,7 +364,7 @@ export default function ExpedienteAnimal() {
 
     // Sección: Sanitario
     if (tratamientos && tratamientos.length > 0) {
-      if (yPos > 250) { doc.addPage(); yPos = 20; }
+      if (yPos > 240) { doc.addPage(); yPos = 20; }
 
       doc.setFontSize(14);
       doc.setTextColor(15, 23, 42);
@@ -359,7 +389,7 @@ export default function ExpedienteAnimal() {
       });
       yPos = ((doc as jsPDF & { lastAutoTable: Table }).lastAutoTable.finalY ?? yPos) + 15;
     } else {
-      if (yPos > 250) { doc.addPage(); yPos = 20; }
+      if (yPos > 240) { doc.addPage(); yPos = 20; }
       doc.setFontSize(14);
       doc.setTextColor(15, 23, 42);
       doc.text('Historial Sanitario', 14, yPos);
@@ -373,7 +403,7 @@ export default function ExpedienteAnimal() {
     // Sección: Reproductivo
     const serviciosActivos = estadoReproductivo?.servicioActivo ? [estadoReproductivo.servicioActivo] : [];
     if (serviciosActivos.length > 0) {
-      if (yPos > 250) { doc.addPage(); yPos = 20; }
+      if (yPos > 240) { doc.addPage(); yPos = 20; }
 
       doc.setFontSize(14);
       doc.setTextColor(15, 23, 42);
@@ -399,7 +429,7 @@ export default function ExpedienteAnimal() {
       });
       yPos = ((doc as jsPDF & { lastAutoTable: Table }).lastAutoTable.finalY ?? yPos) + 15;
     } else {
-      if (yPos > 250) { doc.addPage(); yPos = 20; }
+      if (yPos > 240) { doc.addPage(); yPos = 20; }
       doc.setFontSize(14);
       doc.setTextColor(15, 23, 42);
       doc.text('Historial Reproductivo', 14, yPos);
@@ -409,6 +439,26 @@ export default function ExpedienteAnimal() {
       doc.text('Sin registros', 14, yPos);
       yPos += 15;
     }
+
+    // Pie de página legal (LEG-T001 / REPORT-T001)
+    if (yPos > 260) {
+      doc.addPage();
+      yPos = 20;
+    } else {
+      yPos += 5;
+    }
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184);
+    doc.text(
+      'Documento técnico para control y gestión interna de la finca. No constituye certificación oficial estatal (DIIO/SENASA) ni asesoría médico-veterinaria.',
+      14,
+      yPos
+    );
+    doc.text(
+      `Identificación de manejo interno: #${animal.areteInterno}  |  Plataforma ResDigital`,
+      14,
+      yPos + 4
+    );
 
     // Descargar
     doc.save(`Expediente_${animal.areteInterno}_${hoyLocal()}.pdf`);
