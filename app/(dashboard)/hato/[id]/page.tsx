@@ -22,6 +22,7 @@ import {
   getEstadoReproductivo,
   createServicioReproductivo,
   createDiagnosticoReproductivo,
+  getBajaAnimal,
 } from '@/lib/api/animales';
 import {
   anularTratamiento,
@@ -141,6 +142,7 @@ export default function ExpedienteAnimal() {
   const { data: estadoReproductivo } = useQuery({
     queryKey: ['estadoReproductivo', animalId],
     queryFn: () => getEstadoReproductivo(animalId),
+    enabled: Boolean(animal && animal.sexo === 'Hembra'),
   });
 
   const { data: tratamientos } = useQuery({
@@ -156,6 +158,12 @@ export default function ExpedienteAnimal() {
   const { data: documentosDocumentos } = useQuery({
     queryKey: ['documentos', animalId],
     queryFn: () => getDocumentos(animalId),
+  });
+
+  const { data: eventoBaja } = useQuery({
+    queryKey: ['bajaAnimal', animalId],
+    queryFn: () => getBajaAnimal(animalId),
+    enabled: Boolean(animal && !animal.activo),
   });
 
   const pesajeMutation = useMutation({
@@ -536,6 +544,40 @@ export default function ExpedienteAnimal() {
           </div>
         </div>
 
+        {/* Banner de Baja Histórica */}
+        {!animal.activo && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-red-100 text-red-600 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-red-900">
+                  Animal Inactivo — Salida Registrada del Hato
+                </h3>
+                <p className="text-xs text-red-700 mt-0.5">
+                  Tipo: <span className="font-semibold">{eventoBaja?.tipoBaja || animal.tipoBaja || 'Baja'}</span>
+                  {(eventoBaja?.motivo || animal.motivoBaja) && (
+                    <span> · Motivo: <span className="font-semibold">{eventoBaja?.motivo || animal.motivoBaja}</span></span>
+                  )}
+                  {(eventoBaja?.fechaBaja || animal.fechaBaja) && (
+                    <span> · Fecha: <span className="font-semibold">{formatearFechaCivil(eventoBaja?.fechaBaja || animal.fechaBaja!)}</span></span>
+                  )}
+                  {(eventoBaja?.pesoFinalKg ?? animal.pesoFinalKg) != null && (
+                    <span> · Peso final: <span className="font-semibold">{eventoBaja?.pesoFinalKg ?? animal.pesoFinalKg} kg</span></span>
+                  )}
+                  {(eventoBaja?.precioVentaCrc) != null && (
+                    <span> · Monto: <span className="font-semibold">₡{Number(eventoBaja.precioVentaCrc).toLocaleString()}</span></span>
+                  )}
+                </p>
+              </div>
+            </div>
+            <span className="text-xs font-medium text-red-600 bg-red-100/70 px-3 py-1.5 rounded-lg border border-red-200/60">
+              Registro Histórico Inmutable
+            </span>
+          </div>
+        )}
+
         {/* Header Principal */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-6 sm:p-8 flex flex-col lg:flex-row gap-6 lg:items-center justify-between">
@@ -570,9 +612,13 @@ export default function ExpedienteAnimal() {
                       DIIO: {animal.numeroOficialDiio}
                     </span>
                   )}
-                  {animal.activo && (
+                  {animal.activo ? (
                     <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold uppercase tracking-wide border border-green-200">
                       ACTIVO
+                    </span>
+                  ) : (
+                    <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-bold uppercase tracking-wide border border-red-200">
+                      DADO DE BAJA {animal.tipoBaja ? `(${animal.tipoBaja})` : ''}
                     </span>
                   )}
                 </div>
@@ -584,7 +630,7 @@ export default function ExpedienteAnimal() {
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-slate-600">
                   <p><span className="font-bold text-navy">{animal.pesoActualKg || 0} kg</span> <span className="text-slate-400">— Peso actual</span></p>
                   <p className="font-semibold">{animal.categoria || 'Sin Categoría'}</p>
-                  <p className="font-semibold">{animal.potrero?.nombre || 'Sin Potrero'}</p>
+                  <p className="font-semibold">{animal.activo ? (animal.potrero?.nombre || 'Sin Potrero') : 'Sin Potrero (Dado de Baja)'}</p>
                   {animal.fechaNacimiento && (
                     <p>{formatearFechaCivil(animal.fechaNacimiento)}</p>
                   )}
@@ -598,26 +644,6 @@ export default function ExpedienteAnimal() {
 
             {/* Action Buttons */}
             <div className="flex flex-col gap-2 shrink-0">
-              <RequireRole roles={['propietario', 'administrador', 'peon']}><button
-                onClick={() => setIsPesajeOpen(true)}
-                className="w-full sm:w-auto px-5 py-2.5 bg-navy text-white rounded-lg text-sm font-bold shadow-sm hover:bg-navy-light transition-colors"
-              >
-                Registrar Pesaje
-              </button></RequireRole>
-              {!isMacho && <RequireRole roles={['propietario', 'administrador', 'peon', 'veterinario']}>
-                <button
-                  onClick={() => setIsServicioOpen(true)}
-                  className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-bold shadow-sm hover:bg-blue-700 transition-colors"
-                >
-                  Registrar Servicio
-                </button>
-              </RequireRole>}
-              <RequireRole roles={['propietario', 'administrador', 'peon', 'veterinario']}><button
-                onClick={() => setIsTratamientoOpen(true)}
-                className="w-full sm:w-auto px-5 py-2.5 bg-red-600 text-white rounded-lg text-sm font-bold shadow-sm hover:bg-red-700 transition-colors"
-              >
-                Aplicar Tratamiento
-              </button></RequireRole>
               <button
                 onClick={handleDownloadPDF}
                 className="w-full sm:w-auto px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-50 transition-colors"
@@ -1144,8 +1170,8 @@ export default function ExpedienteAnimal() {
         isOpen={isOrigenOpen}
         onClose={() => setIsOrigenOpen(false)}
         animal={animal}
-        onSubmit={(data) => {
-          updateAnimalMutation.mutate({
+        onSubmit={async (data) => {
+          await updateAnimalMutation.mutateAsync({
             origen: data.origen,
             padreId: data.padre || null,
             madreId: data.madre || null,

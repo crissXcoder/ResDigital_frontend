@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Loader2 } from 'lucide-react';
+import { X, Loader2, AlertCircle } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { getAnimales, type Animal } from '@/lib/api/animales';
+import { hoyLocal } from '@/lib/reproductivo/fechas';
 
 export interface OrigenFormData {
   origen: 'Finca' | 'Externa';
@@ -18,7 +19,7 @@ export interface OrigenFormData {
 interface ModalEditarOrigenProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: OrigenFormData) => void;
+  onSubmit: (data: OrigenFormData) => Promise<unknown> | void;
   animal: Animal | null;
 }
 
@@ -38,6 +39,9 @@ function ModalEditarOrigenForm({ isOpen, onClose, onSubmit, animal }: Omit<Modal
   const [valorCompraCrc, setValorCompraCrc] = useState(animal.valorCompraCrc == null ? '' : String(animal.valorCompraCrc));
   const [numeroGuia, setNumeroGuia] = useState(animal?.numeroGuia || '');
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   const { data: animales, isLoading } = useQuery({
     queryKey: ['animales'],
     queryFn: () => getAnimales({ activo: 'true' }),
@@ -46,18 +50,61 @@ function ModalEditarOrigenForm({ isOpen, onClose, onSubmit, animal }: Omit<Modal
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({ 
-      origen, 
-      padre, 
-      madre,
-      compradoA,
-      fechaCompra,
-      valorCompraCrc: valorCompraCrc ? parseFloat(valorCompraCrc) : null,
-      numeroGuia
-    });
-    onClose();
+    setIsSubmitting(true);
+    setErrorMessage(null);
+
+    if (origen === 'Finca') {
+      if (padre && padre === animal.id) {
+        setErrorMessage('Un animal no puede ser su propio padre.');
+        setIsSubmitting(false);
+        return;
+      }
+      if (madre && madre === animal.id) {
+        setErrorMessage('Un animal no puede ser su propia madre.');
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
+    if (origen === 'Externa') {
+      const hoy = hoyLocal();
+      if (fechaCompra && fechaCompra > hoy) {
+        setErrorMessage('La fecha de compra no puede ser futura.');
+        setIsSubmitting(false);
+        return;
+      }
+      const fechaNac = animal.fechaNacimiento ? animal.fechaNacimiento.split('T')[0] : null;
+      if (fechaCompra && fechaNac && fechaCompra < fechaNac) {
+        setErrorMessage(
+          'La fecha de compra no puede ser anterior a la fecha de nacimiento del animal.',
+        );
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
+    try {
+      await onSubmit({
+        origen,
+        padre,
+        madre,
+        compradoA,
+        fechaCompra,
+        valorCompraCrc: valorCompraCrc ? parseFloat(valorCompraCrc) : null,
+        numeroGuia
+      });
+      onClose();
+    } catch (err: unknown) {
+      console.error('Error al actualizar origen y genealogía:', err);
+      const errorObj = err as { response?: { data?: { message?: string } }; message?: string };
+      setErrorMessage(
+        errorObj?.response?.data?.message || errorObj?.message || 'Error al actualizar el origen del animal. Inténtalo de nuevo.'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -98,33 +145,42 @@ function ModalEditarOrigenForm({ isOpen, onClose, onSubmit, animal }: Omit<Modal
             </div>
           </div>
 
+          {errorMessage && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-sm text-red-600">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
+
           <div className="bg-slate-50/50 border border-slate-100 rounded-xl p-5 space-y-4">
             {origen === 'Finca' ? (
               <>
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-semibold text-navy">Toro Padre (Semental de la Finca)</label>
+                  <label htmlFor="toroPadreSelect" className="block text-sm font-semibold text-navy">Toro Padre (Semental de la Finca)</label>
                   <select
+                    id="toroPadreSelect"
                     className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white"
                     value={padre}
                     onChange={e => setPadre(e.target.value)}
-                    disabled={isLoading}
+                    disabled={isLoading || isSubmitting}
                   >
                     <option value="">-- Seleccionar Toro Padre --</option>
-                    {animales?.filter(a => a.sexo === 'Macho').map(a => (
+                    {animales?.filter(a => a.sexo === 'Macho' && a.id !== animal.id).map(a => (
                       <option key={a.id} value={a.id}>#{a.areteInterno} {a.nombre}</option>
                     ))}
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-semibold text-navy">Vaca Madre (Matriz de la Finca)</label>
+                  <label htmlFor="vacaMadreSelect" className="block text-sm font-semibold text-navy">Vaca Madre (Matriz de la Finca)</label>
                   <select
+                    id="vacaMadreSelect"
                     className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white"
                     value={madre}
                     onChange={e => setMadre(e.target.value)}
-                    disabled={isLoading}
+                    disabled={isLoading || isSubmitting}
                   >
                     <option value="">-- Seleccionar Vaca Madre --</option>
-                    {animales?.filter(a => a.sexo === 'Hembra').map(a => (
+                    {animales?.filter(a => a.sexo === 'Hembra' && a.id !== animal.id).map(a => (
                       <option key={a.id} value={a.id}>#{a.areteInterno} {a.nombre}</option>
                     ))}
                   </select>
@@ -133,42 +189,53 @@ function ModalEditarOrigenForm({ isOpen, onClose, onSubmit, animal }: Omit<Modal
             ) : (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-semibold text-navy">Comprado a / Ganadería</label>
+                  <label htmlFor="compradoAInput" className="block text-sm font-semibold text-navy">Comprado a / Ganadería</label>
                   <input
+                    id="compradoAInput"
                     type="text"
                     placeholder="Ej. Subasta Ganadera Esparza"
                     value={compradoA}
                     onChange={(e) => setCompradoA(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white"
+                    disabled={isSubmitting}
+                    className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white disabled:opacity-50"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-semibold text-navy">Fecha de Compra</label>
+                  <label htmlFor="fechaCompraInput" className="block text-sm font-semibold text-navy">Fecha de Compra</label>
                   <input
+                    id="fechaCompraInput"
                     type="date"
+                    max={hoyLocal()}
+                    min={animal.fechaNacimiento ? animal.fechaNacimiento.split('T')[0] : undefined}
                     value={fechaCompra}
                     onChange={(e) => setFechaCompra(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white"
+                    disabled={isSubmitting}
+                    className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white disabled:opacity-50"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-semibold text-navy">Valor de Compra (CRC ₡)</label>
+                  <label htmlFor="valorCompraInput" className="block text-sm font-semibold text-navy">Valor de Compra (CRC ₡)</label>
                   <input
+                    id="valorCompraInput"
                     type="number"
+                    min="0"
                     placeholder="Ej. 850000"
                     value={valorCompraCrc}
                     onChange={(e) => setValorCompraCrc(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white"
+                    disabled={isSubmitting}
+                    className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white disabled:opacity-50"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-semibold text-navy">Nº Comprobante / Guía</label>
+                  <label htmlFor="numeroGuiaInput" className="block text-sm font-semibold text-navy">Nº Comprobante / Guía</label>
                   <input
+                    id="numeroGuiaInput"
                     type="text"
                     placeholder="Ej. FAC-2024-001"
                     value={numeroGuia}
                     onChange={(e) => setNumeroGuia(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white"
+                    disabled={isSubmitting}
+                    className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white disabled:opacity-50"
                   />
                 </div>
               </div>
@@ -179,14 +246,17 @@ function ModalEditarOrigenForm({ isOpen, onClose, onSubmit, animal }: Omit<Modal
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 border border-slate-300 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors"
+              disabled={isSubmitting}
+              className="px-5 py-2.5 border border-slate-300 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors disabled:opacity-50"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="px-5 py-2.5 bg-navy text-white rounded-lg text-sm font-semibold hover:bg-navy-light transition-colors"
+              disabled={isSubmitting}
+              className="px-5 py-2.5 bg-navy text-white rounded-lg text-sm font-semibold hover:bg-navy-light transition-colors flex items-center gap-2 disabled:opacity-50"
             >
+              {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
               Guardar Genealogía
             </button>
           </div>
