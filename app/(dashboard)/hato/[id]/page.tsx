@@ -57,6 +57,8 @@ import ModalServicio from '@/components/modals/ModalServicio';
 import ModalDiagnostico from '@/components/modals/ModalDiagnostico';
 import ModalTratamiento from '@/components/modals/ModalTratamiento';
 import { AccionesTratamiento } from '@/components/sanitario/AccionesTratamiento';
+import { BadgesRetiro } from '@/components/sanitario/BadgesRetiro';
+import { DocumentoTratamientoLink } from '@/components/sanitario/DocumentoTratamientoLink';
 import ModalEditarOrigen from '@/components/modals/ModalEditarOrigen';
 import ModalDocumento from '@/components/modals/ModalDocumento';
 import ModalQrAnimal from '@/components/modals/ModalQrAnimal';
@@ -777,6 +779,7 @@ export default function ExpedienteAnimal() {
 
           {activeTab === 'sanitario' && (
             <div className="space-y-6 mt-6">
+              {estadoSanitario && <BadgesRetiro estado={estadoSanitario} />}
               {estadoSanitario?.enRetiro ? (
                 <div className="bg-danger-bg border border-danger/30 rounded-xl p-5 flex items-start gap-4 shadow-sm">
                   <AlertTriangle className="w-6 h-6 text-danger shrink-0 mt-0.5" />
@@ -929,15 +932,12 @@ export default function ExpedienteAnimal() {
                           </td>
                           <td className="p-4 pr-6 sm:pr-8 text-right space-x-3">
                             {t.documentoUrl && (
-                              <a
-                                href={t.documentoUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                              <DocumentoTratamientoLink
+                                documento={t.documentoUrl}
                                 className="text-info hover:text-navy transition-colors inline-block"
-                                title="Ver comprobante adjunto"
                               >
-                                <FileText className="w-4 h-4" />
-                              </a>
+                                <FileText className="w-4 h-4" aria-label="Ver comprobante adjunto" />
+                              </DocumentoTratamientoLink>
                             )}
                             <AccionesTratamiento
                               onCorregir={() => {
@@ -1152,6 +1152,8 @@ export default function ExpedienteAnimal() {
         }}
         initialData={tratamientoSeleccionado}
         animalSexo={animal?.sexo}
+        animalId={animalId}
+        tenantId={authUser?.tenantId}
         onSubmit={(data) =>
           tratamientoSeleccionado
             ? corregirTratamientoMutation.mutateAsync({ id: tratamientoSeleccionado.id, data })

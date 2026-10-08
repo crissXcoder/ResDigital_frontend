@@ -105,7 +105,7 @@ export function filtrarAnimalesAccion(
 
 export function AccionesRapidas() {
   const queryClient = useQueryClient();
-  const { role } = useAuthUser();
+  const { role, user } = useAuthUser();
 
   // Estados del flujo
   const [accionActiva, setAccionActiva] = useState<TipoAccionRapida | null>(null);
@@ -411,6 +411,8 @@ export function AccionesRapidas() {
           isOpen={isFormOpen}
           onClose={cancelarFlujo}
           animalSexo={animalSeleccionado.sexo}
+          animalId={animalSeleccionado.id}
+          tenantId={user?.tenantId}
           onSubmit={async (data) => {
             await tratamientoMutation.mutateAsync(data);
           }}

@@ -3,8 +3,14 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { X, Upload, Link as LinkIcon, Loader2, AlertTriangle, Sparkles, AlertCircle } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
 import { hoyLocal, normalizarFechaCivil } from '@/lib/reproductivo/fechas';
+import { isDefinitiveApiRejection } from '@/lib/api/client';
+import {
+  retirarDocumentoTratamiento,
+  rutaDocumentoTratamiento,
+  subirDocumentoTratamiento,
+} from '@/lib/sanitario/documento';
+import { DocumentoTratamientoLink } from '@/components/sanitario/DocumentoTratamientoLink';
 import {
   getMedicamentos,
   getPadecimientos,
@@ -13,7 +19,6 @@ import {
   type Medicamento,
   type Padecimiento,
 } from '@/lib/api/sanitary';
-import { BUCKET_DOCUMENTOS } from '@/lib/supabase/buckets';
 import { medicamentoAplica, padecimientoAplica, VIA_SOLO_HEMBRA } from '@/lib/sanitario/compatibilidad';
 
 /** Máximo de días entre la aplicación y la última administración (igual que el backend). */
@@ -59,6 +64,9 @@ interface ModalTratamientoProps {
   onSubmit: (data: TratamientoFormData) => Promise<unknown> | void;
   initialData?: InitialTratamientoData | null;
   animalSexo?: string;
+  /** Necesarios para subir la receta a la carpeta privada de la finca. */
+  animalId?: string;
+  tenantId?: string;
 }
 
 interface FormState {
@@ -127,6 +135,8 @@ export default function ModalTratamiento({
   onSubmit,
   initialData,
   animalSexo,
+  animalId,
+  tenantId,
 }: ModalTratamientoProps) {
   const [formData, setFormData] = useState<FormState>(() => getInitialState(null));
   const [sugerenciaActiva, setSugerenciaActiva] = useState<string | null>(null);
@@ -213,29 +223,20 @@ export default function ModalTratamiento({
     e.preventDefault();
 
     let finalDocumentoUrl = formData.documentoUrl;
+    let rutaSubida: string | null = null;
 
     if (file) {
       setIsUploading(true);
+      setErrorMessage(null);
       try {
-        const supabase = createClient();
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-        const filePath = `tratamientos/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from(BUCKET_DOCUMENTOS)
-          .upload(filePath, file);
-
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from(BUCKET_DOCUMENTOS)
-          .getPublicUrl(filePath);
-
-        finalDocumentoUrl = publicUrl;
+        if (!tenantId || !animalId) throw new Error('No se pudo validar la finca activa.');
+        const ruta = rutaDocumentoTratamiento(tenantId, animalId, file);
+        await subirDocumentoTratamiento(ruta, file);
+        rutaSubida = ruta;
+        finalDocumentoUrl = ruta;
       } catch (error) {
-        console.error('Error uploading document:', error);
-        setErrorMessage('Error al subir el documento. Por favor intente de nuevo.');
+        console.error('Error al subir el documento:', error);
+        setErrorMessage(error instanceof Error ? error.message : 'Error al subir el documento.');
         setIsUploading(false);
         return;
       }
@@ -285,6 +286,9 @@ export default function ModalTratamiento({
       onClose();
     } catch (err: unknown) {
       console.error('Error al registrar tratamiento:', err);
+      // Solo un 4xx confirma que la API no guardó el registro; tras un 5xx o un
+      // fallo de red el tratamiento pudo quedar guardado con esta ruta.
+      if (rutaSubida && isDefinitiveApiRejection(err)) await retirarDocumentoTratamiento(rutaSubida);
       setErrorMessage(mensajeDeError(err));
     } finally {
       setIsSubmitting(false);
@@ -588,14 +592,12 @@ export default function ModalTratamiento({
             {formData.documentoUrl && !file && (
               <div className="flex items-center gap-2 mb-3 p-3 bg-info-bg text-info rounded-lg text-sm">
                 <LinkIcon className="w-4 h-4" />
-                <a
-                  href={formData.documentoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <DocumentoTratamientoLink
+                  documento={formData.documentoUrl}
                   className="hover:underline flex-1 truncate font-medium"
                 >
                   Ver comprobante adjunto actual
-                </a>
+                </DocumentoTratamientoLink>
               </div>
             )}
 
@@ -616,7 +618,7 @@ export default function ModalTratamiento({
                   <p className="text-xs text-slate-600">
                     <span className="font-semibold text-navy">Haga clic para subir</span> comprobante o receta
                   </p>
-                  <p className="text-[11px] text-slate-400">PDF, PNG, JPG (Máx. 5MB)</p>
+                  <p className="text-[11px] text-slate-400">PDF, PNG, JPG (Máx. 10MB)</p>
                 </div>
               </label>
             </div>
