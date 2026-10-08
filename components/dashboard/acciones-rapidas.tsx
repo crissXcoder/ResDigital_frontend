@@ -3,15 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Loader2, Search, X } from "lucide-react";
-import ModalPesaje, { type PesajeFormData } from "@/components/modals/ModalPesaje";
+import ModalProduccionLeche from "@/components/modals/ModalProduccionLeche";
 import ModalServicio, { type ServicioFormData } from "@/components/modals/ModalServicio";
 import ModalTratamiento, { type TratamientoFormData } from "@/components/modals/ModalTratamiento";
 import {
   type Animal,
-  createPesaje,
   createServicioReproductivo,
   getAnimales,
 } from "@/lib/api/animales";
+import { createProduccionLeche } from "@/lib/api/produccion";
 import {
   createTratamiento,
   toCreateTratamientoPayload,
@@ -56,9 +56,9 @@ const CONFIG_ACCIONES: Record<TipoAccionRapida, AccionConfig> = {
   },
   leche: {
     titulo: "Registrar Producción de Leche",
-    subtitulo: "Solo hembras activas sin retiro",
+    subtitulo: "Solo hembras en lactancia",
     tituloSelector: "Seleccionar Hembra para Registro de Leche",
-    descripcionSelector: "Elige la hembra activa para registrar el pesaje y litros producidos.",
+    descripcionSelector: "Elige la hembra activa para registrar los litros del turno.",
   },
 };
 
@@ -67,7 +67,7 @@ const CONFIG_ACCIONES: Record<TipoAccionRapida, AccionConfig> = {
  * 1. Tarjetas en diseño sobrio/neutral.
  * 2. Al pulsar cualquier acción, abre un selector modal de animales con búsqueda.
  * 3. Al seleccionar un animal, despliega directamente el formulario modal oficial
- *    (ModalTratamiento, ModalServicio o ModalPesaje) sin tener que ir a las tablas.
+ *    (ModalTratamiento, ModalServicio o ModalProduccionLeche) sin tener que ir a las tablas.
  * 4. Guarda a través de la API y refresca los datos del Dashboard.
  */
 /**
@@ -105,7 +105,7 @@ export function filtrarAnimalesAccion(
 
 export function AccionesRapidas() {
   const queryClient = useQueryClient();
-  const { role } = useAuthUser();
+  const { role, user } = useAuthUser();
 
   // Estados del flujo
   const [accionActiva, setAccionActiva] = useState<TipoAccionRapida | null>(null);
@@ -177,26 +177,17 @@ export function AccionesRapidas() {
     },
   });
 
-  // Mutación: Registrar Producción de Leche / Pesaje
-  const pesajeMutation = useMutation({
-    mutationFn: (data: PesajeFormData) => {
-      return createPesaje({
-        animalId: animalSeleccionado!.id,
-        fecha: data.fecha,
-        pesoActualKg: data.peso_actual ? parseFloat(data.peso_actual) : null,
-        lecheMananaL: data.leche_manana ? parseFloat(data.leche_manana) : null,
-        lecheTardeL: data.leche_tarde ? parseFloat(data.leche_tarde) : null,
-      });
-    },
+  // Mutación: Registrar Producción de Leche
+  const produccionMutation = useMutation({
+    mutationFn: createProduccionLeche,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["pesajes"] });
       queryClient.invalidateQueries({ queryKey: ["produccionLeche"] });
       queryClient.invalidateQueries({ queryKey: ["animales"] });
       cerrarTodoConExito("Producción de leche registrada correctamente");
     },
     onError: (error: unknown) => {
-      console.error("Error al registrar pesaje/leche:", error);
+      console.error("Error al registrar producción de leche:", error);
     },
   });
 
@@ -411,6 +402,8 @@ export function AccionesRapidas() {
           isOpen={isFormOpen}
           onClose={cancelarFlujo}
           animalSexo={animalSeleccionado.sexo}
+          animalId={animalSeleccionado.id}
+          tenantId={user?.tenantId}
           onSubmit={async (data) => {
             await tratamientoMutation.mutateAsync(data);
           }}
@@ -429,14 +422,15 @@ export function AccionesRapidas() {
         />
       )}
 
-      {/* Formulario 3: ModalPesaje / Leche (Karla - MOD-04) */}
+      {/* Formulario 3: ModalProduccionLeche (MOD-06) */}
       {accionActiva === "leche" && isFormOpen && animalSeleccionado && (
-        <ModalPesaje
+        <ModalProduccionLeche
           isOpen={isFormOpen}
           onClose={cancelarFlujo}
-          animalSexo={animalSeleccionado.sexo}
-          onSubmit={async (data) => {
-            await pesajeMutation.mutateAsync(data);
+          animalId={animalSeleccionado.id}
+          animalLabel={animalSeleccionado.areteInterno}
+          onSubmit={async (payload) => {
+            await produccionMutation.mutateAsync(payload);
           }}
         />
       )}

@@ -7,12 +7,15 @@ import { getPotreros, asignarAnimalesPotrero, Potrero } from '@/lib/api/potreros
 import { useRouter } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
+import { hoyLocal } from '@/lib/reproductivo/fechas';
 
 export default function AsignarAnimalesPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [selectedAnimalIds, setSelectedAnimalIds] = useState<Set<string>>(new Set());
   const [selectedPotreroId, setSelectedPotreroId] = useState<string>('');
+  const [fecha, setFecha] = useState<string>(hoyLocal());
+  const [motivo, setMotivo] = useState<string>('');
 
   const { data: animales = [], isLoading: loadingAnimales } = useQuery({
     queryKey: ['animales'],
@@ -25,13 +28,18 @@ export default function AsignarAnimalesPage() {
   });
 
   const mutation = useMutation({
-    mutationFn: () => asignarAnimalesPotrero(selectedPotreroId, Array.from(selectedAnimalIds)),
+    mutationFn: () =>
+      asignarAnimalesPotrero(selectedPotreroId, Array.from(selectedAnimalIds), {
+        fecha,
+        motivo: motivo.trim() || undefined,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['animales'] });
       queryClient.invalidateQueries({ queryKey: ['potreros'] });
       router.push('/potreros');
-    }
+    },
   });
+
 
   const toggleAnimal = (id: string) => {
     const next = new Set(selectedAnimalIds);
@@ -204,7 +212,30 @@ export default function AsignarAnimalesPage() {
                   </select>
                 </div>
 
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Fecha del Traslado</label>
+                  <input
+                    type="date"
+                    max={hoyLocal()}
+                    value={fecha}
+                    onChange={e => setFecha(e.target.value)}
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-navy focus:border-transparent transition-shadow"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Motivo / Notas (Opcional)</label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Rotación regular, descanso, etc."
+                    value={motivo}
+                    onChange={e => setMotivo(e.target.value)}
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-navy focus:border-transparent transition-shadow"
+                  />
+                </div>
+
                 <div className="pt-2 space-y-3">
+
                   <button
                     onClick={() => mutation.mutate()}
                     disabled={selectedAnimalIds.size === 0 || !selectedPotreroId || mutation.isPending}

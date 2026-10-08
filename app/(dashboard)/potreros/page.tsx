@@ -20,41 +20,43 @@ export default function PotrerosPage() {
 
   const totalPotreros = potreros.length;
   const hectareasTotales = potreros.reduce((sum, p) => sum + Number(p.areaHa || 0), 0);
-  const cargaPromedio = totalPotreros > 0 
-    ? (potreros.reduce((sum, p) => sum + Number(p.cargaActualUaHa || 0), 0) / totalPotreros).toFixed(1) 
+  const cargaPromedio = totalPotreros > 0
+    ? (potreros.reduce((sum, p) => sum + Number(p.cargaActualUaHa || 0), 0) / totalPotreros).toFixed(1)
     : '0.0';
-  const alertasActivas = potreros.filter(p => p.estadoCalculado === 'SOBRECARGADO').length;
-
-  const countByStatus = (status: string) => potreros.filter(p => p.estadoCalculado === status).length;
+  const alertasActivas = potreros.filter(p => p.sobrecargado || p.estadoCarga === 'SOBRECARGADO' || p.estadoCalculado === 'SOBRECARGADO').length;
 
   const filters = [
     { label: 'Todos', count: totalPotreros },
-    { label: 'Disponibles', count: countByStatus('DISPONIBLE') },
-    { label: 'En Recuperación', count: countByStatus('EN RECUPERACIÓN') },
-    { label: 'Descanso Programado', count: countByStatus('EN MANTENIMIENTO') }, // Asumiendo EN MANTENIMIENTO = Descanso
-    { label: 'Sobrecargados', count: countByStatus('SOBRECARGADO') },
+    { label: 'Disponibles', count: potreros.filter(p => !p.sobrecargado && (p.estadoOperativo === 'DISPONIBLE' || p.estadoCalculado === 'DISPONIBLE')).length },
+    { label: 'En Recuperación', count: potreros.filter(p => p.estadoOperativo === 'EN RECUPERACIÓN' || p.estadoCalculado === 'EN RECUPERACIÓN').length },
+    { label: 'Descanso Programado', count: potreros.filter(p => p.estadoOperativo === 'EN MANTENIMIENTO' || p.estadoOperativo === 'DESCANSO PROGRAMADO' || p.estadoCalculado === 'EN MANTENIMIENTO').length },
+    { label: 'Sobrecargados', count: alertasActivas },
   ];
 
   const filteredPotreros = potreros.filter(p => {
     if (activeFilter === 'Todos') return true;
-    if (activeFilter === 'Disponibles') return p.estadoCalculado === 'DISPONIBLE';
-    if (activeFilter === 'En Recuperación') return p.estadoCalculado === 'EN RECUPERACIÓN';
-    if (activeFilter === 'Descanso Programado') return p.estadoCalculado === 'EN MANTENIMIENTO';
-    if (activeFilter === 'Sobrecargados') return p.estadoCalculado === 'SOBRECARGADO';
+    if (activeFilter === 'Disponibles') return !p.sobrecargado && (p.estadoOperativo === 'DISPONIBLE' || p.estadoCalculado === 'DISPONIBLE');
+    if (activeFilter === 'En Recuperación') return p.estadoOperativo === 'EN RECUPERACIÓN' || p.estadoCalculado === 'EN RECUPERACIÓN';
+    if (activeFilter === 'Descanso Programado') return p.estadoOperativo === 'EN MANTENIMIENTO' || p.estadoOperativo === 'DESCANSO PROGRAMADO' || p.estadoCalculado === 'EN MANTENIMIENTO';
+    if (activeFilter === 'Sobrecargados') return p.sobrecargado || p.estadoCarga === 'SOBRECARGADO' || p.estadoCalculado === 'SOBRECARGADO';
     return true;
   });
 
-  const getStatusStyle = (status: string) => {
+  const getStatusStyle = (status: string, sobrecargado?: boolean) => {
+    if (sobrecargado || status === 'SOBRECARGADO') {
+      return { pill: 'bg-red-100 text-red-800 border-red-200', bar: 'bg-red-500' };
+    }
     switch(status) {
-      case 'DISPONIBLE': 
+      case 'DISPONIBLE':
         return { pill: 'bg-emerald-100 text-emerald-800 border-emerald-200', bar: 'bg-emerald-500' };
-      case 'EN RECUPERACIÓN': 
+      case 'EN RECUPERACIÓN':
         return { pill: 'bg-amber-100 text-amber-800 border-amber-200', bar: 'bg-amber-500' };
-      case 'SOBRECARGADO': 
-        return { pill: 'bg-red-100 text-red-800 border-red-200', bar: 'bg-red-500' };
-      case 'EN MANTENIMIENTO': 
+      case 'OCUPADO':
         return { pill: 'bg-blue-100 text-blue-800 border-blue-200', bar: 'bg-blue-500' };
-      default: 
+      case 'EN MANTENIMIENTO':
+      case 'DESCANSO PROGRAMADO':
+        return { pill: 'bg-purple-100 text-purple-800 border-purple-200', bar: 'bg-purple-500' };
+      default:
         return { pill: 'bg-slate-100 text-slate-800 border-slate-200', bar: 'bg-slate-500' };
     }
   };
@@ -67,7 +69,7 @@ export default function PotrerosPage() {
   return (
     <main className="p-6 md:p-8 bg-slate-50 min-h-screen">
       <div className="max-w-[1400px] mx-auto space-y-6">
-        
+
         {/* Header Title */}
         <div>
           <h1 className="text-3xl font-extrabold text-navy">Módulo de Potreros</h1>
@@ -84,7 +86,7 @@ export default function PotrerosPage() {
             </Link></RequireRole>
           </div>
           <RequireRole roles={['propietario', 'administrador']}><div className="pb-3">
-            <button 
+            <button
               onClick={() => {
                 setEditingPotrero(null);
                 setIsFormOpen(true);
@@ -126,8 +128,8 @@ export default function PotrerosPage() {
               key={filter.label}
               onClick={() => setActiveFilter(filter.label)}
               className={`px-4 py-2 rounded-full text-sm font-semibold transition-all shadow-sm ${
-                activeFilter === filter.label 
-                  ? 'bg-navy text-white border-transparent' 
+                activeFilter === filter.label
+                  ? 'bg-navy text-white border-transparent'
                   : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50 hover:text-slate-700'
               }`}
             >
@@ -168,8 +170,8 @@ export default function PotrerosPage() {
                 ) : (
                   filteredPotreros.map(potrero => {
                     const uaPercentage = Math.min((potrero.cargaActualUaHa / (potrero.capacidadRecomendadaUaHa || 1)) * 100, 100);
-                    const statusStyles = getStatusStyle(potrero.estadoCalculado);
-                    
+                    const statusStyles = getStatusStyle(potrero.estadoCalculado, potrero.sobrecargado);
+
                     return (
                       <tr key={potrero.id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="py-4 px-6">
@@ -207,13 +209,20 @@ export default function PotrerosPage() {
                           </div>
                         </td>
                         <td className="py-4 px-6">
-                          <span className={`inline-flex items-center justify-center px-3 py-1 text-xs font-extrabold uppercase border rounded-md ${statusStyles.pill}`}>
-                            {potrero.estadoCalculado}
-                          </span>
+                          <div className="flex flex-col gap-1 items-start">
+                            <span className={`inline-flex items-center justify-center px-3 py-1 text-xs font-extrabold uppercase border rounded-md ${statusStyles.pill}`}>
+                              {potrero.estadoCalculado}
+                            </span>
+                            {potrero.sobrecargado && potrero.estadoCalculado !== 'SOBRECARGADO' && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded">
+                                ⚠️ Carga excedida
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="py-4 px-6 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <Link 
+                            <Link
                               href={`/potreros/${potrero.id}`}
                               className="px-4 py-2 bg-navy text-white text-xs font-bold rounded-lg hover:bg-navy-light transition-colors shadow-sm"
                             >
@@ -239,11 +248,11 @@ export default function PotrerosPage() {
       </div>
 
       {isFormOpen && (
-        <FormPotrero 
+        <FormPotrero
           onClose={() => {
             setIsFormOpen(false);
             setEditingPotrero(null);
-          }} 
+          }}
           potrero={editingPotrero}
         />
       )}

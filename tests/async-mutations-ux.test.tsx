@@ -24,18 +24,20 @@ describe('UX segura de mutaciones asíncronas (CORE-T003)', () => {
         />,
       );
 
-      const submitButton = screen.getByRole('button', { name: /guardar registro/i }) as HTMLButtonElement;
+      const submitButton = screen.getByRole('button', { name: /guardar pesaje/i }) as HTMLButtonElement;
       expect(submitButton.disabled).toBe(false);
 
       // Rellenar datos
       const dateInput = screen.getByLabelText(/fecha/i);
       fireEvent.change(dateInput, { target: { value: '2026-10-02' } });
+      fireEvent.change(screen.getByLabelText(/peso actual/i), { target: { value: '480' } });
 
       fireEvent.click(submitButton);
 
       // Botón debe estar deshabilitado mientras se procesa
       expect(submitButton.disabled).toBe(true);
       expect(onSubmitMock).toHaveBeenCalledTimes(1);
+      expect(onSubmitMock).toHaveBeenCalledWith({ fecha: '2026-10-02', peso_actual: '480' });
 
       // Resolver la promesa
       resolvePromise!();
@@ -62,7 +64,7 @@ describe('UX segura de mutaciones asíncronas (CORE-T003)', () => {
       const pesoInput = screen.getByPlaceholderText(/ej\. 485/i) as HTMLInputElement;
       fireEvent.change(pesoInput, { target: { value: '520.5' } });
 
-      const submitButton = screen.getByRole('button', { name: /guardar registro/i });
+      const submitButton = screen.getByRole('button', { name: /guardar pesaje/i });
       fireEvent.click(submitButton);
 
       await waitFor(() => {

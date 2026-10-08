@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { X, UploadCloud, Loader2, AlertCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { BUCKET_ANIMALES_FOTOS } from '@/lib/supabase/buckets';
+import { hoyLocal } from '@/lib/reproductivo/fechas';
 
 export default function NuevoAnimalPage() {
   const router = useRouter();
@@ -86,6 +87,26 @@ export default function NuevoAnimalPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMensaje(null);
+
+    const hoy = hoyLocal();
+    if (formData.fechaNacimiento && formData.fechaNacimiento > hoy) {
+      setErrorMensaje('La fecha de nacimiento no puede ser futura.');
+      return;
+    }
+    if (formData.fechaCompra && formData.fechaCompra > hoy) {
+      setErrorMensaje('La fecha de compra no puede ser futura.');
+      return;
+    }
+    if (
+      formData.fechaCompra &&
+      formData.fechaNacimiento &&
+      formData.fechaCompra < formData.fechaNacimiento
+    ) {
+      setErrorMensaje(
+        'La fecha de compra no puede ser anterior a la fecha de nacimiento.',
+      );
+      return;
+    }
     
     let uploadedFotoUrl = '';
 
@@ -392,6 +413,8 @@ export default function NuevoAnimalPage() {
                 <label className="block text-sm font-semibold text-navy">Peso Actual (kg)</label>
                 <input 
                   type="number" 
+                  min="0"
+                  step="0.1"
                   name="pesoActualKg"
                   value={formData.pesoActualKg}
                   onChange={handleChange}
@@ -404,6 +427,7 @@ export default function NuevoAnimalPage() {
                 <label className="block text-sm font-semibold text-navy">Fecha de Nacimiento</label>
                 <input 
                   type="date" 
+                  max={hoyLocal()}
                   name="fechaNacimiento"
                   value={formData.fechaNacimiento}
                   onChange={handleChange}
@@ -507,6 +531,8 @@ export default function NuevoAnimalPage() {
                   <label className="block text-sm font-semibold text-navy">Fecha de Compra</label>
                   <input
                     type="date"
+                    max={hoyLocal()}
+                    min={formData.fechaNacimiento || undefined}
                     name="fechaCompra"
                     value={formData.fechaCompra || ''}
                     onChange={handleChange}

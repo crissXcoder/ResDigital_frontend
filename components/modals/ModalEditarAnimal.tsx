@@ -231,6 +231,7 @@ function ModalEditarAnimalForm({ isOpen, onClose, animal }: Omit<ModalEditarAnim
               </label>
               <input
                 type="number"
+                min="0"
                 step="0.1"
                 value={formData.pesoActualKg}
                 onChange={(e) => setFormData({ ...formData, pesoActualKg: e.target.value })}
