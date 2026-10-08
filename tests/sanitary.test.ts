@@ -4,7 +4,7 @@ import {
   formatearFecha,
   diasRestantesRetiro,
   toCreateTratamientoPayload,
-  toUpdateTratamientoPayload,
+  toDatosTratamientoPayload,
 } from '../lib/api/sanitary';
 
 describe('Sanitary date and withdrawal calculation utilities', () => {
@@ -32,76 +32,81 @@ describe('Sanitary date and withdrawal calculation utilities', () => {
   });
 });
 
-describe('toCreateTratamientoPayload whitelist', () => {
-  const animalId = '11111111-1111-1111-1111-111111111111';
+describe('payload de tratamiento compatible con la API', () => {
+  const animalId = '11111111-1111-4111-8111-111111111111';
+  const medicamentoId = '22222222-2222-4222-8222-222222222222';
+  const padecimientoId = '33333333-3333-4333-8333-333333333333';
 
-  it('maps dual retiros and strips snake_case / extra keys', () => {
+  it('con catálogo envía ids, retiros duales y nunca diasRetiro ni claves extra', () => {
     const payload = toCreateTratamientoPayload(
       {
+        medicamentoId,
         farmaco: 'Cefalexina 200 Intramamaria',
+        padecimientoId,
+        diagnostico: 'Mastitis clínica',
         dosis: '1 jeringa',
         via: 'Intramamaria',
         fecha: '2026-09-17',
-        diagnostico: 'Mastitis clínica',
+        fechaUltimaAdministracion: '2026-09-19',
         veterinario: 'Dra. X',
+        diasRetiro: 5,
         dias_retiro_leche: '5',
-        dias_retiro_carne: '4',
-        dias_retiro: '5',
-        documentoUrl: 'https://example.com/doc.pdf',
-        customJunk: true,
         diasRetiroLeche: 5,
         diasRetiroCarne: 4,
+        documentoUrl: 'https://example.com/doc.pdf',
+        customJunk: true,
       },
       animalId,
     );
 
     expect(payload).toEqual({
       animalId,
-      farmaco: 'Cefalexina 200 Intramamaria',
+      medicamentoId,
+      padecimientoId,
       dosis: '1 jeringa',
       via: 'Intramamaria',
       fecha: '2026-09-17',
-      diagnostico: 'Mastitis clínica',
+      fechaUltimaAdministracion: '2026-09-19',
       veterinario: 'Dra. X',
-      diasRetiro: 5,
       diasRetiroLeche: 5,
       diasRetiroCarne: 4,
       documentoUrl: 'https://example.com/doc.pdf',
     });
-    expect(payload).not.toHaveProperty('dias_retiro_leche');
-    expect(payload).not.toHaveProperty('customJunk');
-    expect(payload.diasRetiroLeche).not.toBe(payload.diasRetiroCarne);
+    expect(payload).not.toHaveProperty('diasRetiro');
+    expect(payload).not.toHaveProperty('farmaco');
   });
 
-  it('preserves distinct leche/carne when already camelCase from modal', () => {
+  it('producto personalizado envía farmaco y no medicamentoId', () => {
     const payload = toCreateTratamientoPayload(
       {
-        farmaco: 'Oxitetraciclina L.A. 20%',
+        medicamentoId: '',
+        farmaco: '  Producto X  ',
+        diagnostico: 'Neumonía',
         dosis: '20 ml',
         fecha: '2026-09-17',
-        diagnostico: 'Neumonía',
-        diasRetiro: 28,
         diasRetiroLeche: 7,
         diasRetiroCarne: 28,
       },
       animalId,
     );
+    expect(payload.farmaco).toBe('Producto X');
+    expect(payload).not.toHaveProperty('medicamentoId');
+    expect(payload.diagnostico).toBe('Neumonía');
     expect(payload.diasRetiroLeche).toBe(7);
     expect(payload.diasRetiroCarne).toBe(28);
-    expect(payload.diasRetiro).toBe(28);
   });
 
-  it('update payload omits animalId', () => {
-    const update = toUpdateTratamientoPayload({
+  it('omite fechaUltimaAdministracion cuando es igual a la fecha de aplicación', () => {
+    const payload = toDatosTratamientoPayload({
       farmaco: 'Ivermectina 1%',
+      diagnostico: 'Parásitos',
       dosis: '1 ml',
       fecha: '2026-09-17',
-      diagnostico: 'Parásitos',
+      fechaUltimaAdministracion: '2026-09-17',
       diasRetiroLeche: 28,
       diasRetiroCarne: 35,
     });
-    expect(update).not.toHaveProperty('animalId');
-    expect(update.diasRetiroLeche).toBe(28);
-    expect(update.diasRetiroCarne).toBe(35);
+    expect(payload).not.toHaveProperty('fechaUltimaAdministracion');
+    expect(payload).not.toHaveProperty('animalId');
   });
 });
