@@ -166,6 +166,11 @@ function HatoContent() {
                       </td>
                       <td className="px-6 py-4">
                         <span className="font-bold text-navy text-base">#{animal.areteInterno}</span>
+                        {animal.numeroOficialDiio && (
+                          <div className="text-[11px] text-blue-600 font-medium">
+                            DIIO: {animal.numeroOficialDiio}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <div className="font-bold text-navy">{animal.nombre || 'Sin nombre'}</div>

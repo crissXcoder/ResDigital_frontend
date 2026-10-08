@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Loader2 } from 'lucide-react';
+import { X, Loader2, AlertCircle } from 'lucide-react';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 
 import { updateAnimal, getRazas, type Animal, type UpdateAnimalInput } from '@/lib/api/animales';
@@ -19,8 +19,10 @@ export function ModalEditarAnimal(props: ModalEditarAnimalProps) {
 function ModalEditarAnimalForm({ isOpen, onClose, animal }: Omit<ModalEditarAnimalProps, 'animal'> & { animal: Animal }) {
   const queryClient = useQueryClient();
   
+  const [errorMensaje, setErrorMensaje] = useState<string | null>(null);
   const [formData, setFormData] = useState(() => ({
     nombre: animal.nombre || '',
+    numeroOficialDiio: animal.numeroOficialDiio || '',
     razaId: animal.razaId || '',
     razaOtra: animal.razaOtra || '',
     categoria: animal.categoria || '',
@@ -60,7 +62,11 @@ function ModalEditarAnimalForm({ isOpen, onClose, animal }: Omit<ModalEditarAnim
     },
     onError: (error: Error) => {
       console.error(error);
-      alert(error.message || 'Hubo un error al actualizar el animal');
+      const msg = error.message || 'Hubo un error al actualizar el animal';
+      setErrorMensaje(msg);
+      if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+        window.alert(msg);
+      }
     }
   });
 
@@ -68,8 +74,12 @@ function ModalEditarAnimalForm({ isOpen, onClose, animal }: Omit<ModalEditarAnim
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMensaje(null);
+    const trimmedDiio = formData.numeroOficialDiio.trim();
+
     updateMutation.mutate({
       nombre: formData.nombre,
+      numeroOficialDiio: trimmedDiio === '' ? null : trimmedDiio,
       razaId: formData.razaId,
       razaOtra: formData.razaOtra,
       categoria: formData.categoria,
@@ -102,17 +112,54 @@ function ModalEditarAnimalForm({ isOpen, onClose, animal }: Omit<ModalEditarAnim
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-              Nombre
-            </label>
-            <input
-              type="text"
-              value={formData.nombre}
-              onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-              className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light focus:border-transparent text-slate-700"
-              placeholder="Ej. Mariposa"
-            />
+          {errorMensaje && (
+            <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5 text-red-700 text-sm">
+              <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-semibold text-xs uppercase tracking-wide">Conflicto de actualización</p>
+                <p className="text-red-600 text-xs mt-0.5">{errorMensaje}</p>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setErrorMensaje(null)}
+                className="text-red-400 hover:text-red-600 p-0.5"
+              >
+                <X size={15} />
+              </button>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                Nombre
+              </label>
+              <input
+                type="text"
+                value={formData.nombre}
+                onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light focus:border-transparent text-slate-700"
+                placeholder="Ej. Mariposa"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                Número Oficial DIIO (SENASA)
+              </label>
+              <input
+                type="text"
+                value={formData.numeroOficialDiio}
+                onChange={(e) => setFormData({ ...formData, numeroOficialDiio: e.target.value })}
+                className={`w-full px-4 py-2.5 bg-white border rounded-lg text-sm focus:outline-none focus:ring-2 ${
+                  errorMensaje?.includes('DIIO')
+                    ? 'border-red-500 ring-2 ring-red-200'
+                    : 'border-slate-200 focus:ring-navy-light'
+                } text-slate-700`}
+                placeholder="Ej. CR-12345678"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">Opcional. Identificador oficial único.</p>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
