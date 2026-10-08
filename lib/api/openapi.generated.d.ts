@@ -156,6 +156,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/animales/{id}/composicion-genetica": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Calcular la composición genética ponderada del animal */
+        get: operations["AnimalesController_getComposicionGenetica"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/animales/{id}/crias": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listar la descendencia directa registrada (crías) del animal */
+        get: operations["AnimalesController_getCrias"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/pesajes": {
         parameters: {
             query?: never;
@@ -713,6 +747,60 @@ export interface components {
              * @example a0b9432d-cf48-4be7-a2f0-1a76c66cfcb1/b7a544c0-2ff6-4299-bbca-46fe87588386/cartilla-sanitaria/e1d67412-21d9-482f-870d-f55da282b810.pdf
              */
             objectPath: string;
+        };
+        ComposicionRazaItemDto: {
+            /**
+             * Format: uuid
+             * @description Identificador único de la raza en el catálogo
+             * @example a0b9432d-cf48-4be7-a2f0-1a76c66cfcb1
+             */
+            razaId: string;
+            /**
+             * @description Nombre de la raza oficial
+             * @example Holstein
+             */
+            nombre: string;
+            /**
+             * @description Porcentaje genético de la raza (0 a 100)
+             * @example 50
+             */
+            porcentaje: number;
+        };
+        ProgenitoresAnalizadosDto: {
+            /**
+             * Format: uuid
+             * @description ID de la madre si está registrada en el hato
+             */
+            madreId?: string | null;
+            /**
+             * Format: uuid
+             * @description ID del padre si es un toro registrado en el hato
+             */
+            padreId?: string | null;
+            /** @description Descripción o pajilla del padre externo */
+            padreExternoDescripcion?: string | null;
+        };
+        ComposicionGeneticaResponseDto: {
+            /**
+             * Format: uuid
+             * @description ID del animal evaluado
+             */
+            animalId: string;
+            /**
+             * @description Arete interno del animal
+             * @example 101
+             */
+            areteInterno: string;
+            /** @description Desglose ponderado de la composición genética por raza */
+            composicion: components["schemas"]["ComposicionRazaItemDto"][];
+            /**
+             * @description Método zootécnico utilizado para determinar la composición
+             * @example PROMEDIO_PROGENITORES
+             * @enum {string}
+             */
+            metodo: "DIRECTO" | "PROMEDIO_PROGENITORES" | "PROGENITOR_UNICO" | "DESCONOCIDO";
+            /** @description Información de los progenitores analizados */
+            progenitoresAnalizados: components["schemas"]["ProgenitoresAnalizadosDto"];
         };
         CreatePesajeDto: {
             /** Format: uuid */
@@ -1558,6 +1646,61 @@ export interface operations {
             };
             /** @description El objeto ya está registrado */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AnimalesController_getComposicionGenetica: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComposicionGeneticaResponseDto"];
+                };
+            };
+            /** @description Animal no encontrado en esta finca */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AnimalesController_getCrias: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Lista de crías del animal */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Animal no encontrado en esta finca */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

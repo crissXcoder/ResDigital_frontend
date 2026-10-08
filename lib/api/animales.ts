@@ -22,6 +22,7 @@ export interface Animal {
   activo: boolean;
   madreId?: string;
   padreId?: string;
+  padreExternoDescripcion?: string | null;
   madre?: Animal;
   padre?: Animal;
   fotoUrl?: string;
@@ -105,6 +106,8 @@ export interface Pesaje {
   updatedAt: string;
 }
 export type DocumentoAnimal = components['schemas']['DocumentoAnimalResponseDto'];
+export type ComposicionGenetica = components['schemas']['ComposicionGeneticaResponseDto'];
+export type ComposicionRazaItem = components['schemas']['ComposicionRazaItemDto'];
 
 export const getRazas = async (): Promise<Raza[]> => {
   return await fetchApi<Raza[]>('/catalogos/razas');
@@ -186,4 +189,12 @@ export const createDiagnosticoReproductivo = async (animalId: string, data: Diag
     method: 'POST',
     body: JSON.stringify(data),
   });
+};
+
+export const getComposicionGenetica = async (animalId: string): Promise<ComposicionGenetica> => {
+  return fetchApi<ComposicionGenetica>(`/animales/${animalId}/composicion-genetica`);
+};
+
+export const getCriasByAnimal = async (animalId: string): Promise<Animal[]> => {
+  return fetchApi<Animal[]>(`/animales/${animalId}/crias`);
 };
