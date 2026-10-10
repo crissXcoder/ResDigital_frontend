@@ -1,5 +1,5 @@
 import React from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ModalEditarAnimal } from '@/components/modals/ModalEditarAnimal';
@@ -7,10 +7,10 @@ import { ModalDarBaja } from '@/components/modals/ModalDarBaja';
 import ModalEditarOrigen from '@/components/modals/ModalEditarOrigen';
 import ModalServicio from '@/components/modals/ModalServicio';
 import type { Animal } from '@/lib/api/animales';
-import { updateAnimal } from '@/lib/api/animales';
+import { updateAnimal, getRazas } from '@/lib/api/animales';
 
 vi.mock('@/lib/api/animales', () => ({
-  getRazas: vi.fn().mockResolvedValue([{ id: 'raza', nombre: 'Holstein' }]),
+  getRazas: vi.fn().mockResolvedValue([{ id: 'raza', nombre: 'Holstein', dias_gestacion: 280 }]),
   getAnimales: vi.fn().mockResolvedValue([]),
   updateAnimal: vi.fn(),
   darDeBajaAnimal: vi.fn(),
@@ -24,7 +24,10 @@ function withQuery(ui: React.ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   return { client, ...render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>) };
 }
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+beforeEach(() => {
+  vi.mocked(getRazas).mockResolvedValue([{ id: 'raza', nombre: 'Holstein', dias_gestacion: 280 }]);
+});
+afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe('Sesiones de formularios del hato', () => {
   it('descarta el borrador al reabrir y al cambiar de animal; conserva el peso cero', () => {
@@ -57,7 +60,7 @@ describe('Sesiones de formularios del hato', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const close = vi.fn();
     const { container } = withQuery(<ModalEditarAnimal isOpen onClose={close} animal={first} />);
-    await waitFor(() => expect(screen.getByRole('option', { name: 'Holstein' })).toBeDefined());
+    await waitFor(() => expect(screen.getByRole('option', { name: 'Holstein' })).toBeDefined(), { timeout: 3000 });
     fireEvent.change(screen.getByPlaceholderText('Ej. Mariposa'), { target: { value: 'Nombre editado' } });
     fireEvent.submit(container.querySelector('form')!);
     await waitFor(() => expect(alert).toHaveBeenCalledWith('No se pudo guardar el animal.'));

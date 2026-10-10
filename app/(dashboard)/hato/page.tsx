@@ -19,7 +19,7 @@ function HatoContent() {
   const [searchInput, setSearchInput] = useState({ query: queryParam, value: queryParam });
   const searchTerm = searchInput.query === queryParam ? searchInput.value : queryParam;
   const [filterRaza, setFilterRaza] = useState('');
-  const [filterSanitario, setFilterSanitario] = useState('');
+  const [filterEstadoHato, setFilterEstadoHato] = useState('');
   const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
   const [editingAnimal, setEditingAnimal] = useState<Animal | null>(null);
   const [bajaAnimal, setBajaAnimal] = useState<Animal | null>(null);
@@ -57,11 +57,11 @@ function HatoContent() {
     const razaName = (animal.razaOtra || animal.raza?.nombre || '').toLowerCase();
     const matchesRaza = filterRaza === '' || razaName.includes(searchRaza);
 
-    // Filter by status (sanitario/activo)
-    const statusLabel = animal.activo ? 'Apto' : (animal.tipoBaja || 'Inactivo');
-    const matchesSanitario = filterSanitario === '' || statusLabel.toLowerCase() === filterSanitario.toLowerCase();
+    // Filter by status (estado en hato: activo o motivo de baja)
+    const estadoHato = animal.activo ? 'Activo' : (animal.tipoBaja || 'Inactivo');
+    const matchesEstadoHato = filterEstadoHato === '' || estadoHato.toLowerCase() === filterEstadoHato.toLowerCase();
 
-    return Boolean(matchesSearch && matchesRaza && matchesSanitario);
+    return Boolean(matchesSearch && matchesRaza && matchesEstadoHato);
   });
 
   return (
@@ -106,12 +106,13 @@ function HatoContent() {
               ))}
             </select>
             <select 
-              value={filterSanitario}
-              onChange={(e) => setFilterSanitario(e.target.value)}
+              aria-label="Filtrar por estado en hato"
+              value={filterEstadoHato}
+              onChange={(e) => setFilterEstadoHato(e.target.value)}
               className="px-4 py-2.5 border border-slate-200 rounded-lg text-sm bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-navy-light min-w-[160px]"
             >
-              <option value="">Todo estado sanitario</option>
-              <option value="Apto">Apto</option>
+              <option value="">Todos los estados</option>
+              <option value="Activo">Activo</option>
               <option value="Inactivo">Inactivo</option>
               <option value="Fallecimiento">Fallecimiento</option>
               <option value="Venta Comercial">Venta Comercial</option>
@@ -134,7 +135,7 @@ function HatoContent() {
                   <th className="px-6 py-4">Nacimiento / Edad</th>
                   <th className="px-6 py-4">Categoría</th>
                   <th className="px-6 py-4">Estado Repro</th>
-                  <th className="px-6 py-4 text-center">Estado Sanitario</th>
+                  <th className="px-6 py-4 text-center">Estado Hato</th>
                   <th className="px-6 py-4">Potrero</th>
                   <th className="px-6 py-4">Acciones</th>
                 </tr>
@@ -215,10 +216,14 @@ function HatoContent() {
                         {animal.categoria || 'Vaca Adulta'}
                       </td>
                       <td className="px-6 py-4 text-slate-600 text-xs">
-                        {animal.sexo === 'Hembra' ? 'Preñada' : 'N/A'} {/* Mocked for UI accuracy */}
+                        {animal.sexo === 'Hembra' ? (
+                          <StatusBadge status="Sin Diagnóstico" />
+                        ) : (
+                          <span className="text-slate-400 font-medium">N/A</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <StatusBadge status={animal.activo ? 'Apto' : (animal.tipoBaja || 'Inactivo')} />
+                        <StatusBadge status={animal.activo ? 'Activo' : (animal.tipoBaja || 'Inactivo')} />
                       </td>
                       <td className="px-6 py-4 text-slate-600 text-xs">
                         {animal.potrero?.nombre || 'Potrero #1'}
