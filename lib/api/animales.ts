@@ -92,7 +92,6 @@ export interface EventoBajaResponse {
   pesoFinalKg?: number | null;
   usuarioId?: string | null;
 }
-export interface CreatePesajeInput {
 export type CreatePesajeInput = components['schemas']['CreatePesajeDto'];
 export interface Pesaje {
   id: string;
