@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import jsPDF from 'jspdf';
-import autoTable, { type Table } from 'jspdf-autotable';
+import { exportarExpedientePdf } from '@/lib/reportes/expediente-pdf';
 import type { UpdateAnimalInput, Pesaje, DocumentoAnimal } from '@/lib/api/animales';
 import type { TratamientoSanitario } from '@/lib/api/sanitary';
 import type { PesajeFormData } from '@/components/modals/ModalPesaje';
@@ -297,157 +296,15 @@ export default function ExpedienteAnimal() {
   };
   const handleDownloadPDF = () => {
     if (!animal) return;
-
-    const doc = new jsPDF();
-    let yPos = 20;
-
-    // Título
-    doc.setFontSize(18);
-    doc.setTextColor(15, 23, 42);
-    doc.text(`Expediente Animal: #${animal.areteInterno} ${animal.nombre || ''}${animal.numeroOficialDiio ? ` (DIIO: ${animal.numeroOficialDiio})` : ''}`, 14, yPos);
-    yPos += 10;
-
-    // Info General
-    doc.setFontSize(12);
-    doc.setTextColor(100, 116, 139);
-    doc.text(`Raza: ${animal.raza?.nombre || 'N/A'}`, 14, yPos);
-    doc.text(`Categoría: ${animal.categoria || 'N/A'}`, 80, yPos);
-    doc.text(`Sexo: ${animal.sexo || 'N/A'}`, 150, yPos);
-    yPos += 8;
-
-    doc.text(`Peso Actual: ${animal.pesoActualKg || 0} kg`, 14, yPos);
-    doc.text(`Potrero: ${animal.potrero?.nombre || 'N/A'}`, 80, yPos);
-    if (animal.fechaNacimiento) {
-      doc.text(`Fecha Nac.: ${formatearFechaCivil(animal.fechaNacimiento)}`, 150, yPos);
-    }
-    yPos += 15;
-
-    const seccionTabla = (titulo: string, head: string[], body: string[][]) => {
-      doc.setFontSize(14);
-      doc.setTextColor(15, 23, 42);
-      doc.text(titulo, 14, yPos);
-      if (body.length > 0) {
-        yPos += 5;
-        autoTable(doc, {
-          startY: yPos,
-          head: [head],
-          body,
-          theme: 'striped',
-          styles: { fontSize: 9 },
-          headStyles: { fillColor: [15, 23, 42] }
-        });
-        yPos = ((doc as jsPDF & { lastAutoTable: Table }).lastAutoTable.finalY ?? yPos) + 15;
-      } else {
-        yPos += 8;
-        doc.setFontSize(10);
-        doc.setTextColor(100, 116, 139);
-        doc.text('Sin registros', 14, yPos);
-        yPos += 15;
-      }
-    };
-
-    seccionTabla(
-      'Historial de Pesajes',
-      ['Fecha', 'Peso (kg)'],
-      (pesajes ?? []).map((p: Pesaje) => [
-        formatearFechaCivil(p.fecha),
-        p.pesoActualKg != null ? `${p.pesoActualKg} kg` : '-',
-      ]),
-    );
-
-    if (animal.sexo !== 'Macho') {
-      seccionTabla(
-        'Historial de Producción de Leche',
-        ['Fecha', 'Turno', 'Litros', 'Disposición'],
-        (produccion ?? []).map((r) => [
-          formatearFechaCivil(r.fecha),
-          ETIQUETA_TURNO[r.turno],
-          `${Number(r.litros).toFixed(1)} L`,
-          r.revertido ? `${ETIQUETA_DISPOSICION[r.disposicion]} (anulado)` : ETIQUETA_DISPOSICION[r.disposicion],
-        ]),
-      );
-    }
-
-    // Sección: Sanitario
-    if (tratamientos && tratamientos.length > 0) {
-      if (yPos > 250) { doc.addPage(); yPos = 20; }
-
-      doc.setFontSize(14);
-      doc.setTextColor(15, 23, 42);
-      doc.text('Historial Sanitario', 14, yPos);
-      yPos += 5;
-
-      const tableData = tratamientos.map((t: TratamientoSanitario) => [
-        t.fecha ? formatearFechaCivil(t.fecha) : '-',
-        t.diagnostico || '-',
-        t.farmaco || '-',
-        t.dosis || '-',
-        t.veterinario || '-'
-      ]);
-
-      autoTable(doc, {
-        startY: yPos,
-        head: [['Fecha', 'Enfermedad', 'Medicamento', 'Dosis', 'Responsable']],
-        body: tableData,
-        theme: 'striped',
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: [15, 23, 42] }
-      });
-      yPos = ((doc as jsPDF & { lastAutoTable: Table }).lastAutoTable.finalY ?? yPos) + 15;
-    } else {
-      if (yPos > 250) { doc.addPage(); yPos = 20; }
-      doc.setFontSize(14);
-      doc.setTextColor(15, 23, 42);
-      doc.text('Historial Sanitario', 14, yPos);
-      yPos += 8;
-      doc.setFontSize(10);
-      doc.setTextColor(100, 116, 139);
-      doc.text('Sin registros', 14, yPos);
-      yPos += 15;
-    }
-
-    // Sección: Reproductivo
-    const serviciosActivos = estadoReproductivo?.servicioActivo ? [estadoReproductivo.servicioActivo] : [];
-    if (serviciosActivos.length > 0) {
-      if (yPos > 250) { doc.addPage(); yPos = 20; }
-
-      doc.setFontSize(14);
-      doc.setTextColor(15, 23, 42);
-      doc.text('Historial Reproductivo', 14, yPos);
-      yPos += 5;
-
-      const tableData = serviciosActivos.map((s) => {
-        return [
-          s.fechaServicio ? formatearFechaCivil(s.fechaServicio) : '-',
-          s.tipoServicio || '-',
-          s.toroOPajilla || '-',
-          estadoReproductivo?.ultimoDiagnostico?.resultado || 'Pendiente'
-        ];
-      });
-
-      autoTable(doc, {
-        startY: yPos,
-        head: [['Fecha', 'Tipo', 'Toro/Semen', 'Estado']],
-        body: tableData,
-        theme: 'striped',
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: [15, 23, 42] }
-      });
-      yPos = ((doc as jsPDF & { lastAutoTable: Table }).lastAutoTable.finalY ?? yPos) + 15;
-    } else {
-      if (yPos > 250) { doc.addPage(); yPos = 20; }
-      doc.setFontSize(14);
-      doc.setTextColor(15, 23, 42);
-      doc.text('Historial Reproductivo', 14, yPos);
-      yPos += 8;
-      doc.setFontSize(10);
-      doc.setTextColor(100, 116, 139);
-      doc.text('Sin registros', 14, yPos);
-      yPos += 15;
-    }
-
-    // Descargar
-    doc.save(`Expediente_${animal.areteInterno}_${hoyLocal()}.pdf`);
+    exportarExpedientePdf({
+      animal,
+      pesajes,
+      produccion,
+      estadoReproductivo,
+      estadoSanitario,
+      tratamientos,
+      nombreFinca: authUser?.nombreFinca,
+    });
   };
 
   const isMacho = animal?.sexo === 'Macho';
@@ -517,13 +374,6 @@ export default function ExpedienteAnimal() {
             Volver al Hato
           </Link>
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setIsQrOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 bg-white transition-colors shadow-xs"
-            >
-              <QrCode className="w-4 h-4 text-navy" />
-              <span>Código QR</span>
-            </button>
             <RequireRole roles={['propietario', 'administrador']}>{animal.activo && (
               <button
                 onClick={() => setIsBajaOpen(true)}
@@ -655,7 +505,7 @@ export default function ExpedienteAnimal() {
                 className="w-full sm:w-auto px-5 py-2.5 bg-white border border-slate-200 text-navy rounded-lg text-sm font-bold shadow-sm hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
               >
                 <QrCode className="w-4 h-4 text-navy" />
-                <span>Generar QR</span>
+                <span>Código QR</span>
               </button>
             </div>
           </div>
