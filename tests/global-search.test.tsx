@@ -2,7 +2,7 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { GlobalSearch } from '@/components/dashboard/global-search';
+import { GlobalSearch, dedupeAnimales } from '@/components/dashboard/global-search';
 import * as animalesApi from '@/lib/api/animales';
 
 vi.mock('@/lib/api/animales', () => ({
@@ -22,9 +22,62 @@ function renderWithClient(ui: React.ReactElement) {
   );
 }
 
+describe('dedupeAnimales (RF-029 — sin resultados duplicados)', () => {
+  const base: animalesApi.Animal = {
+    id: 'a1',
+    tenantId: 'tenant-1',
+    areteInterno: '104',
+    nombre: 'Canela',
+    sexo: 'Hembra',
+    razaId: 'raza-1',
+    categoria: 'Vaca Adulta',
+    activo: true,
+  };
+
+  it('caso válido: conserva animales con IDs distintos', () => {
+    const resultado = dedupeAnimales([base, { ...base, id: 'a2' }]);
+    expect(resultado).toHaveLength(2);
+  });
+
+  it('negativo: elimina duplicados exactos por ID, preservando la primera aparición', () => {
+    const resultado = dedupeAnimales([base, { ...base, nombre: 'Copia' }]);
+    expect(resultado).toHaveLength(1);
+    expect(resultado[0].nombre).toBe('Canela');
+  });
+
+  it('límite: lista vacía no lanza error', () => {
+    expect(dedupeAnimales([])).toEqual([]);
+  });
+});
+
 describe('GlobalSearch Component (DASH-T002)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('no muestra el mismo animal dos veces si la API responde filas duplicadas (RF-029)', async () => {
+    const duplicado: animalesApi.Animal = {
+      id: 'uuid-animal-104',
+      tenantId: 'tenant-1',
+      areteInterno: '104',
+      nombre: 'Canela',
+      sexo: 'Hembra',
+      razaId: 'raza-1',
+      categoria: 'Vaca Adulta',
+      activo: true,
+    };
+
+    vi.mocked(animalesApi.getAnimales).mockResolvedValue([duplicado, { ...duplicado }]);
+
+    renderWithClient(<GlobalSearch />);
+
+    const input = screen.getByRole('combobox');
+    fireEvent.change(input, { target: { value: 'Canela' } });
+
+    await waitFor(() => {
+      expect(screen.getByText(/1 animal encontrado/i)).toBeDefined();
+    });
+    expect(screen.getAllByText('Canela')).toHaveLength(1);
   });
 
   it('renderiza el input de búsqueda con accesibilidad correcta', () => {

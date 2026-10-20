@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   FileText,
@@ -37,6 +37,41 @@ import type { TipoEventoFeed } from "@/lib/reproductivo/tipos";
  * 2. No se titulan como "oficiales" (son documentos técnicos de gestión interna).
  * 3. Incorporan fecha local civil de Costa Rica, identificación de finca y descargo legal (LEG-T001).
  */
+const COOLDOWN_DESCARGA_MS = 400;
+
+/**
+ * jsPDF es síncrono: un guard de "está ejecutándose" no evita un doble clic
+ * real, porque el primer clic ya terminó (y se desbloqueó) antes de que el
+ * segundo evento de clic pueda procesarse en un entorno de un solo hilo.
+ * Por eso el botón se mantiene deshabilitado un breve lapso tras generar el
+ * PDF, suficiente para absorber un doble clic humano sin crear una espera
+ * perceptible para el usuario.
+ */
+function useDescargaConCooldown(generarPdf: () => void) {
+  const bloqueadoRef = useRef(false);
+  const [generando, setGenerando] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
+  const descargar = () => {
+    if (bloqueadoRef.current) return;
+    bloqueadoRef.current = true;
+    setGenerando(true);
+    generarPdf();
+    timeoutRef.current = setTimeout(() => {
+      bloqueadoRef.current = false;
+      setGenerando(false);
+    }, COOLDOWN_DESCARGA_MS);
+  };
+
+  return { generando, descargar };
+}
+
 export default function ReportesPage() {
   const { user } = useAuthUser();
 
@@ -50,9 +85,9 @@ export default function ReportesPage() {
     (r) => r.diasRestantesCarne !== null && (r.diasRestantesCarne ?? 0) > 0,
   ).length;
 
-  const handleDescargarRetiros = () => {
-    exportarRetirosPdf(listaRetiros, user?.nombreFinca);
-  };
+  const { generando: generandoRetiros, descargar: handleDescargarRetiros } = useDescargaConCooldown(
+    () => exportarRetirosPdf(listaRetiros, user?.nombreFinca),
+  );
 
   // ─── 2. Estado y Datos para Reporte Reproductivo ──────────────────────────
   const [diasVentanaRepro, setDiasVentanaRepro] = useState<number>(60);
@@ -68,14 +103,15 @@ export default function ReportesPage() {
   const urgentesRepro = reproFiltrados.filter((e) => e.urgente).length;
   const vencidosRepro = reproFiltrados.filter((e) => e.diasRestantes < 0).length;
 
-  const handleDescargarReproductivo = () => {
-    exportarReproductivoPdf({
-      eventos: listaRepro,
-      diasVentana: diasVentanaRepro,
-      filtro: filtroHitoRepro,
-      nombreFinca: user?.nombreFinca,
-    });
-  };
+  const { generando: generandoRepro, descargar: handleDescargarReproductivo } = useDescargaConCooldown(
+    () =>
+      exportarReproductivoPdf({
+        eventos: listaRepro,
+        diasVentana: diasVentanaRepro,
+        filtro: filtroHitoRepro,
+        nombreFinca: user?.nombreFinca,
+      }),
+  );
 
   // ─── 3. Estado y Datos para Expediente Individual ────────────────────────
   const [selectedAnimalId, setSelectedAnimalId] = useState<string>("");
@@ -172,12 +208,12 @@ export default function ReportesPage() {
               <button
                 type="button"
                 onClick={handleDescargarRetiros}
-                disabled={loadingRetiros}
+                disabled={loadingRetiros || generandoRetiros}
                 aria-label="Descargar Reporte PDF Retiros"
                 className="inline-flex items-center gap-2 px-4 py-2 bg-navy text-white text-xs font-semibold rounded-lg hover:bg-navy-light transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
               >
                 <Download className="size-3.5" />
-                Descargar Reporte PDF
+                {generandoRetiros ? "Generando..." : "Descargar Reporte PDF"}
               </button>
             </div>
           </CardContent>
@@ -206,10 +242,11 @@ export default function ReportesPage() {
               {/* Parámetros interactivos del reporte */}
               <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 border border-slate-100 rounded-xl">
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-700 block mb-1">
+                  <label htmlFor="horizonte-temporal-repro" className="text-[11px] font-semibold text-slate-700 block mb-1">
                     Horizonte Temporal
                   </label>
                   <select
+                    id="horizonte-temporal-repro"
                     value={diasVentanaRepro}
                     onChange={(e) => setDiasVentanaRepro(Number(e.target.value))}
                     className="w-full text-xs bg-white border border-slate-200 rounded-md py-1.5 px-2 text-slate-800"
@@ -223,10 +260,11 @@ export default function ReportesPage() {
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-700 block mb-1">
+                  <label htmlFor="filtro-hito-repro" className="text-[11px] font-semibold text-slate-700 block mb-1">
                     Filtro por Hito
                   </label>
                   <select
+                    id="filtro-hito-repro"
                     value={filtroHitoRepro}
                     onChange={(e) => setFiltroHitoRepro(e.target.value as TipoEventoFeed | "Todos")}
                     className="w-full text-xs bg-white border border-slate-200 rounded-md py-1.5 px-2 text-slate-800"
@@ -263,12 +301,12 @@ export default function ReportesPage() {
               <button
                 type="button"
                 onClick={handleDescargarReproductivo}
-                disabled={loadingRepro || reproFiltrados.length === 0}
+                disabled={loadingRepro || reproFiltrados.length === 0 || generandoRepro}
                 aria-label="Descargar Reporte PDF Reproductivo"
                 className="inline-flex items-center gap-2 px-4 py-2 bg-navy text-white text-xs font-semibold rounded-lg hover:bg-navy-light transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
               >
                 <Download className="size-3.5" />
-                Descargar Reporte PDF
+                {generandoRepro ? "Generando..." : "Descargar Reporte PDF"}
               </button>
             </div>
           </CardContent>

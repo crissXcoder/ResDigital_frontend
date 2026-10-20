@@ -7,7 +7,7 @@ import { useKpisDashboard } from "@/lib/hooks/use-dashboard-data";
 /**
  * Los 4 KPIs principales del Dashboard (ver MOD-04-Dashboard-Alertas.md).
  * "Vacas en Ordeño" y "Gestantes Confirmadas" ya usan la definición corregida
- * (categoría real / diagnóstico positivo vigente), no la del wireframe (bugs B11 y B4).
+ * (lactancia real / diagnóstico positivo vigente), no la del wireframe (bugs B11 y B4).
  */
 export function KpiRow() {
   const { data, isLoading, isError } = useKpisDashboard();

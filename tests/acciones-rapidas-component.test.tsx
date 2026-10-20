@@ -114,6 +114,27 @@ describe('AccionesRapidas Component — Autorización por rol y flujo real (DASH
         await screen.findByText('Seleccionar Animal para Tratamiento'),
       ).toBeDefined();
     });
+
+    it('RF-030: el selector modal expone semántica de diálogo para lectores de pantalla', async () => {
+      renderWithQueryClient(<AccionesRapidas />);
+
+      fireEvent.click(screen.getByTestId('accion-rapida-tratamiento'));
+
+      const dialog = await screen.findByRole('dialog');
+      expect(dialog.getAttribute('aria-modal')).toBe('true');
+      expect(dialog.getAttribute('aria-labelledby')).toBeTruthy();
+    });
+
+    it('RF-030: Escape cierra el selector modal sin dejarlo como estado inerte', async () => {
+      renderWithQueryClient(<AccionesRapidas />);
+
+      fireEvent.click(screen.getByTestId('accion-rapida-tratamiento'));
+      const dialog = await screen.findByRole('dialog');
+
+      fireEvent.keyDown(dialog.parentElement!, { key: 'Escape' });
+
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
   });
 
   describe('Rol: propietario', () => {
