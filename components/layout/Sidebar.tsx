@@ -48,13 +48,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
       reason: 'Módulo de pesaje y control lechero en desarrollo',
       icon: FileText,
     },
-    {
-      name: 'Reportes',
-      disabled: true,
-      badge: 'Próximamente',
-      reason: 'Módulo de exportaciones oficiales en desarrollo',
-      icon: ClipboardList,
-    },
+    { name: 'Reportes', href: '/reportes', icon: ClipboardList },
     { name: 'Módulo de Potreros', href: '/potreros', icon: Map },
     { name: 'Escáner QR / Arete', href: '/qr', icon: QrCode },
   ];

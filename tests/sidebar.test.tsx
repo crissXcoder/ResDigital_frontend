@@ -78,6 +78,9 @@ describe('Sidebar Component (CORE-T005)', () => {
 
     const linkQr = screen.getByRole('link', { name: /escáner qr \/ arete/i });
     expect(linkQr.getAttribute('href')).toBe('/qr');
+
+    const linkReportes = screen.getByRole('link', { name: /reportes/i });
+    expect(linkReportes.getAttribute('href')).toBe('/reportes');
   });
 
   it('CORE-T005: ningún módulo aparente tiene href="#"', () => {
@@ -92,16 +95,13 @@ describe('Sidebar Component (CORE-T005)', () => {
   it('CORE-T005: módulos en desarrollo están deshabilitados con motivo visible (Próximamente)', () => {
     renderSidebar();
 
-    // Producción Lechera, Reportes (Escáner QR ya fue activado con QR-T002)
+    // Producción Lechera sigue en desarrollo (Escáner QR y Reportes ya fueron activados)
     const disabledItems = screen.getAllByText('Próximamente');
-    expect(disabledItems.length).toBe(2);
+    expect(disabledItems.length).toBe(1);
 
     const lechera = screen.getByText('Producción Lechera').closest('[aria-disabled="true"]');
     expect(lechera?.getAttribute('aria-disabled')).toBe('true');
     expect(lechera?.getAttribute('title')).toContain('desarrollo');
-
-    const reportes = screen.getByText('Reportes').closest('[aria-disabled="true"]');
-    expect(reportes?.getAttribute('aria-disabled')).toBe('true');
   });
 
   it('CORE-T005: no contiene el botón falso "Restaurar Base de Datos"', () => {
