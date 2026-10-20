@@ -59,18 +59,26 @@ export function SemaforoSanitario() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+      <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 space-y-0">
         <div>
           <CardTitle>Semáforo de Retiro Sanitario</CardTitle>
           <p className="mt-1 text-sm text-slate-500">
             Animales con restricción activa de leche o carne
           </p>
         </div>
-        {!isLoading && data && data.length > 0 && (
-          <Badge variant="danger" className="shrink-0 rounded-full px-3 py-1 text-xs font-semibold">
-            {data.length} en retiro
-          </Badge>
-        )}
+        <div className="flex items-center gap-3">
+          {!isLoading && data && data.length > 0 && (
+            <Badge variant="danger" className="shrink-0 rounded-full px-3 py-1 text-xs font-semibold">
+              {data.length} en retiro
+            </Badge>
+          )}
+          <Link
+            href="/reportes"
+            className="text-xs font-semibold text-navy hover:text-navy-light transition-colors"
+          >
+            Ver en Reportes →
+          </Link>
+        </div>
       </CardHeader>
       <CardContent>
         {isLoading ? (

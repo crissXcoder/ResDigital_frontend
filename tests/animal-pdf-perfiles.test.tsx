@@ -66,7 +66,7 @@ async function descargarPdf() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(<QueryClientProvider client={client}><ExpedienteAnimal /></QueryClientProvider>);
   const boton = await screen.findByRole('button', { name: /descargar/i });
-  await waitFor(() => expect(client.getQueryState(['estadoReproductivo', base.id])?.status).not.toBe('pending'));
+  await waitFor(() => expect(client.getQueryState(['estadoReproductivo', base.id])?.fetchStatus).not.toBe('fetching'));
   await waitFor(() => expect(client.getQueryState(['tratamientos', base.id])?.status).toBe('success'));
   fireEvent.click(boton);
   expect(save).toHaveBeenCalledOnce();
