@@ -666,6 +666,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/invitaciones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Consultar invitaciones de la finca del propietario */
+        get: operations["AuthController_listarInvitaciones"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -682,8 +699,18 @@ export interface components {
             correo: string;
             nombreFinca: string;
         };
-        InviteUserDto: Record<string, never>;
-        ConfirmInvitationDto: Record<string, never>;
+        InviteUserDto: {
+            /** Format: email */
+            correo: string;
+            /** @enum {string} */
+            rol: "administrador" | "peon" | "veterinario";
+            nombreCompleto?: string;
+        };
+        ConfirmInvitationDto: {
+            nombreCompleto: string;
+            /** Format: uuid */
+            invitacionId: string;
+        };
         CreateAnimalDto: Record<string, never>;
         UpdateAnimalDto: Record<string, never>;
         BajaAnimalDto: Record<string, never>;
@@ -1234,6 +1261,31 @@ export interface components {
             /** Format: uuid */
             usuarioId: string;
         };
+        InviteUserResponseDto: {
+            /** @enum {boolean} */
+            success: true;
+            /** Format: uuid */
+            invitacionId: string;
+            /** @enum {string} */
+            rolAsignado: "administrador" | "peon" | "veterinario";
+            emailSent: boolean | null;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        InvitationSummaryResponseDto: {
+            /** Format: uuid */
+            invitacionId: string;
+            /** Format: email */
+            correo: string;
+            /** @enum {string} */
+            rol: "administrador" | "peon" | "veterinario";
+            /** @enum {string} */
+            estado: "PENDIENTE" | "ACEPTADA" | "CANCELADA" | "EXPIRADA";
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -1304,7 +1356,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["InviteUserResponseDto"];
+                };
             };
         };
     };
@@ -2447,6 +2501,32 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["EventoLactanciaResponseDto"];
                 };
+            };
+        };
+    };
+    AuthController_listarInvitaciones: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationSummaryResponseDto"][];
+                };
+            };
+            /** @description Solo el propietario puede ver invitaciones */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
