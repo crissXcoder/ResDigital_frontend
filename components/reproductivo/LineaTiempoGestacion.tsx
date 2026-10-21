@@ -30,7 +30,17 @@ interface PasoTimeline {
 }
 
 export default function LineaTiempoGestacion({ estado }: LineaTiempoGestacionProps) {
-  const servicioActivo = estado?.servicioActivo;
+  if (!estado) {
+    return (
+      <div className="bg-white border border-slate-200 rounded-xl p-6 sm:p-8 shadow-sm">
+        <h3 className="text-lg font-bold text-navy mb-4">Línea de Tiempo Gestación</h3>
+        <div className="h-24 rounded-lg bg-slate-100 animate-pulse" aria-hidden />
+        <p className="sr-only">Cargando línea de gestación…</p>
+      </div>
+    );
+  }
+
+  const servicioActivo = estado.servicioActivo;
 
   if (!servicioActivo) {
     return (
@@ -76,7 +86,7 @@ export default function LineaTiempoGestacion({ estado }: LineaTiempoGestacionPro
       claseCirculo: CLASES_HITO['Aviso Parto Urgente'],
     },
     {
-      etiqueta: 'FPP',
+      etiqueta: 'FPP (estimación)',
       fecha: servicioActivo.fpp,
       cumplido: (servicioActivo.fpp ?? '') <= hoy,
       claseCirculo: CLASES_HITO['Parto FPP'],
