@@ -81,9 +81,10 @@ function DocumentLink({
   objectPath,
   previewImage = false,
   imageAlt,
+  previewImageClassName,
   children,
   ...props
-}: React.ComponentProps<'a'> & { objectPath: string; previewImage?: boolean; imageAlt?: string }) {
+}: React.ComponentProps<'a'> & { objectPath: string; previewImage?: boolean; imageAlt?: string; previewImageClassName?: string }) {
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -101,7 +102,7 @@ function DocumentLink({
   if (!url) return <span className="text-xs text-slate-500">Preparando documento…</span>;
   return (
     <a href={url} {...props}>
-      {previewImage && <Image src={url} alt={imageAlt ?? 'Imagen del expediente'} width={640} height={320} unoptimized className="mb-4 h-40 w-full rounded-lg bg-slate-50 object-contain" />}
+      {previewImage && <Image src={url} alt={imageAlt ?? 'Imagen del expediente'} width={640} height={320} unoptimized className={previewImageClassName ?? 'mb-4 h-40 w-full rounded-lg bg-slate-50 object-contain'} />}
       {children}
     </a>
   );
@@ -183,6 +184,10 @@ export default function ExpedienteAnimal() {
     queryFn: () => getBajaAnimal(animalId),
     enabled: Boolean(animal && !animal.activo),
   });
+
+  const fotoAdjunta = documentosDocumentos?.find(
+    (documento) => documento.tipo === 'Fotografía' && !!documento.objectPath && /\.(png|jpe?g)$/i.test(documento.objectPath),
+  );
 
   const pesajeMutation = useMutation({
     mutationFn: (data: PesajeFormData) =>
@@ -583,7 +588,15 @@ export default function ExpedienteAnimal() {
             {/* Info Animal */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
               <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl bg-slate-100 overflow-hidden border border-slate-200 shadow-sm relative shrink-0">
-                {animal.fotoUrl ? (
+                {fotoAdjunta?.objectPath ? (
+                  <DocumentLink
+                    objectPath={fotoAdjunta.objectPath}
+                    previewImage
+                    imageAlt={`Fotografía del animal ${animal.areteInterno}`}
+                    previewImageClassName="h-full w-full object-cover"
+                    className="absolute inset-0"
+                  />
+                ) : animal.fotoUrl ? (
                   <img
                     src={animal.fotoUrl}
                     alt={`Vaca ${animal.areteInterno}`}
