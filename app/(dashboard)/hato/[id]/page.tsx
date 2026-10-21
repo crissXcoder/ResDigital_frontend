@@ -35,9 +35,13 @@ import {
   toCreateTratamientoPayload,
   toDatosTratamientoPayload,
 } from '@/lib/api/sanitary';
-import { createClient } from '@/lib/supabase/client';
-import { BUCKET_ANIMAL_DOCS } from '@/lib/supabase/buckets';
 import { isDefinitiveApiRejection } from '@/lib/api/client';
+import {
+  createAnimalDocumentPath,
+  removeAnimalDocument,
+  signedAnimalDocumentUrl,
+  uploadAnimalDocument,
+} from '@/lib/supabase/animal-documents';
 import {
   ChevronLeft,
   Plus,
@@ -73,24 +77,34 @@ import {
   getProduccionByAnimal,
   toCreatePesajePayload,
 } from '@/lib/api/produccion';
-function DocumentLink({ objectPath, children, ...props }: React.ComponentProps<'a'> & { objectPath: string }) {
+function DocumentLink({
+  objectPath,
+  previewImage = false,
+  imageAlt,
+  children,
+  ...props
+}: React.ComponentProps<'a'> & { objectPath: string; previewImage?: boolean; imageAlt?: string }) {
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let active = true;
-    createClient().storage.from(BUCKET_ANIMAL_DOCS).createSignedUrl(objectPath, 60 * 10)
-      .then(({ data, error }) => {
+    signedAnimalDocumentUrl(objectPath)
+      .then((signedUrl) => {
         if (!active) return;
-        if (error) setFailed(true);
-        else setUrl(data.signedUrl);
+        setUrl(signedUrl);
       }).catch(() => { if (active) setFailed(true); });
     return () => { active = false; };
   }, [objectPath]);
 
   if (failed) return <span className="text-xs text-slate-500">No se pudo cargar el documento.</span>;
   if (!url) return <span className="text-xs text-slate-500">Preparando documento…</span>;
-  return <a href={url} {...props}>{children}</a>;
+  return (
+    <a href={url} {...props}>
+      {previewImage && <Image src={url} alt={imageAlt ?? 'Imagen del expediente'} width={640} height={320} unoptimized className="mb-4 h-40 w-full rounded-lg bg-slate-50 object-contain" />}
+      {children}
+    </a>
+  );
 }
 import { ModalEditarAnimal } from '@/components/modals/ModalEditarAnimal';
 import { ModalDarBaja } from '@/components/modals/ModalDarBaja';
@@ -120,8 +134,6 @@ export default function ExpedienteAnimal() {
 
   // Documentos state
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
-  const supabase = createClient();
-
   const queryClient = useQueryClient();
 
   const { data: animal, isLoading, isError } = useQuery({
@@ -156,7 +168,12 @@ export default function ExpedienteAnimal() {
     queryFn: () => getEstadoSanitario(animalId),
   });
 
-  const { data: documentosDocumentos } = useQuery({
+  const {
+    data: documentosDocumentos,
+    isLoading: documentosLoading,
+    isError: documentosError,
+    refetch: recargarDocumentos,
+  } = useQuery({
     queryKey: ['documentos', animalId],
     queryFn: () => getDocumentos(animalId),
   });
@@ -256,24 +273,8 @@ export default function ExpedienteAnimal() {
       setIsUploadingDoc(true);
       const tenantId = authUser?.tenantId;
       if (!tenantId) throw new Error('No se pudo validar la finca activa.');
-
-      const fileExt = file.name.split('.').pop()?.toLowerCase();
-      if (!fileExt || !['pdf', 'png', 'jpg'].includes(fileExt)) {
-        throw new Error('El documento debe ser PDF, PNG o JPG.');
-      }
-      if (file.size === 0 || file.size > 10 * 1024 * 1024) {
-        throw new Error('El documento debe tener un tamaño mayor que 0 y máximo 10 MB.');
-      }
-      const category = tipo.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-      const documentId = crypto.randomUUID();
-      const objectPath = `${tenantId}/${animalId}/${category}/${documentId}.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from(BUCKET_ANIMAL_DOCS)
-        .upload(objectPath, file);
-
-      if (uploadError) throw uploadError;
+      const objectPath = createAnimalDocumentPath(tenantId, animalId, tipo, file);
+      await uploadAnimalDocument(objectPath, file);
 
       try {
         await documentoMutation.mutateAsync({ tipo, objectPath });
@@ -282,16 +283,12 @@ export default function ExpedienteAnimal() {
         // Una falla de red o 5xx puede ocurrir después del commit; borrar aquí
         // dejaría la fila confirmada apuntando a un objeto inexistente.
         if (isDefinitiveApiRejection(error)) {
-          const { error: cleanupError } = await supabase.storage.from(BUCKET_ANIMAL_DOCS).remove([objectPath]);
-          if (cleanupError) console.error('No se pudo retirar el archivo sin registro:', cleanupError);
+          await removeAnimalDocument(objectPath);
         }
         throw error;
       }
 
       setIsDocumentoOpen(false);
-    } catch (error) {
-      console.error('Error al subir documento:', error);
-      alert(error instanceof Error ? error.message : 'Hubo un error al subir el documento. Por favor, intente de nuevo.');
     } finally {
       setIsUploadingDoc(false);
     }
@@ -1025,7 +1022,14 @@ export default function ExpedienteAnimal() {
                 </RequireRole>
               </div>
               <div className="p-6">
-                {!documentosDocumentos || documentosDocumentos.length === 0 ? (
+                {documentosLoading ? (
+                  <p role="status" className="py-8 text-center text-sm text-slate-500">Cargando documentos del expediente…</p>
+                ) : documentosError ? (
+                  <div className="py-8 text-center">
+                    <p role="alert" className="text-sm text-red-700">No se pudieron cargar los documentos del expediente.</p>
+                    <button type="button" onClick={() => void recargarDocumentos()} className="mt-3 text-sm font-semibold text-navy underline">Reintentar</button>
+                  </div>
+                ) : !documentosDocumentos || documentosDocumentos.length === 0 ? (
                   <div className="py-8 flex flex-col items-center justify-center text-slate-400">
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 mb-3 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /></svg>
                     <p className="text-sm">No hay documentos registrados</p>
@@ -1035,9 +1039,11 @@ export default function ExpedienteAnimal() {
                     {documentosDocumentos.map((doc: DocumentoAnimal) => (
                       <div key={doc.id} className="border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col h-full hover:shadow-md transition-shadow">
                         <div className="flex-1">
-                          <div className="w-10 h-10 rounded-lg bg-navy/5 border border-navy/10 flex items-center justify-center text-navy mb-4">
-                            <CheckCircle2 className="w-5 h-5" />
-                          </div>
+                          {!doc.objectPath || !/\.(png|jpe?g)$/i.test(doc.objectPath) ? (
+                            <div className="w-10 h-10 rounded-lg bg-navy/5 border border-navy/10 flex items-center justify-center text-navy mb-4">
+                              <CheckCircle2 className="w-5 h-5" />
+                            </div>
+                          ) : null}
                           <h4 className="font-bold text-navy text-sm mb-1">{doc.tipo}</h4>
                           <p className="text-xs text-slate-400">
                             Cargado el {formatearFechaCivil(doc.createdAt)}
@@ -1046,6 +1052,8 @@ export default function ExpedienteAnimal() {
                         <div className="mt-5 pt-4 border-t border-slate-100">
                           {doc.objectPath ? <DocumentLink
                             objectPath={doc.objectPath}
+                            previewImage={/\.(png|jpe?g)$/i.test(doc.objectPath)}
+                            imageAlt={`Imagen adjunta: ${doc.tipo}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="w-full flex items-center justify-center gap-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-100 hover:border-slate-300 transition-all"
