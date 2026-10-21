@@ -10,6 +10,11 @@ import { X, UploadCloud, Loader2, AlertCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { BUCKET_ANIMALES_FOTOS } from '@/lib/supabase/buckets';
 import { hoyLocal } from '@/lib/reproductivo/fechas';
+import {
+  CATEGORIAS_HEMBRA,
+  CATEGORIAS_MACHO,
+  esCategoriaValidaPorSexo,
+} from '@/lib/api/catalogos';
 
 export default function NuevoAnimalPage() {
   const router = useRouter();
@@ -132,7 +137,10 @@ export default function NuevoAnimalPage() {
           
         uploadedFotoUrl = data.publicUrl;
       } catch (error: unknown) {
-        alert('Error subiendo imagen: ' + (error instanceof Error ? error.message : 'No se pudo subir la imagen.'));
+        setErrorMensaje(
+          'Error subiendo imagen: ' +
+            (error instanceof Error ? error.message : 'No se pudo subir la imagen.'),
+        );
         setIsUploading(false);
         return;
       }
@@ -245,7 +253,15 @@ export default function NuevoAnimalPage() {
               <div className="flex rounded-lg border border-slate-200 p-1 bg-slate-50">
                 <button
                   type="button"
-                  onClick={() => setFormData({ ...formData, sexo: 'Hembra' })}
+                  onClick={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      sexo: 'Hembra',
+                      categoria: esCategoriaValidaPorSexo(prev.categoria, 'Hembra')
+                        ? prev.categoria
+                        : '',
+                    }))
+                  }
                   className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-colors ${
                     formData.sexo === 'Hembra' 
                       ? 'bg-navy text-white shadow-sm' 
@@ -256,7 +272,15 @@ export default function NuevoAnimalPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setFormData({ ...formData, sexo: 'Macho' })}
+                  onClick={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      sexo: 'Macho',
+                      categoria: esCategoriaValidaPorSexo(prev.categoria, 'Macho')
+                        ? prev.categoria
+                        : '',
+                    }))
+                  }
                   className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-colors ${
                     formData.sexo === 'Macho' 
                       ? 'bg-navy text-white shadow-sm' 
@@ -391,21 +415,18 @@ export default function NuevoAnimalPage() {
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light bg-white"
                 >
                   <option value="">— Seleccione categoría —</option>
-                  {(!formData.sexo || formData.sexo === 'Hembra') && (
-                    <>
-                      <option value="Ternera">Ternera</option>
-                      <option value="Novilla">Novilla</option>
-                      <option value="Vaca">Vaca</option>
-                    </>
-                  )}
-                  {(!formData.sexo || formData.sexo === 'Macho') && (
-                    <>
-                      <option value="Ternero">Ternero</option>
-                      <option value="Novillo">Novillo</option>
-                      <option value="Novillo mayor">Novillo mayor</option>
-                      <option value="Toro">Toro</option>
-                    </>
-                  )}
+                  {(!formData.sexo || formData.sexo === 'Hembra') &&
+                    CATEGORIAS_HEMBRA.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  {(!formData.sexo || formData.sexo === 'Macho') &&
+                    CATEGORIAS_MACHO.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
                 </select>
               </div>
 
