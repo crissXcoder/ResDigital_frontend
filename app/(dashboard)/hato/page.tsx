@@ -11,6 +11,7 @@ import { ModalEditarAnimal } from '@/components/modals/ModalEditarAnimal';
 import { ModalDarBaja } from '@/components/modals/ModalDarBaja';
 import { formatearFecha, hoyLocal, normalizarFechaCivil } from '@/lib/reproductivo/fechas';
 import { RequireRole } from '@/components/auth/RequireRole';
+import { ESTADOS_HATO } from '@/lib/api/catalogos';
 
 function HatoContent() {
   const searchParams = useSearchParams();
@@ -112,12 +113,11 @@ function HatoContent() {
               className="px-4 py-2.5 border border-slate-200 rounded-lg text-sm bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-navy-light min-w-[160px]"
             >
               <option value="">Todos los estados</option>
-              <option value="Activo">Activo</option>
-              <option value="Inactivo">Inactivo</option>
-              <option value="Fallecimiento">Fallecimiento</option>
-              <option value="Venta Comercial">Venta Comercial</option>
-              <option value="Descarte">Descarte</option>
-              <option value="Traslado">Traslado</option>
+              {ESTADOS_HATO.map((estado) => (
+                <option key={estado} value={estado}>
+                  {estado}
+                </option>
+              ))}
             </select>
           </div>
         </div>

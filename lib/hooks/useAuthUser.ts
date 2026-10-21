@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import type { components } from '@/lib/api/openapi.generated';
 
@@ -12,15 +12,17 @@ export type RolUsuario = AuthUserProfile['rol'];
  * utilizando TanStack Query y el token de la sesión activa de Supabase.
  */
 export function useAuthUser() {
+  const queryClient = useQueryClient();
   const query = useQuery<AuthUserProfile | null>({
     queryKey: ['authUserProfile'],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const supabase = createClient();
       const {
         data: { session },
       } = await supabase.auth.getSession();
 
       if (!session?.access_token) {
+        queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== 'authUserProfile' });
         return null;
       }
 
@@ -29,6 +31,8 @@ export function useAuthUser() {
 
       const response = await fetch(`${backendUrl}/auth/perfil`, {
         method: 'GET',
+        signal,
+        cache: 'no-store',
         headers: {
           Authorization: `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
@@ -38,6 +42,7 @@ export function useAuthUser() {
       if (!response.ok) {
         if (response.status === 401) {
           // Token expirado o revocado
+          queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== 'authUserProfile' });
           return null;
         }
         throw new Error(
@@ -45,7 +50,12 @@ export function useAuthUser() {
         );
       }
 
-      return (await response.json()) as AuthUserProfile;
+      const profile = (await response.json()) as AuthUserProfile;
+      const previous = queryClient.getQueryData<AuthUserProfile | null>(['authUserProfile']);
+      if (previous && (previous.userId !== profile.userId || previous.tenantId !== profile.tenantId || previous.rol !== profile.rol)) {
+        queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== 'authUserProfile' });
+      }
+      return profile;
     },
     staleTime: 5 * 60 * 1000, // 5 minutos de caché
     retry: 1,

@@ -5,7 +5,8 @@ import type { ServicioInput, DiagnosticoInput } from './reproductivo';
 export interface Raza {
   id: string;
   nombre: string;
-  dias_gestacion: number; // In DB it's dias_gestacion? Wait, catalogo_raza entity. Let's check it later.
+  diasGestacion?: number;
+  dias_gestacion?: number;
 }
 
 export interface Animal {

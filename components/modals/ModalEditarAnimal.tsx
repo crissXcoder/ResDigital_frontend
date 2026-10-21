@@ -5,6 +5,9 @@ import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { updateAnimal, getRazas, type Animal, type UpdateAnimalInput } from '@/lib/api/animales';
 import { getPotreros } from '@/lib/api/potreros';
 
+const CATEGORIAS_HEMBRA = ['Ternera', 'Novilla', 'Vaca'] as const;
+const CATEGORIAS_MACHO = ['Ternero', 'Novillo', 'Novillo mayor', 'Toro'] as const;
+
 interface ModalEditarAnimalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -131,10 +134,11 @@ function ModalEditarAnimalForm({ isOpen, onClose, animal }: Omit<ModalEditarAnim
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+              <label htmlFor="edit-nombre" className="block text-sm font-semibold text-slate-700 mb-1.5">
                 Nombre
               </label>
               <input
+                id="edit-nombre"
                 type="text"
                 value={formData.nombre}
                 onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
@@ -144,10 +148,11 @@ function ModalEditarAnimalForm({ isOpen, onClose, animal }: Omit<ModalEditarAnim
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+              <label htmlFor="edit-numeroOficialDiio" className="block text-sm font-semibold text-slate-700 mb-1.5">
                 Número Oficial DIIO (SENASA)
               </label>
               <input
+                id="edit-numeroOficialDiio"
                 type="text"
                 value={formData.numeroOficialDiio}
                 onChange={(e) => setFormData({ ...formData, numeroOficialDiio: e.target.value })}
@@ -164,10 +169,11 @@ function ModalEditarAnimalForm({ isOpen, onClose, animal }: Omit<ModalEditarAnim
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+              <label htmlFor="edit-razaId" className="block text-sm font-semibold text-slate-700 mb-1.5">
                 Raza principal *
               </label>
               <select
+                id="edit-razaId"
                 required
                 value={formData.razaId}
                 onChange={(e) => setFormData({ ...formData, razaId: e.target.value })}
@@ -181,10 +187,11 @@ function ModalEditarAnimalForm({ isOpen, onClose, animal }: Omit<ModalEditarAnim
             </div>
             {isOtraRaza && (
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                <label htmlFor="edit-razaOtra" className="block text-sm font-semibold text-slate-700 mb-1.5">
                   Especifique Raza / Composición *
                 </label>
                 <input
+                  id="edit-razaOtra"
                   required
                   type="text"
                   value={formData.razaOtra}
@@ -197,39 +204,34 @@ function ModalEditarAnimalForm({ isOpen, onClose, animal }: Omit<ModalEditarAnim
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+            <label htmlFor="edit-categoria" className="block text-sm font-semibold text-slate-700 mb-1.5">
               Categoría
             </label>
             <select
+              id="edit-categoria"
               value={formData.categoria}
               onChange={(e) => setFormData({ ...formData, categoria: e.target.value })}
               className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700"
             >
               <option value="">— Seleccione categoría —</option>
-              {(!animal.sexo || animal.sexo === 'Hembra') && (
-                <>
-                  <option value="Ternera">Ternera</option>
-                  <option value="Novilla">Novilla</option>
-                  <option value="Vaca">Vaca</option>
-                </>
-              )}
-              {(!animal.sexo || animal.sexo === 'Macho') && (
-                <>
-                  <option value="Ternero">Ternero</option>
-                  <option value="Novillo">Novillo</option>
-                  <option value="Novillo mayor">Novillo mayor</option>
-                  <option value="Toro">Toro</option>
-                </>
-              )}
+              {(!animal.sexo || animal.sexo === 'Hembra') &&
+                CATEGORIAS_HEMBRA.map((cat) => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              {(!animal.sexo || animal.sexo === 'Macho') &&
+                CATEGORIAS_MACHO.map((cat) => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
             </select>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+              <label htmlFor="edit-pesoActualKg" className="block text-sm font-semibold text-slate-700 mb-1.5">
                 Peso (kg)
               </label>
               <input
+                id="edit-pesoActualKg"
                 type="number"
                 min="0"
                 step="0.1"
@@ -240,10 +242,11 @@ function ModalEditarAnimalForm({ isOpen, onClose, animal }: Omit<ModalEditarAnim
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+              <label htmlFor="edit-potreroId" className="block text-sm font-semibold text-slate-700 mb-1.5">
                 Potrero
               </label>
               <select
+                id="edit-potreroId"
                 value={formData.potreroId}
                 onChange={(e) => setFormData({ ...formData, potreroId: e.target.value })}
                 className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light focus:border-transparent text-slate-700"
