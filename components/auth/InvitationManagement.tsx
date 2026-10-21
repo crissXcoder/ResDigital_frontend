@@ -128,5 +128,3 @@ export function InvitationManagement() {
     </section>
   );
 }
-
-
