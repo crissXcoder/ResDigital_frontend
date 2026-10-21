@@ -9,15 +9,21 @@ export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   });
+  const pathname = request.nextUrl.pathname;
+  const isProtectedRoute = ['/dashboard', '/hato', '/sanitario', '/reproductivo',
+    '/potreros', '/leche', '/reportes', '/qr'].some((route) => pathname === route || pathname.startsWith(`${route}/`));
+  const loginUrl = request.nextUrl.clone();
+  loginUrl.pathname = '/login';
+  loginUrl.search = '';
+  loginUrl.searchParams.set('redirect', pathname + request.nextUrl.search);
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey =
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-  // Si no están configuradas las variables, continuar para evitar bloqueo en build estático
   if (!supabaseUrl || !supabaseAnonKey) {
-    return supabaseResponse;
+    return isProtectedRoute ? NextResponse.redirect(loginUrl) : supabaseResponse;
   }
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
@@ -25,7 +31,7 @@ export async function updateSession(request: NextRequest) {
       getAll() {
         return request.cookies.getAll();
       },
-      setAll(cookiesToSet) {
+      setAll(cookiesToSet, cacheHeaders) {
         cookiesToSet.forEach(({ name, value }) =>
           request.cookies.set(name, value),
         );
@@ -35,6 +41,7 @@ export async function updateSession(request: NextRequest) {
         cookiesToSet.forEach(({ name, value, options }) =>
           supabaseResponse.cookies.set(name, value, options),
         );
+        Object.entries(cacheHeaders ?? {}).forEach(([name, value]) => supabaseResponse.headers.set(name, value));
       },
     },
   });
@@ -45,37 +52,31 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const pathname = request.nextUrl.pathname;
-
-  // Rutas que requieren sesión activa obligatoria
-  const isProtectedRoute =
-    pathname.startsWith('/dashboard') ||
-    pathname.startsWith('/hato') ||
-    pathname.startsWith('/sanitario') ||
-    pathname.startsWith('/reproductivo') ||
-    pathname.startsWith('/potreros') ||
-    pathname.startsWith('/leche') ||
-    pathname.startsWith('/reportes');
-
   // Soporte para pruebas automatizadas E2E (Playwright) en desarrollo/test
   const isE2EBypass =
     process.env.NODE_ENV !== 'production' &&
     request.cookies.get('playwright_test_session')?.value === 'true';
 
-  // Si intenta acceder a ruta protegida sin sesión, redirigir a /login
+  let redirectUrl;
   if (isProtectedRoute && !user && !isE2EBypass) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/login';
-    url.searchParams.set('redirect', pathname);
-    return NextResponse.redirect(url);
+    redirectUrl = loginUrl;
   }
 
   // Si el usuario ya está autenticado e intenta ir a login o registro, redirigir al dashboard
   if (user && (pathname === '/login' || pathname === '/registro')) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/dashboard';
-    return NextResponse.redirect(url);
+    redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = '/dashboard';
+    redirectUrl.search = '';
   }
-
+  supabaseResponse.headers.set('Cache-Control', 'private, no-store');
+  if (redirectUrl) {
+    const response = NextResponse.redirect(redirectUrl);
+    supabaseResponse.cookies.getAll().forEach((cookie) => response.cookies.set(cookie));
+    for (const name of ['Cache-Control', 'Expires', 'Pragma']) {
+      const value = supabaseResponse.headers.get(name);
+      if (value) response.headers.set(name, value);
+    }
+    return response;
+  }
   return supabaseResponse;
 }
