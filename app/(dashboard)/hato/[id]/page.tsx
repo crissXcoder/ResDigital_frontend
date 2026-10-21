@@ -94,6 +94,7 @@ function DocumentLink({ objectPath, children, ...props }: React.ComponentProps<'
 }
 import { ModalEditarAnimal } from '@/components/modals/ModalEditarAnimal';
 import { ModalDarBaja } from '@/components/modals/ModalDarBaja';
+import DescendenciaRegistrada from '../components/DescendenciaRegistrada';
 import TabReproductivo from '@/components/reproductivo/TabReproductivo';
 import LineaTiempoGestacion from '@/components/reproductivo/LineaTiempoGestacion';
 
@@ -634,7 +635,7 @@ export default function ExpedienteAnimal() {
                   {animal.fechaNacimiento && (
                     <p>{formatearFechaCivil(animal.fechaNacimiento)}</p>
                   )}
-                  {animal.padreId && <p>Padre: <span className="font-semibold">{animal.padreId}</span></p>}
+                  {animal.padreId && <p>Padre: <span className="font-semibold">{animal.padre?.areteInterno ? `#${animal.padre.areteInterno} ${animal.padre.nombre || ''}` : animal.padreId}</span></p>}
                   {animal.madreId && (
                     <p>Madre: <span className="font-semibold text-primary">{animal.madre?.areteInterno ? `#${animal.madre.areteInterno} ${animal.madre.nombre || ''}` : animal.madreId}</span></p>
                   )}
@@ -772,7 +773,13 @@ export default function ExpedienteAnimal() {
                     {/* Padre */}
                     <div className="bg-white border border-slate-200 rounded-xl p-4 w-[45%] shadow-sm hover:border-slate-300 transition-colors">
                       <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Padre (Semental / Pajilla)</div>
-                      <div className="font-bold text-navy text-base">{animal.padreId ? `Semental #${animal.padreId}` : 'No registrado'}</div>
+                      <div className="font-bold text-navy text-base">
+                        {animal.padre
+                          ? `#${animal.padre.areteInterno} ${animal.padre.nombre || ''}`
+                          : animal.padreId
+                            ? `Semental (ID: ${animal.padreId})`
+                            : animal.padreExternoDescripcion || 'No registrado'}
+                      </div>
                       <div className="flex items-center gap-2 mt-2 text-xs font-semibold">
                       </div>
                     </div>
@@ -790,21 +797,7 @@ export default function ExpedienteAnimal() {
                 </div>
               </div>
 
-              {/* Descendencia Registrada */}
-              <div className="bg-white border border-slate-200 rounded-xl p-6 sm:p-8 shadow-sm">
-                <div className="flex items-center gap-3 mb-2">
-                  <h3 className="text-lg font-bold text-navy">Descendencia Registrada</h3>
-                  <span className="w-6 h-6 rounded bg-blue-50 text-blue-600 text-xs font-bold flex items-center justify-center">0</span>
-                </div>
-                <p className="text-sm text-slate-500 mb-8">Crías registradas en el sistema donde este animal figura como padre o madre.</p>
-
-                <div className="py-10 flex flex-col items-center justify-center text-center opacity-60">
-                  <div className="w-12 h-12 rounded-full border-2 border-slate-200 flex items-center justify-center text-slate-300 mb-4">
-                    <Plus className="w-6 h-6" />
-                  </div>
-                  <p className="text-sm font-semibold text-slate-400">No se registran crías ni partos para este animal.</p>
-                </div>
-              </div>
+              <DescendenciaRegistrada animalId={animalId} />
 
               {/* Línea de Tiempo Gestación - Solo Hembras */}
               {!isMacho && <LineaTiempoGestacion estado={estadoReproductivo} />}

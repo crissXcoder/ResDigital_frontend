@@ -23,6 +23,7 @@ export interface Animal {
   activo: boolean;
   madreId?: string;
   padreId?: string;
+  padreExternoDescripcion?: string;
   madre?: Animal;
   padre?: Animal;
   fotoUrl?: string;
@@ -93,6 +94,9 @@ export interface EventoBajaResponse {
   pesoFinalKg?: number | null;
   usuarioId?: string | null;
 }
+export type DescendenciaAnimal = Pick<Animal,
+  'id' | 'areteInterno' | 'nombre' | 'sexo' | 'categoria' | 'fechaNacimiento' | 'madreId' | 'padreId' | 'activo'
+>;
 export type CreatePesajeInput = components['schemas']['CreatePesajeDto'];
 export interface Pesaje {
   id: string;
@@ -118,6 +122,10 @@ export const getAnimales = async (filters: Record<string, string> = {}): Promise
 
 export const getAnimal = async (id: string): Promise<Animal> => {
   return fetchApi<Animal>(`/animales/${id}`);
+};
+
+export const getDescendenciaAnimal = async (id: string): Promise<DescendenciaAnimal[]> => {
+  return fetchApi<DescendenciaAnimal[]>(`/animales/${id}/descendencia`);
 };
 
 export const createAnimal = async (animalData: CreateAnimalInput): Promise<Animal> => {
