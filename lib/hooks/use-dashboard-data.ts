@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getAnimales } from "@/lib/api/animales";
 import { getProximosEventos, type ProximoEvento } from "@/lib/api/reproductivo";
 import { getRetirosActivos } from "@/lib/api/sanitary";
+import { getHembrasEnLactancia, type HembraEnLactancia } from "@/lib/api/produccion";
 import { diferenciaDiasCivil, hoyLocal } from "@/lib/reproductivo/fechas";
 import type {
   AlertaNotificacion,
@@ -17,7 +18,8 @@ import type {
  * Hooks de datos del Dashboard, uno por pieza de UI (MOD-04, Karla).
  *
  * Conectado 100% a la API real sin mocks:
- * - KPIs y Vacas en ordeño: GET /animales + GET /tratamientos/retiros-activos
+ * - KPIs: GET /animales + GET /tratamientos/retiros-activos
+ * - Vacas en ordeño: GET /lactancia/activas (Danny - MOD-05), excluyendo retiro de leche
  * - Gestantes confirmadas: GET /reproductivo/proximos-eventos (365 días)
  * - Retiros sanitarios: GET /tratamientos/retiros-activos (Ari - MOD-02)
  * - Calendario reproductivo: GET /reproductivo/proximos-eventos (Cristhian - MOD-03)
@@ -35,6 +37,27 @@ export const dashboardKeys = {
 };
 
 /**
+ * Cuenta vacas en ordeño según lactancia real (GET /lactancia/activas),
+ * no según la categoría del animal (que puede quedar desactualizada si no
+ * se cierra lactancia al dar de baja o registrar el fin).
+ *
+ * B11: requiere lactancia activa Y animal activo Y sin retiro de leche vigente.
+ */
+export function calcularVacasEnOrdeno(
+  lactanciasActivas: HembraEnLactancia[],
+  animalesActivosIds: Set<string>,
+  retiros: AnimalEnRetiro[],
+): number {
+  const conRetiroLeche = new Set(
+    retiros.filter((r) => r.diasRestantesLeche !== null).map((r) => r.animalId),
+  );
+
+  return lactanciasActivas.filter(
+    (l) => animalesActivosIds.has(l.animalId) && !conRetiroLeche.has(l.animalId),
+  ).length;
+}
+
+/**
  * Construye la lista unificada y accionable de alertas activas del hato
  * a partir de retiros sanitarios vigentes y próximos eventos reproductivos.
  */
@@ -42,16 +65,32 @@ export function construirAlertas(
   retiros: AnimalEnRetiro[],
   eventos: ProximoEvento[],
 ): AlertaNotificacion[] {
-  const alertasRetiro: AlertaNotificacion[] = retiros.map((r) => ({
-    id: `retiro-${r.animalId}`,
-    categoria: "retiro" as CategoriaAlerta,
-    animalId: r.animalId,
-    fecha: r.fechaLiberacionLeche ?? r.fechaLiberacionCarne ?? hoyLocal(),
-    mensaje:
-      r.diasRestantesLeche !== null
-        ? `${r.nombre} (${r.arete}) sigue en retiro de leche — vence en ${r.diasRestantesLeche} día(s).`
-        : `${r.nombre} (${r.arete}) sigue en retiro de carne — vence en ${r.diasRestantesCarne} día(s).`,
-  }));
+  // Un animal puede tener retiro de leche Y de carne a la vez, con fechas de
+  // liberación independientes (RF-032: evita "cifras contradictorias" entre
+  // la campana y el Semáforo — antes solo se reportaba uno de los dos y el
+  // otro quedaba invisible en las alertas).
+  const alertasRetiro: AlertaNotificacion[] = retiros.flatMap((r) => {
+    const items: AlertaNotificacion[] = [];
+    if (r.diasRestantesLeche !== null) {
+      items.push({
+        id: `retiro-leche-${r.animalId}`,
+        categoria: "retiro" as CategoriaAlerta,
+        animalId: r.animalId,
+        fecha: r.fechaLiberacionLeche ?? hoyLocal(),
+        mensaje: `${r.nombre} (${r.arete}) sigue en retiro de leche — vence en ${r.diasRestantesLeche} día(s).`,
+      });
+    }
+    if (r.diasRestantesCarne !== null) {
+      items.push({
+        id: `retiro-carne-${r.animalId}`,
+        categoria: "retiro" as CategoriaAlerta,
+        animalId: r.animalId,
+        fecha: r.fechaLiberacionCarne ?? hoyLocal(),
+        mensaje: `${r.nombre} (${r.arete}) sigue en retiro de carne — vence en ${r.diasRestantesCarne} día(s).`,
+      });
+    }
+    return items;
+  });
 
   const alertasReproductivas: AlertaNotificacion[] = eventos.map((e) => {
     let categoria: CategoriaAlerta = "parto";
@@ -83,22 +122,21 @@ export function useKpisDashboard() {
   return useQuery<KpisDashboard>({
     queryKey: dashboardKeys.kpis,
     queryFn: async () => {
-      const [animales, retiros, eventos365, eventosVentana] = await Promise.all([
+      const [animales, retiros, eventos365, eventosVentana, lactanciasActivas] = await Promise.all([
         getAnimales(),
         getRetirosActivos(),
         getProximosEventos(365),
         getProximosEventos(),
+        getHembrasEnLactancia(),
       ]);
 
       const activos = animales.filter((a) => a.activo);
       const totalHatoActivo = activos.length;
+      const activosIds = new Set(activos.map((a) => a.id));
 
-      // B11: Vacas en Ordeño (Hembra, categoría Vaca en Ordeño, SIN retiro de leche)
-      const vacasEnOrdeno = activos.filter((a) => {
-        if (a.categoria !== "Vaca en Ordeño" || a.sexo !== "Hembra") return false;
-        const tieneRetiro = retiros.some((r) => r.animalId === a.id && r.diasRestantesLeche !== null);
-        return !tieneRetiro;
-      }).length;
+      // B11: Vacas en Ordeño según lactancia real (no la categoría del animal,
+      // que puede quedar desactualizada), excluyendo retiro de leche vigente.
+      const vacasEnOrdeno = calcularVacasEnOrdeno(lactanciasActivas, activosIds, retiros);
 
       // B4: Gestantes Confirmadas (solo con diagnóstico positivo vigente)
       // En la máquina de estados reproductivos, toda hembra 'Preñada' o 'En Secado'
@@ -113,8 +151,10 @@ export function useKpisDashboard() {
       );
       const gestantesConfirmadas = gestantesIds.size;
 
-      // Alertas Activas en ventana: total de retiros sanitarios + hitos reproductivos
-      const alertasActivas = retiros.length + eventosVentana.length;
+      // Alertas Activas en ventana: debe contar lo mismo que muestra la campana
+      // de notificaciones (construirAlertas) — un animal en retiro de leche Y
+      // carne genera dos alertas, no una, o el KPI y la campana se contradicen.
+      const alertasActivas = construirAlertas(retiros, eventosVentana).length;
 
       return {
         totalHatoActivo,

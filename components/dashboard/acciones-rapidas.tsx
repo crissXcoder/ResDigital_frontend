@@ -243,6 +243,7 @@ export function AccionesRapidas() {
           <button
             type="button"
             onClick={() => setMensajeExito(null)}
+            aria-label="Cerrar notificación"
             className="text-success hover:opacity-75"
           >
             <X className="h-4 w-4" />
@@ -300,12 +301,22 @@ export function AccionesRapidas() {
 
       {/* Modal: Selector de Animal antes de abrir el formulario */}
       {accionActiva && !isFormOpen && configActual && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4"
+          onKeyDown={(e) => {
+            if (e.key === "Escape") cancelarFlujo();
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="titulo-selector-accion-rapida"
+            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150"
+          >
             {/* Header del selector */}
             <div className="flex items-start justify-between gap-4 pb-3 border-b border-slate-100">
               <div>
-                <h3 className="text-base font-bold text-navy">
+                <h3 id="titulo-selector-accion-rapida" className="text-base font-bold text-navy">
                   {configActual.tituloSelector}
                 </h3>
                 <p className="mt-0.5 text-xs text-slate-500">

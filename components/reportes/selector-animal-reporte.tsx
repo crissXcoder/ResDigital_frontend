@@ -41,6 +41,7 @@ export function SelectorAnimalReporte({
   const [isOpen, setIsOpen] = useState(false);
   const [internalSelectedId, setInternalSelectedId] = useState(selectedAnimalId);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -96,12 +97,14 @@ export function SelectorAnimalReporte({
     onSelectAnimal?.(animal);
     setIsOpen(false);
     setQuery("");
+    setDownloadError(null);
   };
 
   const handleClearSelection = () => {
     setInternalSelectedId("");
     onSelectAnimal?.(null);
     setQuery("");
+    setDownloadError(null);
     setTimeout(() => {
       inputRef.current?.focus();
     }, 50);
@@ -111,9 +114,13 @@ export function SelectorAnimalReporte({
     if (!animalSeleccionado || isDownloading) return;
     try {
       setIsDownloading(true);
+      setDownloadError(null);
       await descargarExpedientePdfPorId(animalSeleccionado.id, nombreFinca);
     } catch (error) {
       console.error("Error al generar PDF del expediente:", error);
+      setDownloadError(
+        "No se pudo generar el PDF del expediente. Verifica tu conexión e intenta de nuevo.",
+      );
     } finally {
       setIsDownloading(false);
     }
@@ -123,6 +130,13 @@ export function SelectorAnimalReporte({
     <div className="w-full space-y-4">
       {/* Vista previa del animal seleccionado (si ya se eligió uno) */}
       {animalSeleccionado ? (
+        <div className="flex flex-col gap-3">
+        {downloadError && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+            <X className="h-4 w-4 shrink-0 text-red-600" />
+            <span>{downloadError}</span>
+          </div>
+        )}
         <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-start gap-3.5">
             <div className="size-11 rounded-xl bg-navy/5 text-navy flex items-center justify-center font-bold text-sm shrink-0 border border-navy/10">
@@ -195,6 +209,7 @@ export function SelectorAnimalReporte({
               <ExternalLink className="size-3 text-slate-400" />
             </Link>
           </div>
+        </div>
         </div>
       ) : null}
 

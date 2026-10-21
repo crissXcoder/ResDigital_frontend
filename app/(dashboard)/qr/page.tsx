@@ -21,6 +21,9 @@ import Link from 'next/link';
 
 type CameraState = 'solicitando' | 'activa' | 'denegada' | 'no-disponible' | 'detenida';
 
+/** Si getUserMedia no resuelve ni rechaza en este plazo, se trata como fallo. */
+const CAMARA_TIMEOUT_MS = 12000;
+
 export default function QrScannerPage() {
   const router = useRouter();
 
@@ -125,20 +128,51 @@ export default function QrScannerPage() {
 
     if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
       setCameraState('no-disponible');
-      setErrorMessage('Este navegador o dispositivo no soporta acceso a cámara en tiempo real.');
+      if (typeof window !== 'undefined' && window.isSecureContext === false) {
+        setErrorMessage(
+          'La cámara solo funciona en conexiones seguras (HTTPS). Usa la subida de foto o la búsqueda manual mientras tanto.',
+        );
+      } else {
+        setErrorMessage('Este navegador o dispositivo no soporta acceso a cámara en tiempo real.');
+      }
       return;
     }
 
     stopCamera();
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      // RF-031/RF-032: si el navegador nunca resuelve ni rechaza el permiso
+      // (prompt ignorado, extensión que lo bloquea en silencio), sin este
+      // candado la pantalla se queda en "Iniciando cámara..." para siempre.
+      let agotadoPorTimeout = false;
+      const solicitudCamara = navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: 'environment' }, // Cámara trasera en móviles
           width: { ideal: 1280 },
           height: { ideal: 720 },
         },
       });
+      solicitudCamara
+        .then((streamTardio) => {
+          if (agotadoPorTimeout) {
+            streamTardio.getTracks().forEach((track) => {
+              track.enabled = false;
+              track.stop();
+            });
+          }
+        })
+        .catch(() => {});
+
+      let timeoutId: ReturnType<typeof setTimeout>;
+      const stream = await Promise.race([
+        solicitudCamara.finally(() => clearTimeout(timeoutId)),
+        new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => {
+            agotadoPorTimeout = true;
+            reject(Object.assign(new Error('Tiempo de espera agotado'), { name: 'TimeoutError' }));
+          }, CAMARA_TIMEOUT_MS);
+        }),
+      ]);
 
       // Si el usuario navegó a otra página mientras el navegador concedía la cámara, apagarla de inmediato
       if (!isMountedRef.current) {
@@ -174,6 +208,11 @@ export default function QrScannerPage() {
       } else if (errorObj?.name === 'NotFoundError' || errorObj?.name === 'DevicesNotFoundError') {
         setCameraState('no-disponible');
         setErrorMessage('No se encontró ninguna cámara conectada en este equipo.');
+      } else if (errorObj?.name === 'TimeoutError') {
+        setCameraState('no-disponible');
+        setErrorMessage(
+          'La cámara tardó demasiado en responder. Revisa el permiso en tu navegador o usa la subida de foto / búsqueda manual.',
+        );
       } else {
         setCameraState('no-disponible');
         setErrorMessage(`No se pudo iniciar la cámara (${errorObj?.message || 'Error desconocido'}).`);
