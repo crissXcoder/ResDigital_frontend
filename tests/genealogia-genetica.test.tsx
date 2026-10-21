@@ -118,7 +118,7 @@ describe('HATO-T006 — Genealogía y Composición Genética en Expediente (Fron
   it('despliega los datos de padre externo y madre en el árbol genealógico', async () => {
     vi.spyOn(animalesApi, 'getAnimal').mockResolvedValue(mockAnimalF1);
     vi.spyOn(animalesApi, 'getPesajesByAnimal').mockResolvedValue([]);
-    vi.spyOn(animalesApi, 'getTratamientosByAnimal').mockResolvedValue([]);
+    vi.spyOn(sanitaryApi, 'getTratamientosByAnimal').mockResolvedValue([]);
     vi.spyOn(animalesApi, 'getDocumentos').mockResolvedValue([]);
     vi.spyOn(animalesApi, 'getComposicionGenetica').mockResolvedValue(mockComposicionF1);
     vi.spyOn(animalesApi, 'getCriasByAnimal').mockResolvedValue(mockCriasList);
@@ -139,7 +139,7 @@ describe('HATO-T006 — Genealogía y Composición Genética en Expediente (Fron
   it('despliega la barra y badges de composición genética calculada con el método zootécnico correspondiente', async () => {
     vi.spyOn(animalesApi, 'getAnimal').mockResolvedValue(mockAnimalF1);
     vi.spyOn(animalesApi, 'getPesajesByAnimal').mockResolvedValue([]);
-    vi.spyOn(animalesApi, 'getTratamientosByAnimal').mockResolvedValue([]);
+    vi.spyOn(sanitaryApi, 'getTratamientosByAnimal').mockResolvedValue([]);
     vi.spyOn(animalesApi, 'getDocumentos').mockResolvedValue([]);
     vi.spyOn(animalesApi, 'getComposicionGenetica').mockResolvedValue(mockComposicionF1);
     vi.spyOn(animalesApi, 'getCriasByAnimal').mockResolvedValue(mockCriasList);
@@ -162,7 +162,7 @@ describe('HATO-T006 — Genealogía y Composición Genética en Expediente (Fron
   it('despliega las crías reales registradas sin mostrar contador mock en 0', async () => {
     vi.spyOn(animalesApi, 'getAnimal').mockResolvedValue(mockAnimalF1);
     vi.spyOn(animalesApi, 'getPesajesByAnimal').mockResolvedValue([]);
-    vi.spyOn(animalesApi, 'getTratamientosByAnimal').mockResolvedValue([]);
+    vi.spyOn(sanitaryApi, 'getTratamientosByAnimal').mockResolvedValue([]);
     vi.spyOn(animalesApi, 'getDocumentos').mockResolvedValue([]);
     vi.spyOn(animalesApi, 'getComposicionGenetica').mockResolvedValue(mockComposicionF1);
     vi.spyOn(animalesApi, 'getCriasByAnimal').mockResolvedValue(mockCriasList);
