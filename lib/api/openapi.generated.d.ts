@@ -787,6 +787,8 @@ export interface components {
             eventoServicioId: string | null;
             /** Format: uuid */
             criaAnimalId: string | null;
+            /** @description Arete interno de la cría vinculada, si se pudo resolver en esta finca. */
+            criaAreteInterno: string | null;
             /** @enum {string|null} */
             facilidadParto: "Normal" | "Distocia" | "Cesárea" | "Aborto" | null;
             observaciones: string | null;
@@ -924,6 +926,75 @@ export interface components {
             evento: components["schemas"]["EventoWriteResponseDto"];
             diagnostico: components["schemas"]["EventoDiagnosticoWriteResponseDto"];
         };
+        DatosNuevaCriaPartoDto: {
+            /**
+             * @description Identificador único interno o arete de la cría en la finca.
+             * @example CR-2026-001
+             */
+            areteInterno: string;
+            /**
+             * @description Nombre de la cría. Si se omite, se asigna el mismo valor de areteInterno.
+             * @example Lucero
+             */
+            nombre?: string;
+            /**
+             * @description Sexo de la cría recién nacida ('Hembra' o 'Macho'). Por defecto: 'Hembra'.
+             * @example Hembra
+             * @enum {string}
+             */
+            sexo?: "Hembra" | "Macho";
+            /**
+             * @description ID de la raza en catálogo. Si se omite, hereda automáticamente la raza de la madre.
+             * @example b1a2c3d4-0000-0000-0000-000000000001
+             */
+            razaId?: string;
+            /**
+             * @description Descripción personalizada de la raza si aplica. Si se omite y la madre tiene razaOtra, la hereda.
+             * @example Cruce Jersey x Girolando
+             */
+            razaOtra?: string;
+            /**
+             * @description Número oficial de arete DIIO del MAG/SENASA. Debe ser único en la finca si se especifica.
+             * @example DIIO-CR-998822
+             */
+            numeroOficialDiio?: string;
+            /**
+             * @description Categoría de la cría. Si se omite, se auto-asigna 'Ternera' para hembras o 'Ternero' para machos.
+             * @example Ternera
+             * @enum {string}
+             */
+            categoria?: "Ternero" | "Ternera" | "Novillo" | "Novillo mayor" | "Novilla" | "Vaca" | "Toro";
+            /**
+             * @description ID del potrero donde se ubicará la cría. Si se omite, hereda el potrero de la madre.
+             * @example c2b3a4d5-1111-2222-3333-444455556666
+             */
+            potreroId?: string;
+            /**
+             * @description Fecha de nacimiento de la cría (YYYY-MM-DD). Si se omite, se utiliza la fecha del parto.
+             * @example 2026-10-21
+             */
+            fechaNacimiento?: string;
+            /**
+             * @description Peso al nacer en kilogramos (peso de nacimiento).
+             * @example 38.5
+             */
+            pesoNacimientoKg?: number;
+            /**
+             * @description URL de la fotografía inicial de la cría (opcional).
+             * @example https://storage.resdigital.cr/fotos/cria-001.jpg
+             */
+            fotoUrl?: string;
+            /**
+             * @description ID del toro padre si está registrado en la misma finca (opcional).
+             * @example a1b2c3d4-5555-6666-7777-888899990000
+             */
+            padreId?: string;
+            /**
+             * @description Descripción del toro padre si provino de inseminación artificial externa o monta externa.
+             * @example Toro Holstein Canadiense Semen Pajilla #4410
+             */
+            padreExternoDescripcion?: string;
+        };
         RegistrarPartoDto: {
             /**
              * @description Fecha en que ocurrió el parto (YYYY-MM-DD). No puede ser futura.
@@ -936,10 +1007,12 @@ export interface components {
              */
             eventoServicioId?: string;
             /**
-             * @description ID del animal registrado como cría recién nacida (si ya fue registrado en el hato)
+             * @description ID del animal registrado como cría recién nacida (si ya fue registrado en el hato). Mutuamente excluyente con nuevaCria.
              * @example e1d67412-21d9-482f-870d-f55da282b810
              */
             criaAnimalId?: string;
+            /** @description Datos para dar de alta la cría en la misma transacción del parto. Mutuamente excluyente con criaAnimalId. */
+            nuevaCria?: components["schemas"]["DatosNuevaCriaPartoDto"];
             /**
              * @description Desenlace del parto. "Aborto" es el valor que la máquina de estados usa para cerrar la preñez sin cría viable.
              * @example Normal

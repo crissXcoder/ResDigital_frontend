@@ -2,10 +2,12 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, CalendarClock } from 'lucide-react';
+import { AlertTriangle, CalendarClock, Download } from 'lucide-react';
 import { useProximosEventosFinca } from '@/lib/hooks/use-reproductivo';
+import { useAuthUser } from '@/lib/hooks/useAuthUser';
 import { ChipHito } from '@/components/reproductivo/EstadoChip';
 import { formatearFecha, textoDiasRestantes } from '@/lib/reproductivo/fechas';
+import { exportarReproductivoPdf } from '@/lib/reportes/reproductivo-pdf';
 import type { TipoEventoFeed } from '@/lib/reproductivo/tipos';
 
 /**
@@ -18,7 +20,8 @@ import type { TipoEventoFeed } from '@/lib/reproductivo/tipos';
  * (ver lib/reproductivo/tipos.ts, TipoEventoFeed) — distinto de 'Parto FPP'
  * que usa el hito de un solo animal.
  */
-const DIAS_VENTANA_DEFAULT = 60;
+/** Horizonte máximo del API (365). Una gestación Holstein (~281 d) no cabe en 180. */
+const DIAS_VENTANA_DEFAULT = 365;
 
 const FILTROS: { label: string; tipo: TipoEventoFeed | 'Todos' }[] = [
   { label: 'Todos', tipo: 'Todos' },
@@ -32,6 +35,7 @@ const FILTROS: { label: string; tipo: TipoEventoFeed | 'Todos' }[] = [
 export default function ReproductivoPage() {
   const [diasVentana, setDiasVentana] = useState(DIAS_VENTANA_DEFAULT);
   const [filtro, setFiltro] = useState<TipoEventoFeed | 'Todos'>('Todos');
+  const { user } = useAuthUser();
 
   const { data: eventos, isLoading, isError } = useProximosEventosFinca(diasVentana);
 
@@ -44,14 +48,33 @@ export default function ReproductivoPage() {
   const urgentes = (eventos ?? []).filter((e) => e.urgente).length;
   const vencidos = (eventos ?? []).filter((e) => e.diasRestantes < 0).length;
 
+  const handleDownloadPDF = () => {
+    exportarReproductivoPdf({
+      eventos: eventos ?? [],
+      diasVentana,
+      filtro,
+      nombreFinca: user?.nombreFinca,
+    });
+  };
+
   return (
     <main className="p-6 md:p-8 bg-slate-50 min-h-screen">
       <div className="max-w-[1400px] mx-auto space-y-6">
-        <div>
-          <h1 className="text-3xl font-extrabold text-navy">Reproducción</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Calendario reproductivo de toda la finca — palpaciones, secados y avisos de parto próximos.
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-extrabold text-navy">Reproducción</h1>
+            <p className="text-sm text-slate-500 mt-1">
+              Calendario reproductivo de toda la finca — palpaciones, secados y avisos de parto próximos.
+            </p>
+          </div>
+          <button
+            onClick={handleDownloadPDF}
+            disabled={isLoading || !eventos || eventos.length === 0}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-navy text-white text-sm font-bold rounded-xl hover:bg-navy-light transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer self-start sm:self-auto"
+          >
+            <Download className="w-4 h-4" />
+            Descargar Reporte PDF
+          </button>
         </div>
 
         {/* Summary Cards */}
@@ -105,6 +128,7 @@ export default function ReproductivoPage() {
               <option value={60}>60 días</option>
               <option value={90}>90 días</option>
               <option value={180}>180 días</option>
+              <option value={365}>365 días</option>
             </select>
           </label>
         </div>

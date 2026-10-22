@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { SEXOS } from '../api/catalogos';
+import type { PartoInput } from '../api/reproductivo';
 import {
   FACILIDADES_PARTO,
   METODOS_DIAGNOSTICO,
@@ -14,7 +16,7 @@ import { hoyLocal } from './fechas';
  * en el servidor no den textos distintos ante el mismo error.
  */
 
-const fechaEventoSchema = z
+export const fechaEventoSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'La fecha debe tener el formato AAAA-MM-DD')
   // Comparación de strings ISO: ordena igual que la fecha y evita reintroducir
@@ -61,27 +63,26 @@ export const diagnosticoSchema = z.object({
 
 export type DiagnosticoFormValues = z.infer<typeof diagnosticoSchema>;
 
-export const nuevaCriaPartoSchema = z.object({
-  areteInterno: z.string().min(1, 'El arete interno de la cría es obligatorio'),
-  nombre: z.string().max(100).optional().or(z.literal('')),
-  sexo: z.enum(['Hembra', 'Macho']).optional(),
-  pesoNacimientoKg: z.number().min(0, 'El peso no puede ser negativo').optional().nullable(),
-  numeroOficialDiio: z.string().max(50).optional().or(z.literal('')),
-});
+export const MODALIDADES_CRIA = ['ninguna', 'nueva', 'existente'] as const;
+export type ModalidadCria = (typeof MODALIDADES_CRIA)[number];
 
-export const partoSchema = z.object({
+const partoCamposSchema = z.object({
   fechaEvento: fechaEventoSchema,
   eventoServicioId: z
     .string()
     .uuid('El eventoServicioId debe ser un UUID válido')
     .optional()
     .or(z.literal('')),
-  criaAnimalId: z
-    .string()
-    .uuid('El criaAnimalId debe ser un UUID válido')
+  modalidadCria: z.enum(MODALIDADES_CRIA),
+  criaAnimalId: z.string(),
+  areteInterno: z.string(),
+  sexo: z
+    .enum(SEXOS, {
+      message: "El sexo de la cría debe ser 'Hembra' o 'Macho'",
+    })
     .optional()
     .or(z.literal('')),
-  nuevaCria: nuevaCriaPartoSchema.optional(),
+  pesoNacimientoKg: z.string(),
   facilidadParto: z
     .enum(FACILIDADES_PARTO as [string, ...string[]], {
       message: `La facilidad del parto debe ser uno de: ${FACILIDADES_PARTO.join(', ')}`,
@@ -95,7 +96,66 @@ export const partoSchema = z.object({
     .or(z.literal('')),
 });
 
-export type PartoFormValues = z.infer<typeof partoSchema>;
+export const partoSchema = partoCamposSchema.superRefine((valor, ctx) => {
+  if (valor.modalidadCria === 'nueva' && !valor.areteInterno.trim()) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['areteInterno'],
+      message: 'El arete interno de la cría es obligatorio.',
+    });
+  }
+  if (valor.modalidadCria === 'existente') {
+    const uuid = z.string().uuid('El criaAnimalId debe ser un UUID válido');
+    const res = uuid.safeParse(valor.criaAnimalId);
+    if (!res.success) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['criaAnimalId'],
+        message: 'El criaAnimalId debe ser un UUID válido',
+      });
+    }
+  }
+  if (valor.pesoNacimientoKg.trim()) {
+    const peso = Number(valor.pesoNacimientoKg);
+    if (Number.isNaN(peso) || peso < 0) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['pesoNacimientoKg'],
+        message: 'El peso de nacimiento no puede ser negativo',
+      });
+    }
+  }
+});
+
+export type PartoFormValues = z.infer<typeof partoCamposSchema>;
+
+export function partoAPayload(value: PartoFormValues): PartoInput {
+  const payload: PartoInput = {
+    fechaEvento: value.fechaEvento,
+    eventoServicioId: value.eventoServicioId || undefined,
+    facilidadParto:
+      (value.facilidadParto as PartoInput['facilidadParto']) || undefined,
+    observaciones: value.observaciones || undefined,
+  };
+
+  if (value.modalidadCria === 'nueva') {
+    const peso = value.pesoNacimientoKg.trim()
+      ? Number(value.pesoNacimientoKg)
+      : undefined;
+    payload.nuevaCria = {
+      areteInterno: value.areteInterno.trim(),
+      sexo: value.sexo || undefined,
+      pesoNacimientoKg: peso,
+    };
+    return payload;
+  }
+
+  if (value.modalidadCria === 'existente') {
+    payload.criaAnimalId = value.criaAnimalId;
+  }
+
+  return payload;
+}
 
 export const secadoSchema = z.object({
   fechaEvento: fechaEventoSchema,
