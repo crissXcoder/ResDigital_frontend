@@ -122,7 +122,7 @@ function ModalDarBajaForm({ isOpen, onClose, animal }: Omit<ModalDarBajaProps, '
                 value={formData.motivoBaja}
                 onChange={(e) => setFormData({ ...formData, motivoBaja: e.target.value })}
                 className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-400 text-slate-700"
-                placeholder={isOtroMotivo ? "Ej. Donación a otra escuela" : "Ej. Causa de muerte o destino"}
+                placeholder={isOtroMotivo ? "Especifique el motivo" : "Ej. Causa de muerte o destino"}
               />
             </div>
           )}

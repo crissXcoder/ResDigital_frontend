@@ -143,3 +143,140 @@ export async function finalizarLactancia(
     body: JSON.stringify(input),
   });
 }
+
+
+export interface FilaImportarProduccionLeche {
+  fecha: string;
+  turno: TurnoOrdeno;
+  areteInterno: string;
+  litros: number;
+  notas?: string;
+}
+
+export interface ImportarProduccionLecheInput {
+  filas: FilaImportarProduccionLeche[];
+}
+
+export interface ImportarLoteResponse {
+  totalImportados: number;
+  litrosTotales: number;
+  litrosComercializables: number;
+  litrosDescarte: number;
+  registros: ProduccionLeche[];
+}
+
+export async function importarProduccionLote(
+  input: ImportarProduccionLecheInput,
+): Promise<ImportarLoteResponse> {
+  return await fetchApi<ImportarLoteResponse>('/produccion-leche/lote', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function generarPlantillaCsvProduccion(): string {
+  const encabezado = 'fecha,turno,arete_interno,litros,notas';
+  const filaEjemplo1 = '2026-10-21,Mañana,101,15.5,Ordeño matutino';
+  const filaEjemplo2 = '2026-10-21,Tarde,102,12.0,';
+  return `${encabezado}\n${filaEjemplo1}\n${filaEjemplo2}\n`;
+}
+
+export function parsearCsvProduccion(csvText: string): {
+  filas: FilaImportarProduccionLeche[];
+  errores: string[];
+} {
+  const lineas = csvText
+    .replace(/^\uFEFF/, '') // Quitar BOM si existe
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+
+  if (lineas.length <= 1) {
+    return {
+      filas: [],
+      errores: ['El archivo CSV está vacío o solo contiene la cabecera.'],
+    };
+  }
+
+  const cabecera = lineas[0].toLowerCase().split(',').map((h) => h.trim().replace(/^"|"$/g, ''));
+  const colFecha = cabecera.indexOf('fecha');
+  const colTurno = cabecera.indexOf('turno');
+  const colArete = cabecera.findIndex((h) => h === 'arete_interno' || h === 'arete' || h === 'areteinterno');
+  const colLitros = cabecera.indexOf('litros');
+  const colNotas = cabecera.indexOf('notas');
+
+  if (colFecha === -1 || colTurno === -1 || colArete === -1 || colLitros === -1) {
+    return {
+      filas: [],
+      errores: [
+        'Formato inválido. Las columnas requeridas son: fecha, turno, arete_interno, litros, notas.',
+      ],
+    };
+  }
+
+  const filas: FilaImportarProduccionLeche[] = [];
+  const errores: string[] = [];
+
+  const registrosLineas = lineas.slice(1);
+  if (registrosLineas.length > 200) {
+    errores.push(`El archivo contiene ${registrosLineas.length} filas. El máximo permitido por lote es 200.`);
+    return { filas: [], errores };
+  }
+
+  for (let i = 0; i < registrosLineas.length; i++) {
+    const numFila = i + 2; // +1 cabecera, +1 base 1
+    const parts = registrosLineas[i].split(',').map((p) => p.trim().replace(/^"|"$/g, ''));
+
+    const fechaRaw = parts[colFecha] || '';
+    const turnoRaw = parts[colTurno] || '';
+    const areteRaw = (parts[colArete] || '').replace(/^#/, '').trim();
+    const litrosRaw = parts[colLitros] || '';
+    let notasRaw = colNotas !== -1 && parts[colNotas] ? parts[colNotas] : undefined;
+
+    // Sanitización contra inyección de fórmulas CSV (=, +, -, @)
+    if (notasRaw && /^[=+\-@]/.test(notasRaw)) {
+      notasRaw = `'${notasRaw}`;
+    }
+
+    // Validar fecha (YYYY-MM-DD)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaRaw)) {
+      errores.push(`Fila ${numFila}: Fecha '${fechaRaw}' inválida. Debe tener formato YYYY-MM-DD.`);
+      continue;
+    }
+
+    // Validar turno
+    const turnoNorm = turnoRaw.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    let turno: TurnoOrdeno;
+    if (turnoNorm === 'MANANA') {
+      turno = 'MANANA';
+    } else if (turnoNorm === 'TARDE') {
+      turno = 'TARDE';
+    } else {
+      errores.push(`Fila ${numFila}: Turno '${turnoRaw}' inválido. Debe ser 'Mañana' o 'Tarde'.`);
+      continue;
+    }
+
+    // Validar arete
+    if (!areteRaw) {
+      errores.push(`Fila ${numFila}: El arete interno es requerido.`);
+      continue;
+    }
+
+    // Validar litros
+    const litros = Number(litrosRaw);
+    if (isNaN(litros) || litros <= 0 || litros > 60) {
+      errores.push(`Fila ${numFila}: Litros '${litrosRaw}' inválido. Debe ser un número entre 0.1 y 60.`);
+      continue;
+    }
+
+    filas.push({
+      fecha: fechaRaw,
+      turno,
+      areteInterno: areteRaw,
+      litros: Math.round(litros * 10) / 10,
+      notas: notasRaw,
+    });
+  }
+
+  return { filas, errores };
+}
