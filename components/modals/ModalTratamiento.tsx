@@ -321,9 +321,9 @@ export default function ModalTratamiento({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/60 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 my-8 border border-slate-200">
-        <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-surface">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/60 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[calc(100dvh-2rem)] overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-200 flex flex-col">
+        <div className="flex shrink-0 items-center justify-between p-5 border-b border-slate-100 bg-surface">
           <div>
             <h2 className="text-lg font-bold text-navy">
               {isEditing ? 'Corregir Tratamiento Veterinario' : 'Registrar Tratamiento Veterinario'}
@@ -343,7 +343,7 @@ export default function ModalTratamiento({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="min-h-0 overflow-y-auto p-5 sm:p-6 space-y-4">
           {errorMessage && (
             <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium flex items-start gap-2 animate-in fade-in">
               <AlertCircle className="w-4 h-4 shrink-0 text-red-500 mt-0.5" />

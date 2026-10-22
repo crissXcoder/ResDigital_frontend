@@ -8,7 +8,6 @@ import type { TratamientoSanitario } from '@/lib/api/sanitary';
 import type { PesajeFormData } from '@/components/modals/ModalPesaje';
 import type { ServicioFormData } from '@/components/modals/ModalServicio';
 import type { DiagnosticoFormData } from '@/components/modals/ModalDiagnostico';
-import Image from 'next/image';
 import { useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -22,6 +21,8 @@ import {
   createServicioReproductivo,
   createDiagnosticoReproductivo,
   getBajaAnimal,
+  getComposicionGenetica,
+  getCriasByAnimal,
 } from '@/lib/api/animales';
 import {
   anularTratamiento,
@@ -45,9 +46,6 @@ import {
   ChevronLeft,
   Plus,
   Download,
-  Activity,
-  Baby,
-  Droplet,
   AlertTriangle,
   Pencil,
   CheckCircle2,
@@ -55,6 +53,7 @@ import {
   FileText,
   Camera,
   QrCode,
+  Dna,
 } from 'lucide-react';
 import ModalPesaje from '@/components/modals/ModalPesaje';
 import ModalServicio from '@/components/modals/ModalServicio';
@@ -187,6 +186,18 @@ export default function ExpedienteAnimal() {
   const fotoAdjunta = documentosDocumentos?.find(
     (documento) => documento.tipo === 'Fotografía' && !!documento.objectPath && /\.(png|jpe?g)$/i.test(documento.objectPath),
   );
+
+  const { data: composicionGenetica } = useQuery({
+    queryKey: ['composicionGenetica', animalId],
+    queryFn: () => getComposicionGenetica(animalId),
+    enabled: Boolean(animal),
+  });
+
+  const { data: crias } = useQuery({
+    queryKey: ['criasAnimal', animalId],
+    queryFn: () => getCriasByAnimal(animalId),
+    enabled: Boolean(animal),
+  });
 
   const pesajeMutation = useMutation({
     mutationFn: (data: PesajeFormData) =>
@@ -634,11 +645,15 @@ export default function ExpedienteAnimal() {
                     <div className="bg-white border border-slate-200 rounded-xl p-4 w-[45%] shadow-sm hover:border-slate-300 transition-colors">
                       <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Padre (Semental / Pajilla)</div>
                       <div className="font-bold text-navy text-base">
-                        {animal.padre
-                          ? `#${animal.padre.areteInterno} ${animal.padre.nombre || ''}`
-                          : animal.padreId
-                            ? `Semental (ID: ${animal.padreId})`
-                            : animal.padreExternoDescripcion || 'No registrado'}
+                        {animal.padre ? (
+                          `Semental #${animal.padre.areteInterno} ${animal.padre.nombre || ''}`
+                        ) : animal.padreId ? (
+                          `Semental (ID: ${animal.padreId})`
+                        ) : animal.padreExternoDescripcion ? (
+                          `Pajilla / Externo: ${animal.padreExternoDescripcion}`
+                        ) : (
+                          'No registrado'
+                        )}
                       </div>
                       <div className="flex items-center gap-2 mt-2 text-xs font-semibold">
                       </div>
@@ -648,16 +663,124 @@ export default function ExpedienteAnimal() {
                     <div className="bg-green-50/30 border border-green-200 rounded-xl p-4 w-[45%] shadow-sm hover:border-green-300 transition-colors">
                       <div className="text-[10px] font-bold text-green-600 uppercase tracking-wide mb-1">Madre (vaca matriz)</div>
                       <div className="font-bold text-navy text-base">
-                        {animal.madre ? `Matriz #${animal.madre.areteInterno} ${animal.madre.nombre || ''}` : (animal.madreId ? `Matriz (ID: ${animal.madreId})` : 'No registrada')}
+                        {animal.madre ? (
+                          `Matriz #${animal.madre.areteInterno} ${animal.madre.nombre || ''}`
+                        ) : animal.madreId ? (
+                          `Matriz (ID: ${animal.madreId})`
+                        ) : (
+                          'No registrada'
+                        )}
                       </div>
                       <div className="flex items-center gap-2 mt-2 text-xs font-semibold">
                       </div>
                     </div>
                   </div>
                 </div>
+
+                {/* Composición Genética Ponderada (HATO-T006) */}
+                <div className="mt-8 pt-6 border-t border-slate-100">
+                  <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <Dna className="w-5 h-5 text-navy" />
+                      <h4 className="text-sm font-bold text-navy uppercase tracking-wide">Composición Genética Ponderada</h4>
+                    </div>
+                    {composicionGenetica?.metodo && (
+                      <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                        {composicionGenetica.metodo === 'PROMEDIO_PROGENITORES'
+                          ? 'Promedio de Progenitores'
+                          : composicionGenetica.metodo === 'PROGENITOR_UNICO'
+                          ? 'Progenitor Único Conocido'
+                          : 'Raza Directa Base'}
+                      </span>
+                    )}
+                  </div>
+                  {composicionGenetica?.composicion && composicionGenetica.composicion.length > 0 ? (
+                    <div className="space-y-3">
+                      <div className="flex w-full h-3 rounded-full overflow-hidden bg-slate-100">
+                        {composicionGenetica.composicion.map((item, idx) => {
+                          const colores = ['bg-navy', 'bg-emerald-600', 'bg-amber-500', 'bg-sky-500', 'bg-purple-600'];
+                          const color = colores[idx % colores.length];
+                          return (
+                            <div
+                              key={item.razaId}
+                              style={{ width: `${item.porcentaje}%` }}
+                              className={`${color} h-full transition-all`}
+                              title={`${item.nombre}: ${item.porcentaje}%`}
+                            />
+                          );
+                        })}
+                      </div>
+                      <div className="flex flex-wrap gap-3">
+                        {composicionGenetica.composicion.map((item, idx) => {
+                          const colores = [
+                            'text-navy bg-navy/10 border-navy/20',
+                            'text-emerald-700 bg-emerald-50 border-emerald-200',
+                            'text-amber-700 bg-amber-50 border-amber-200',
+                            'text-sky-700 bg-sky-50 border-sky-200',
+                          ];
+                          const estilo = colores[idx % colores.length] || 'text-slate-700 bg-slate-50 border-slate-200';
+                          return (
+                            <span
+                              key={item.razaId}
+                              className={`text-xs font-bold px-2.5 py-1 rounded-md border flex items-center gap-1.5 ${estilo}`}
+                            >
+                              <span>{item.nombre}:</span>
+                              <span>{item.porcentaje}%</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400">Sin datos de composición racial para este animal.</p>
+                  )}
+                </div>
               </div>
 
-              <DescendenciaRegistrada animalId={animalId} />
+
+              {/* Descendencia Registrada */}
+              <div className="bg-white border border-slate-200 rounded-xl p-6 sm:p-8 shadow-sm">
+                <div className="flex items-center gap-3 mb-2">
+                  <h3 className="text-lg font-bold text-navy">Descendencia Registrada</h3>
+                  <span className="w-6 h-6 rounded bg-blue-50 text-blue-600 text-xs font-bold flex items-center justify-center">
+                    {crias?.length ?? 0}
+                  </span>
+                </div>
+                <p className="text-sm text-slate-500 mb-6">Crías registradas en el sistema donde este animal figura como padre o madre.</p>
+
+                {crias && crias.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {crias.map((cria) => (
+                      <Link
+                        key={cria.id}
+                        href={`/hato/${cria.id}`}
+                        className="p-4 border border-slate-200 rounded-xl hover:border-navy hover:shadow-sm transition-all group bg-slate-50/50 block"
+                      >
+                        <div className="flex justify-between items-start mb-1">
+                          <span className="font-bold text-navy group-hover:text-primary transition-colors text-sm">
+                            #{cria.areteInterno} {cria.nombre || ''}
+                          </span>
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-600">
+                            {cria.sexo}
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-500 flex flex-wrap gap-x-3 gap-y-1 mt-2">
+                          <span>{cria.categoria}</span>
+                          {cria.raza && <span>{cria.raza.nombre}</span>}
+                          {cria.fechaNacimiento && <span>Nac: {formatearFechaCivil(cria.fechaNacimiento)}</span>}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-10 flex flex-col items-center justify-center text-center opacity-60">
+                    <div className="w-12 h-12 rounded-full border-2 border-slate-200 flex items-center justify-center text-slate-300 mb-4">
+                      <Plus className="w-6 h-6" />
+                    </div>
+                    <p className="text-sm font-semibold text-slate-400">No se registran crías directas para este animal.</p>
+                  </div>
+                )}
+              </div>
 
               {/* Línea de Tiempo Gestación - Solo Hembras */}
               {!isMacho && <LineaTiempoGestacion estado={estadoReproductivo} />}

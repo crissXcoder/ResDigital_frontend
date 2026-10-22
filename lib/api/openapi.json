@@ -410,6 +410,77 @@
         ]
       }
     },
+    "/animales/{id}/composicion-genetica": {
+      "get": {
+        "operationId": "AnimalesController_getComposicionGenetica",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComposicionGeneticaResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Animal no encontrado en esta finca"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Calcular la composición genética ponderada del animal",
+        "tags": [
+          "Animales"
+        ]
+      }
+    },
+    "/animales/{id}/crias": {
+      "get": {
+        "operationId": "AnimalesController_getCrias",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de crías del animal"
+          },
+          "404": {
+            "description": "Animal no encontrado en esta finca"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Listar la descendencia directa registrada (crías) del animal",
+        "tags": [
+          "Animales"
+        ]
+      }
+    },
     "/pesajes": {
       "post": {
         "operationId": "PesajesController_create",
@@ -1855,6 +1926,102 @@
         "required": [
           "tipo",
           "objectPath"
+        ]
+      },
+      "ComposicionRazaItemDto": {
+        "type": "object",
+        "properties": {
+          "razaId": {
+            "type": "string",
+            "description": "Identificador único de la raza en el catálogo",
+            "format": "uuid",
+            "example": "a0b9432d-cf48-4be7-a2f0-1a76c66cfcb1"
+          },
+          "nombre": {
+            "type": "string",
+            "description": "Nombre de la raza oficial",
+            "example": "Holstein"
+          },
+          "porcentaje": {
+            "type": "number",
+            "description": "Porcentaje genético de la raza (0 a 100)",
+            "example": 50
+          }
+        },
+        "required": [
+          "razaId",
+          "nombre",
+          "porcentaje"
+        ]
+      },
+      "ProgenitoresAnalizadosDto": {
+        "type": "object",
+        "properties": {
+          "madreId": {
+            "type": "string",
+            "description": "ID de la madre si está registrada en el hato",
+            "format": "uuid",
+            "nullable": true
+          },
+          "padreId": {
+            "type": "string",
+            "description": "ID del padre si es un toro registrado en el hato",
+            "format": "uuid",
+            "nullable": true
+          },
+          "padreExternoDescripcion": {
+            "type": "string",
+            "description": "Descripción o pajilla del padre externo",
+            "nullable": true
+          }
+        }
+      },
+      "ComposicionGeneticaResponseDto": {
+        "type": "object",
+        "properties": {
+          "animalId": {
+            "type": "string",
+            "description": "ID del animal evaluado",
+            "format": "uuid"
+          },
+          "areteInterno": {
+            "type": "string",
+            "description": "Arete interno del animal",
+            "example": "101"
+          },
+          "composicion": {
+            "description": "Desglose ponderado de la composición genética por raza",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ComposicionRazaItemDto"
+            }
+          },
+          "metodo": {
+            "type": "string",
+            "description": "Método zootécnico utilizado para determinar la composición",
+            "enum": [
+              "DIRECTO",
+              "PROMEDIO_PROGENITORES",
+              "PROGENITOR_UNICO",
+              "DESCONOCIDO"
+            ],
+            "example": "PROMEDIO_PROGENITORES"
+          },
+          "progenitoresAnalizados": {
+            "description": "Información de los progenitores analizados",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProgenitoresAnalizadosDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "animalId",
+          "areteInterno",
+          "composicion",
+          "metodo",
+          "progenitoresAnalizados"
         ]
       },
       "CreatePesajeDto": {
