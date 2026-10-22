@@ -1,6 +1,6 @@
 import React from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ProduccionPage from '@/app/(dashboard)/produccion/page';
 
@@ -51,10 +51,14 @@ it('carga registros reales, bloquea retiro y guarda el turno nuevo', async () =>
   }));
   let guardado = false;
   api.getProduccionByAnimal.mockImplementation(async (id: string) =>
-    id === 'vaca-1' && guardado ? [{
+    id === 'vaca-1' ? [...(guardado ? [{
       id: 'p-1', fecha, turno: 'MANANA', litros: 12, revertido: false,
       disposicion: 'COMERCIALIZABLE',
-    }] : []);
+    }] : []), { id: 'p-old', fecha: '2026-10-10', turno: 'TARDE', litros: 5,
+      revertido: false, disposicion: 'COMERCIALIZABLE' }] : [{
+        id: 'p-discard', fecha: '2026-10-20', turno: 'MANANA', litros: 4,
+        revertido: false, disposicion: 'DESCARTE',
+      }]);
   api.getResumenProduccion.mockResolvedValue({ porFecha: [], litrosProducidos: 0 });
   api.createProduccionLeche.mockImplementation(async () => { guardado = true; return {}; });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -63,12 +67,17 @@ it('carga registros reales, bloquea retiro y guarda el turno nuevo', async () =>
   fireEvent.change(screen.getByLabelText('Fecha de producción'), { target: { value: fecha } });
   expect(await screen.findByLabelText('Mañana 101')).toBeDefined();
   await waitFor(() => expect(api.getResumenProduccion).toHaveBeenCalledWith('2026-09-22', fecha));
-  fireEvent.change(screen.getByLabelText('Período del gráfico y ranking'), { target: { value: '7' } });
+  fireEvent.change(screen.getByLabelText('Período del gráfico, ranking e historial'), { target: { value: '7' } });
   await waitFor(() => expect(api.getResumenProduccion).toHaveBeenCalledWith('2026-10-15', fecha));
-  fireEvent.change(screen.getByLabelText('Período del gráfico y ranking'), { target: { value: 'personalizado' } });
+  fireEvent.change(screen.getByLabelText('Período del gráfico, ranking e historial'), { target: { value: 'personalizado' } });
   fireEvent.change(screen.getByLabelText('Histórico desde'), { target: { value: '2026-10-01' } });
   fireEvent.change(screen.getByLabelText('Histórico hasta'), { target: { value: '2026-10-20' } });
   await waitFor(() => expect(api.getResumenProduccion).toHaveBeenCalledWith('2026-10-01', '2026-10-20'));
+  expect(screen.getByText('Historial del período')).toBeDefined();
+  expect(within(screen.getByRole('table', { name: 'Historial de producción' })).getByText('5.0 L')).toBeDefined();
+  fireEvent.change(screen.getByLabelText('Filtrar historial por disposición'), { target: { value: 'DESCARTE' } });
+  expect(within(screen.getByRole('table', { name: 'Historial de producción' })).queryByText('5.0 L')).toBeNull();
+  expect(within(screen.getByRole('table', { name: 'Historial de producción' })).getByText('4.0 L')).toBeDefined();
   expect(screen.queryByLabelText('Mañana 102')).toBeNull();
   expect(screen.getByText('BLOQUEADA')).toBeDefined();
   fireEvent.change(screen.getByLabelText('Mañana 101'), { target: { value: '12' } });

@@ -37,6 +37,9 @@ export default function ProduccionPage() {
   const [periodo, setPeriodo] = useState('30');
   const [desdeManual, setDesdeManual] = useState(sumarDiasCivil(hoyLocal(), -29) ?? hoyLocal());
   const [hastaManual, setHastaManual] = useState(hoyLocal());
+  const [animalHistorial, setAnimalHistorial] = useState('');
+  const [disposicionHistorial, setDisposicionHistorial] = useState('');
+  const [limiteHistorial, setLimiteHistorial] = useState(25);
   const hoy = hoyLocal();
   const fechaValida = /^\d{4}-\d{2}-\d{2}$/.test(fecha) && fecha <= hoy;
   const desde = periodo === 'personalizado' ? desdeManual : sumarDiasCivil(fecha, 1 - Number(periodo)) ?? fecha;
@@ -45,10 +48,11 @@ export default function ProduccionPage() {
     desde <= hasta && hasta <= hoy;
 
   const animalesQuery = useQuery({ queryKey: ['animales', 'produccion'], queryFn: () => getAnimales() });
-  const animales = useMemo(
-    () => (animalesQuery.data ?? []).filter((animal) => animal.activo && animal.sexo === 'Hembra'),
+  const hembras = useMemo(
+    () => (animalesQuery.data ?? []).filter((animal) => animal.sexo === 'Hembra'),
     [animalesQuery.data],
   );
+  const animales = hembras.filter((animal) => animal.activo);
   const lactanciaQuery = useQuery({
     queryKey: ['lactancia', 'activas', fecha],
     queryFn: () => getHembrasEnLactancia(fecha),
@@ -60,7 +64,7 @@ export default function ProduccionPage() {
     enabled: rangoValido,
   });
   const registrosQueries = useQueries({
-    queries: animales.map((animal) => ({
+    queries: hembras.map((animal) => ({
       queryKey: ['produccionLeche', animal.id],
       queryFn: () => getProduccionByAnimal(animal.id),
     })),
@@ -77,8 +81,10 @@ export default function ProduccionPage() {
   const fallo = animalesQuery.isError || lactanciaQuery.isError ||
     registrosQueries.some((q) => q.isError) || sanitarioQueries.some((q) => q.isError);
   const lactantes = new Set((lactanciaQuery.data ?? []).map((a) => a.animalId));
+  const registrosPorAnimal = new Map(hembras.map((animal, index) =>
+    [animal.id, registrosQueries[index]?.data ?? []] as const));
   const filas = animales.map((animal, index) => {
-    const registros = (registrosQueries[index]?.data ?? []).filter((r) => r.fecha === fecha && !r.revertido);
+    const registros = (registrosPorAnimal.get(animal.id) ?? []).filter((r) => r.fecha === fecha && !r.revertido);
     const sanitario = sanitarioQueries[index]?.data;
     const retiro = !!sanitario?.liberacionLeche &&
       sanitario.liberacionLeche >= fecha &&
@@ -99,11 +105,19 @@ export default function ProduccionPage() {
     pendientes.filter((p) => p.turno === turno).reduce((n, p) => n + (Number(p.texto) || 0), 0);
   const manana = SUMAR(guardados, 'MANANA') + pendientePorTurno('MANANA');
   const tarde = SUMAR(guardados, 'TARDE') + pendientePorTurno('TARDE');
-  const ranking = filas.map(({ animal }, index) => ({
+  const ranking = hembras.map((animal) => ({
     animal,
-    litros: SUMAR((registrosQueries[index]?.data ?? []).filter((r) => r.fecha >= desde && r.fecha <= hasta)),
+    litros: SUMAR((registrosPorAnimal.get(animal.id) ?? []).filter((r) => r.fecha >= desde && r.fecha <= hasta)),
   })).sort((a, b) => b.litros - a.litros).slice(0, 4);
   const grafica = rangoValido ? resumenQuery.data?.porFecha ?? [] : [];
+  const historial = rangoValido ? hembras.flatMap((animal) =>
+    (registrosPorAnimal.get(animal.id) ?? [])
+      .filter((registro) => !registro.revertido && registro.fecha >= desde && registro.fecha <= hasta)
+      .filter((registro) => !animalHistorial || animal.id === animalHistorial)
+      .filter((registro) => !disposicionHistorial || registro.disposicion === disposicionHistorial)
+      .map((registro) => ({ animal, registro })),
+  ).sort((a, b) => b.registro.fecha.localeCompare(a.registro.fecha) ||
+    a.animal.areteInterno.localeCompare(b.animal.areteInterno)) : [];
 
   const cambiarFecha = (nueva: string) => {
     setFecha(nueva);
@@ -222,7 +236,7 @@ export default function ProduccionPage() {
           <aside className="rounded-2xl bg-white p-5 shadow-sm">
             <h2 className="font-bold text-navy">Producción General (L/día)</h2>
             <div className="mt-4 space-y-2">
-              <label htmlFor="periodo-produccion" className="block text-xs font-semibold text-slate-500">Período del gráfico y ranking</label>
+              <label htmlFor="periodo-produccion" className="block text-xs font-semibold text-slate-500">Período del gráfico, ranking e historial</label>
               <select id="periodo-produccion" value={periodo} onChange={(event) => setPeriodo(event.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-navy">
                 <option value="7">Últimos 7 días</option>
                 <option value="30">Últimos 30 días</option>
@@ -241,6 +255,24 @@ export default function ProduccionPage() {
             <div className="mt-5 border-t border-slate-100 pt-4"><h3 className="text-xs font-bold uppercase text-slate-400">Top productoras · {rangoValido ? `${formatearFecha(desde)}–${formatearFecha(hasta)}` : 'sin período'}</h3>{rangoValido && !registrosQueries.some((q) => q.isLoading || q.isError) && ranking.map(({ animal, litros }, index) => <div key={animal.id} className="mt-3 flex justify-between gap-2 text-xs"><Link href={`/hato/${animal.id}?tab=produccion`} className="font-semibold text-navy hover:text-sky-700">{index + 1}. #{animal.areteInterno} {animal.nombre}</Link><span>{LITROS(litros)}</span></div>)}</div>
           </aside>
         </div>
+        <section className="overflow-hidden rounded-2xl bg-white shadow-sm">
+          <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-100 p-5">
+            <div><h2 className="font-bold text-navy">Historial del período</h2><p className="text-xs text-slate-500">{rangoValido ? `${formatearFecha(desde)} al ${formatearFecha(hasta)}` : 'Seleccione un rango válido en Producción General'}</p></div>
+            <div className="flex flex-wrap gap-2">
+              <select aria-label="Filtrar historial por vaca" value={animalHistorial} onChange={(event) => { setAnimalHistorial(event.target.value); setLimiteHistorial(25); }} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-navy">
+                <option value="">Todas las vacas</option>
+                {hembras.map((animal) => <option key={animal.id} value={animal.id}>#{animal.areteInterno} {animal.nombre}</option>)}
+              </select>
+              <select aria-label="Filtrar historial por disposición" value={disposicionHistorial} onChange={(event) => { setDisposicionHistorial(event.target.value); setLimiteHistorial(25); }} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-navy">
+                <option value="">Toda la leche</option><option value="COMERCIALIZABLE">Comercializable</option><option value="DESCARTE">Descarte</option>
+              </select>
+            </div>
+          </div>
+          {rangoValido && !registrosQueries.some((q) => q.isLoading || q.isError) && historial.length > 0 ? <>
+            <div className="overflow-x-auto"><table aria-label="Historial de producción" className="w-full min-w-[580px] text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-400"><tr><th className="p-3 text-left">Fecha</th><th className="p-3 text-left">Animal</th><th className="p-3 text-left">Turno</th><th className="p-3 text-right">Litros</th><th className="p-3 text-left">Disposición</th></tr></thead><tbody>{historial.slice(0, limiteHistorial).map(({ animal, registro }) => <tr key={registro.id} className="border-t border-slate-100"><td className="p-3">{formatearFecha(registro.fecha)}</td><td className="p-3"><Link className="font-semibold text-navy hover:text-sky-700" href={`/hato/${animal.id}?tab=produccion`}>#{animal.areteInterno} {animal.nombre}</Link></td><td className="p-3">{registro.turno === 'MANANA' ? 'Mañana' : 'Tarde'}</td><td className="p-3 text-right font-semibold">{LITROS(Number(registro.litros))}</td><td className="p-3">{registro.disposicion === 'DESCARTE' ? 'Descarte' : 'Comercializable'}</td></tr>)}</tbody></table></div>
+            {historial.length > limiteHistorial && <div className="border-t border-slate-100 p-4 text-center"><button type="button" onClick={() => setLimiteHistorial((n) => n + 25)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-navy">Mostrar más ({historial.length - limiteHistorial} restantes)</button></div>}
+          </> : <p className="p-8 text-center text-sm text-slate-500">{registrosQueries.some((q) => q.isLoading) ? 'Cargando historial…' : registrosQueries.some((q) => q.isError) ? 'No se pudo cargar el historial.' : 'No hay registros para estos filtros.'}</p>}
+        </section>
       </div>
     </main>
   );
