@@ -50,7 +50,18 @@ function ProfileAccess({ userId, children }: { userId: string; children: React.R
       </div>
     );
   }
-  return <React.Fragment key={`${user.userId}:${user.tenantId}:${user.rol}`}>{children}</React.Fragment>;
+  return (
+    <React.Fragment key={`${user.userId}:${user.tenantId}:${user.rol}`}>
+      {user.rol === 'propietario' && (
+        <div className="border-b border-slate-200 bg-white px-4 py-2 text-right sm:px-6">
+          <Link href="/equipo" className="text-sm font-semibold text-emerald-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2">
+            Administrar equipo
+          </Link>
+        </div>
+      )}
+      {children}
+    </React.Fragment>
+  );
 }
 
 export function SessionGate({ children }: { children: React.ReactNode }) {

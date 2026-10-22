@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Ban, Loader2, Droplet } from 'lucide-react';
+import { Ban, Loader2, Droplet, Upload } from 'lucide-react';
 import {
   LineChart,
   Line,
@@ -15,6 +15,7 @@ import {
 } from 'recharts';
 import { RequireRole } from '@/components/auth/RequireRole';
 import ModalProduccionLeche from '@/components/modals/ModalProduccionLeche';
+import ModalCargaMasivaProduccion from '@/components/modals/ModalCargaMasivaProduccion';
 import type { RolUsuario } from '@/lib/hooks/useAuthUser';
 import type { Pesaje } from '@/lib/api/animales';
 import { formatearFecha, hoyLocal } from '@/lib/reproductivo/fechas';
@@ -53,6 +54,7 @@ export default function TabProduccion({
 }: TabProduccionProps) {
   const queryClient = useQueryClient();
   const [isProduccionOpen, setIsProduccionOpen] = useState(false);
+  const [isCargaMasivaOpen, setIsCargaMasivaOpen] = useState(false);
   const [accionLactancia, setAccionLactancia] = useState<AccionLactancia | null>(null);
   const [fechaLactancia, setFechaLactancia] = useState(hoyLocal());
   const [registroAAnular, setRegistroAAnular] = useState<ProduccionLeche | null>(null);
@@ -135,10 +137,20 @@ export default function TabProduccion({
                   onClick={() => setIsProduccionOpen(true)}
                   className="px-4 py-2 bg-sky-600 text-white rounded-lg text-sm font-bold shadow-sm hover:bg-sky-700 transition-colors"
                 >
-                  Registrar Producción
+                  Registrar producción
                 </button>
               </RequireRole>
             )}
+            <RequireRole roles={['propietario', 'administrador', 'peon']}>
+              <button
+                type="button"
+                onClick={() => setIsCargaMasivaOpen(true)}
+                className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-semibold shadow-sm hover:bg-slate-50 transition-colors flex items-center gap-1.5"
+              >
+                <Upload size={15} className="text-slate-500" />
+                Carga masiva (CSV)
+              </button>
+            </RequireRole>
             {lactancia != null && (
               <RequireRole roles={ROLES_GESTIONAN_PRODUCCION}>
                 <button
@@ -203,7 +215,7 @@ export default function TabProduccion({
       {!isMacho && (
         <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
           <div className="p-6 border-b border-slate-100">
-            <h3 className="text-lg font-bold text-navy">Historial de Producción de Leche</h3>
+            <h3 className="text-lg font-bold text-navy">Historial de producción de leche</h3>
           </div>
           <div className="p-6 overflow-x-auto">
             {produccion && produccion.length > 0 ? (
@@ -276,14 +288,14 @@ export default function TabProduccion({
 
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-          <h3 className="text-lg font-bold text-navy">Historial de Pesajes</h3>
+          <h3 className="text-lg font-bold text-navy">Historial de pesajes</h3>
           <RequireRole roles={['propietario', 'administrador', 'peon']}>
             <button
               type="button"
               onClick={onRegistrarPesaje}
               className="px-4 py-2 bg-navy text-white rounded-lg text-sm font-bold shadow-sm hover:bg-navy-light transition-colors"
             >
-              + Registrar Pesaje
+              + Registrar pesaje
             </button>
           </RequireRole>
         </div>
@@ -301,6 +313,10 @@ export default function TabProduccion({
         </div>
       </div>
 
+      <ModalCargaMasivaProduccion
+        isOpen={isCargaMasivaOpen}
+        onClose={() => setIsCargaMasivaOpen(false)}
+      />
       <ModalProduccionLeche
         isOpen={isProduccionOpen}
         onClose={() => setIsProduccionOpen(false)}

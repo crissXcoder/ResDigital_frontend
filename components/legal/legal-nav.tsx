@@ -37,14 +37,14 @@ export function LegalHeader({ current }: LegalNavProps) {
               href="/privacidad"
               className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
             >
-              Ver Política de Privacidad
+              Ver política de privacidad
             </Link>
           ) : (
             <Link
               href="/terminos"
               className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
             >
-              Ver Términos y Condiciones
+              Ver términos y condiciones
             </Link>
           )}
 
@@ -54,7 +54,7 @@ export function LegalHeader({ current }: LegalNavProps) {
               className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-navy text-white font-medium hover:bg-navy-light transition-colors shadow-xs"
             >
               <LayoutDashboard className="w-3.5 h-3.5 text-blue-300" />
-              <span>Ir al Dashboard</span>
+              <span>Ir al panel principal</span>
             </Link>
           ) : (
             <Link
@@ -80,21 +80,21 @@ export function LegalFooter({ current }: LegalNavProps) {
       <div className="flex items-center gap-4">
         {current === 'terminos' ? (
           <Link href="/privacidad" className="text-blue-600 hover:underline">
-            Política de Privacidad
+            Política de privacidad
           </Link>
         ) : (
           <Link href="/terminos" className="text-blue-600 hover:underline">
-            Términos y Condiciones
+            Términos y condiciones
           </Link>
         )}
         <span>·</span>
         {user ? (
           <Link href="/dashboard" className="text-slate-600 hover:underline">
-            Volver al Dashboard
+            Volver al panel principal
           </Link>
         ) : (
           <Link href="/" className="text-slate-600 hover:underline">
-            Página Principal
+            Página principal
           </Link>
         )}
       </div>

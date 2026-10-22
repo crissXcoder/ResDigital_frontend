@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { X, Upload, File as FileIcon, Loader2 } from 'lucide-react';
+import { getAnimalDocumentExtension } from '@/lib/supabase/animal-documents';
 
 interface ModalDocumentoProps {
   isOpen: boolean;
@@ -11,20 +12,35 @@ interface ModalDocumentoProps {
 export default function ModalDocumento({ isOpen, onClose, onSubmit, isUploading }: ModalDocumentoProps) {
   const [tipo, setTipo] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!tipo || !file) return;
+    if (!tipo.trim() || !file) return;
 
-    await onSubmit({ tipo, file });
-    
-    // Limpiar formulario tras éxito
-    if (!isUploading) {
+    setError(null);
+    try {
+      await onSubmit({ tipo: tipo.trim(), file });
       setTipo('');
       setFile(null);
+      onClose();
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'No se pudo guardar el archivo.');
+    }
+  };
+
+  const selectFile = (selectedFile: File | undefined) => {
+    if (!selectedFile) return;
+    try {
+      getAnimalDocumentExtension(selectedFile);
+      setFile(selectedFile);
+      setError(null);
+    } catch (fileError) {
+      setFile(null);
+      setError(fileError instanceof Error ? fileError.message : 'Seleccione un archivo PDF, PNG o JPG.');
     }
   };
 
@@ -35,9 +51,7 @@ export default function ModalDocumento({ isOpen, onClose, onSubmit, isUploading 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     const droppedFile = e.dataTransfer.files[0];
-    if (droppedFile) {
-      setFile(droppedFile);
-    }
+    selectFile(droppedFile);
   };
 
   return (
@@ -55,15 +69,18 @@ export default function ModalDocumento({ isOpen, onClose, onSubmit, isUploading 
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
+            <label htmlFor="animal-document-type" className="block text-sm font-semibold text-slate-700 mb-2">
               Tipo de Documento
             </label>
             <input 
               type="text"
+              id="animal-document-type"
               list="docTypes"
               value={tipo}
               onChange={(e) => setTipo(e.target.value)}
+              onFocus={() => setError(null)}
               className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy transition-all"
               placeholder="Ej. Certificado de Pedigrí"
               required
@@ -81,7 +98,7 @@ export default function ModalDocumento({ isOpen, onClose, onSubmit, isUploading 
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
+            <label htmlFor="animal-document-file" className="block text-sm font-semibold text-slate-700 mb-2">
               Archivo (PDF o Imagen)
             </label>
             <div 
@@ -93,11 +110,13 @@ export default function ModalDocumento({ isOpen, onClose, onSubmit, isUploading 
             >
               <input 
                 type="file" 
+                id="animal-document-file"
                 ref={fileInputRef}
                 className="hidden" 
-                accept=".pdf,image/*"
+                accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
                 onChange={(e) => {
-                  if (e.target.files?.[0]) setFile(e.target.files[0]);
+                  selectFile(e.target.files?.[0]);
+                  e.target.value = '';
                 }}
                 disabled={isUploading}
               />
@@ -136,7 +155,7 @@ export default function ModalDocumento({ isOpen, onClose, onSubmit, isUploading 
           <div className="pt-2">
             <button
               type="submit"
-              disabled={!tipo || !file || isUploading}
+              disabled={!tipo.trim() || !file || isUploading}
               className="w-full py-3 bg-navy text-white rounded-xl font-bold shadow-sm hover:bg-navy-light focus:outline-none focus:ring-4 focus:ring-navy/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isUploading ? (
