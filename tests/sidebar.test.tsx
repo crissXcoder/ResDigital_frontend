@@ -99,7 +99,7 @@ describe('Sidebar Component (CORE-T005)', () => {
     const disabledItems = screen.getAllByText('Próximamente');
     expect(disabledItems.length).toBe(1);
 
-    const lechera = screen.getByText('Producción Lechera').closest('[aria-disabled="true"]');
+    const lechera = screen.getByText(/producción lechera/i).closest('[aria-disabled="true"]');
     expect(lechera?.getAttribute('aria-disabled')).toBe('true');
     expect(lechera?.getAttribute('title')).toContain('desarrollo');
   });

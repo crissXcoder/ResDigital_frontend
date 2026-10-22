@@ -101,7 +101,7 @@ describe('AccionesRapidas Component — Autorización por rol y flujo real (DASH
       fireEvent.click(btnLeche);
 
       // El modal selector NO debe abrirse
-      expect(screen.queryByText('Seleccionar Hembra para Registro de Leche')).toBeNull();
+      expect(screen.queryByText('Seleccionar hembra para registro de leche')).toBeNull();
     });
 
     it('abre el selector de animales cuando pulsa una acción autorizada (tratamiento)', async () => {
@@ -111,7 +111,7 @@ describe('AccionesRapidas Component — Autorización por rol y flujo real (DASH
       fireEvent.click(btnTratamiento);
 
       expect(
-        await screen.findByText('Seleccionar Animal para Tratamiento'),
+        await screen.findByText('Seleccionar animal para tratamiento'),
       ).toBeDefined();
     });
 
@@ -172,7 +172,7 @@ describe('AccionesRapidas Component — Autorización por rol y flujo real (DASH
       // Abrir leche
       fireEvent.click(btnLeche);
       expect(
-        await screen.findByText('Seleccionar Hembra para Registro de Leche'),
+        await screen.findByText('Seleccionar hembra para registro de leche'),
       ).toBeDefined();
     });
   });
@@ -210,7 +210,7 @@ describe('AccionesRapidas Component — Autorización por rol y flujo real (DASH
       expect(screen.queryByText('Rol no autorizado')).toBeNull();
 
       fireEvent.click(btnReproductivo);
-      expect(screen.getByText('Seleccionar Hembra para Evento Reproductivo')).toBeDefined();
+      expect(screen.getByText('Seleccionar hembra para evento reproductivo')).toBeDefined();
     });
   });
 });
