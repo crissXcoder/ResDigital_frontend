@@ -87,7 +87,7 @@ function ModalEditarAnimalForm({ isOpen, onClose, animal }: Omit<ModalEditarAnim
       razaOtra: formData.razaOtra,
       categoria: formData.categoria,
       pesoActualKg: formData.pesoActualKg ? Number(formData.pesoActualKg) : null,
-      potreroId: formData.potreroId,
+      potreroId: formData.potreroId || null,
     });
   };
 
