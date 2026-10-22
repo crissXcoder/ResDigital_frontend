@@ -83,8 +83,8 @@ function HatoContent() {
         </div>
 
         {/* Filters and Search */}
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-          <div className="relative w-full lg:w-[380px] lg:max-w-[40%] lg:shrink-0">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(280px,2fr)_repeat(3,minmax(150px,1fr))]">
+          <div className="relative min-w-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               type="text"
@@ -94,12 +94,11 @@ function HatoContent() {
               className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light bg-white text-slate-700"
             />
           </div>
-          <div className="flex min-w-0 flex-wrap gap-3">
             <select
               aria-label="Filtrar por sexo"
               value={filterSexo}
               onChange={(e) => setFilterSexo(e.target.value)}
-              className="min-w-[145px] rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-navy-light"
+              className="w-full min-w-0 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-navy-light"
             >
               <option value="">Todos los sexos</option>
               <option value="Hembra">Hembras</option>
@@ -108,7 +107,7 @@ function HatoContent() {
             <select 
               value={filterRaza}
               onChange={(e) => setFilterRaza(e.target.value)}
-              className="px-4 py-2.5 border border-slate-200 rounded-lg text-sm bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-navy-light min-w-[160px]"
+              className="w-full min-w-0 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-navy-light"
             >
               <option value="">Todas las razas</option>
               {razas.map(raza => (
@@ -121,7 +120,7 @@ function HatoContent() {
               aria-label="Filtrar por estado en hato"
               value={filterEstadoHato}
               onChange={(e) => setFilterEstadoHato(e.target.value)}
-              className="px-4 py-2.5 border border-slate-200 rounded-lg text-sm bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-navy-light min-w-[160px]"
+              className="w-full min-w-0 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-navy-light"
             >
               <option value="">Todos los estados</option>
               <option value="Activo">Activo</option>
@@ -131,7 +130,6 @@ function HatoContent() {
               <option value="Descarte">Descarte</option>
               <option value="Traslado">Traslado</option>
             </select>
-          </div>
         </div>
 
         {/* Table Section */}
