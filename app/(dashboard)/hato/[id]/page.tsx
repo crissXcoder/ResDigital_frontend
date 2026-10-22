@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { exportarExpedientePdf } from '@/lib/reportes/expediente-pdf';
 import type { UpdateAnimalInput, Pesaje, DocumentoAnimal } from '@/lib/api/animales';
 import type { TratamientoSanitario } from '@/lib/api/sanitary';
 import type { PesajeFormData } from '@/components/modals/ModalPesaje';
 import type { ServicioFormData } from '@/components/modals/ModalServicio';
 import type { DiagnosticoFormData } from '@/components/modals/ModalDiagnostico';
-import Image from 'next/image';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getAnimal,
@@ -22,6 +22,8 @@ import {
   createServicioReproductivo,
   createDiagnosticoReproductivo,
   getBajaAnimal,
+  getComposicionGenetica,
+  getCriasByAnimal,
 } from '@/lib/api/animales';
 import {
   anularTratamiento,
@@ -34,16 +36,17 @@ import {
   toCreateTratamientoPayload,
   toDatosTratamientoPayload,
 } from '@/lib/api/sanitary';
-import { createClient } from '@/lib/supabase/client';
-import { BUCKET_ANIMAL_DOCS } from '@/lib/supabase/buckets';
 import { isDefinitiveApiRejection } from '@/lib/api/client';
+import {
+  createAnimalDocumentPath,
+  removeAnimalDocument,
+  signedAnimalDocumentUrl,
+  uploadAnimalDocument,
+} from '@/lib/supabase/animal-documents';
 import {
   ChevronLeft,
   Plus,
   Download,
-  Activity,
-  Baby,
-  Droplet,
   AlertTriangle,
   Pencil,
   CheckCircle2,
@@ -51,6 +54,7 @@ import {
   FileText,
   Camera,
   QrCode,
+  Dna,
 } from 'lucide-react';
 import ModalPesaje from '@/components/modals/ModalPesaje';
 import ModalServicio from '@/components/modals/ModalServicio';
@@ -72,35 +76,48 @@ import {
   getProduccionByAnimal,
   toCreatePesajePayload,
 } from '@/lib/api/produccion';
-function DocumentLink({ objectPath, children, ...props }: React.ComponentProps<'a'> & { objectPath: string }) {
+function DocumentLink({
+  objectPath,
+  previewImage = false,
+  imageAlt,
+  previewImageClassName,
+  children,
+  ...props
+}: React.ComponentProps<'a'> & { objectPath: string; previewImage?: boolean; imageAlt?: string; previewImageClassName?: string }) {
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let active = true;
-    createClient().storage.from(BUCKET_ANIMAL_DOCS).createSignedUrl(objectPath, 60 * 10)
-      .then(({ data, error }) => {
+    signedAnimalDocumentUrl(objectPath)
+      .then((signedUrl) => {
         if (!active) return;
-        if (error) setFailed(true);
-        else setUrl(data.signedUrl);
+        setUrl(signedUrl);
       }).catch(() => { if (active) setFailed(true); });
     return () => { active = false; };
   }, [objectPath]);
 
   if (failed) return <span className="text-xs text-slate-500">No se pudo cargar el documento.</span>;
   if (!url) return <span className="text-xs text-slate-500">Preparando documento…</span>;
-  return <a href={url} {...props}>{children}</a>;
+  return (
+    <a href={url} {...props}>
+      {previewImage && <Image src={url} alt={imageAlt ?? 'Imagen del expediente'} width={640} height={320} unoptimized className={previewImageClassName ?? 'mb-4 h-40 w-full rounded-lg bg-slate-50 object-contain'} />}
+      {children}
+    </a>
+  );
 }
 import { ModalEditarAnimal } from '@/components/modals/ModalEditarAnimal';
 import { ModalDarBaja } from '@/components/modals/ModalDarBaja';
+import DescendenciaRegistrada from '../components/DescendenciaRegistrada';
 import TabReproductivo from '@/components/reproductivo/TabReproductivo';
 import LineaTiempoGestacion from '@/components/reproductivo/LineaTiempoGestacion';
 
 export default function ExpedienteAnimal() {
   const params = useParams();
   const animalId = params.id as string;
+  const searchParams = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState('resumen');
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') === 'produccion' ? 'produccion' : 'resumen');
 
   // Modals state
   const [isPesajeOpen, setIsPesajeOpen] = useState(false);
@@ -118,8 +135,6 @@ export default function ExpedienteAnimal() {
 
   // Documentos state
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
-  const supabase = createClient();
-
   const queryClient = useQueryClient();
 
   const { data: animal, isLoading, isError } = useQuery({
@@ -154,7 +169,12 @@ export default function ExpedienteAnimal() {
     queryFn: () => getEstadoSanitario(animalId),
   });
 
-  const { data: documentosDocumentos } = useQuery({
+  const {
+    data: documentosDocumentos,
+    isLoading: documentosLoading,
+    isError: documentosError,
+    refetch: recargarDocumentos,
+  } = useQuery({
     queryKey: ['documentos', animalId],
     queryFn: () => getDocumentos(animalId),
   });
@@ -163,6 +183,22 @@ export default function ExpedienteAnimal() {
     queryKey: ['bajaAnimal', animalId],
     queryFn: () => getBajaAnimal(animalId),
     enabled: Boolean(animal && !animal.activo),
+  });
+
+  const fotoAdjunta = documentosDocumentos?.find(
+    (documento) => documento.tipo === 'Fotografía' && !!documento.objectPath && /\.(png|jpe?g)$/i.test(documento.objectPath),
+  );
+
+  const { data: composicionGenetica } = useQuery({
+    queryKey: ['composicionGenetica', animalId],
+    queryFn: () => getComposicionGenetica(animalId),
+    enabled: Boolean(animal),
+  });
+
+  const { data: crias } = useQuery({
+    queryKey: ['criasAnimal', animalId],
+    queryFn: () => getCriasByAnimal(animalId),
+    enabled: Boolean(animal),
   });
 
   const pesajeMutation = useMutation({
@@ -254,24 +290,8 @@ export default function ExpedienteAnimal() {
       setIsUploadingDoc(true);
       const tenantId = authUser?.tenantId;
       if (!tenantId) throw new Error('No se pudo validar la finca activa.');
-
-      const fileExt = file.name.split('.').pop()?.toLowerCase();
-      if (!fileExt || !['pdf', 'png', 'jpg'].includes(fileExt)) {
-        throw new Error('El documento debe ser PDF, PNG o JPG.');
-      }
-      if (file.size === 0 || file.size > 10 * 1024 * 1024) {
-        throw new Error('El documento debe tener un tamaño mayor que 0 y máximo 10 MB.');
-      }
-      const category = tipo.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-      const documentId = crypto.randomUUID();
-      const objectPath = `${tenantId}/${animalId}/${category}/${documentId}.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from(BUCKET_ANIMAL_DOCS)
-        .upload(objectPath, file);
-
-      if (uploadError) throw uploadError;
+      const objectPath = createAnimalDocumentPath(tenantId, animalId, tipo, file);
+      await uploadAnimalDocument(objectPath, file);
 
       try {
         await documentoMutation.mutateAsync({ tipo, objectPath });
@@ -280,16 +300,12 @@ export default function ExpedienteAnimal() {
         // Una falla de red o 5xx puede ocurrir después del commit; borrar aquí
         // dejaría la fila confirmada apuntando a un objeto inexistente.
         if (isDefinitiveApiRejection(error)) {
-          const { error: cleanupError } = await supabase.storage.from(BUCKET_ANIMAL_DOCS).remove([objectPath]);
-          if (cleanupError) console.error('No se pudo retirar el archivo sin registro:', cleanupError);
+          await removeAnimalDocument(objectPath);
         }
         throw error;
       }
 
       setIsDocumentoOpen(false);
-    } catch (error) {
-      console.error('Error al subir documento:', error);
-      alert(error instanceof Error ? error.message : 'Hubo un error al subir el documento. Por favor, intente de nuevo.');
     } finally {
       setIsUploadingDoc(false);
     }
@@ -310,10 +326,10 @@ export default function ExpedienteAnimal() {
   const isMacho = animal?.sexo === 'Macho';
 
   const tabs = [
-    { id: 'resumen', label: 'Resumen General' },
-    { id: 'sanitario', label: 'Historial Sanitario' },
-    ...(!isMacho ? [{ id: 'reproductivo', label: 'Ciclo Reproductivo' }] : []),
-    { id: 'produccion', label: isMacho ? 'Historial de Pesajes' : 'Pesajes y Leche' },
+    { id: 'resumen', label: 'Resumen general' },
+    { id: 'sanitario', label: 'Historial sanitario' },
+    ...(!isMacho ? [{ id: 'reproductivo', label: 'Ciclo reproductivo' }] : []),
+    { id: 'produccion', label: isMacho ? 'Historial de pesajes' : 'Pesajes y leche' },
     { id: 'documentos', label: 'Documentos' },
   ];
 
@@ -329,7 +345,7 @@ export default function ExpedienteAnimal() {
     return (
       <div className="min-h-screen bg-slate-50 p-6 flex flex-col items-center justify-center gap-4">
         <div className="text-slate-500 font-semibold">Error al cargar el expediente del animal.</div>
-        <Link href="/hato" className="px-4 py-2 bg-navy text-white rounded-lg text-sm font-bold shadow-sm hover:bg-navy-light transition-colors">Volver al Hato</Link>
+        <Link href="/hato" className="px-4 py-2 bg-navy text-white rounded-lg text-sm font-bold shadow-sm hover:bg-navy-light transition-colors">Volver al hato</Link>
       </div>
     );
   }
@@ -371,24 +387,24 @@ export default function ExpedienteAnimal() {
         <div className="flex items-center justify-between">
           <Link href="/hato" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-navy transition-colors">
             <ChevronLeft className="w-4 h-4" />
-            Volver al Hato
+            Volver al hato
           </Link>
           <div className="flex items-center gap-3">
             <RequireRole roles={['propietario', 'administrador']}>{animal.activo && (
               <button
                 onClick={() => setIsBajaOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-50 bg-white transition-colors"
+                className="flex items-center gap-2 px-4 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-50 bg-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-400"
               >
-                Dar de Baja
+                Dar de baja
               </button>
             )}</RequireRole>
             <RequireRole roles={['propietario', 'administrador']}>
             <button
               onClick={() => setIsEditarAnimalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 bg-white transition-colors"
+              className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 bg-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-slate-300"
             >
               <Pencil className="w-4 h-4" />
-              Editar Animal
+              Editar animal
             </button>
             </RequireRole>
           </div>
@@ -435,7 +451,15 @@ export default function ExpedienteAnimal() {
             {/* Info Animal */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
               <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl bg-slate-100 overflow-hidden border border-slate-200 shadow-sm relative shrink-0">
-                {animal.fotoUrl ? (
+                {fotoAdjunta?.objectPath ? (
+                  <DocumentLink
+                    objectPath={fotoAdjunta.objectPath}
+                    previewImage
+                    imageAlt={`Fotografía del animal ${animal.areteInterno}`}
+                    previewImageClassName="h-full w-full object-cover"
+                    className="absolute inset-0"
+                  />
+                ) : animal.fotoUrl ? (
                   <img
                     src={animal.fotoUrl}
                     alt={`Vaca ${animal.areteInterno}`}
@@ -474,17 +498,17 @@ export default function ExpedienteAnimal() {
                 </div>
 
                 <p className="text-slate-600 font-medium">
-                  {animal.raza?.nombre || 'Raza Desconocida'}
+                  {animal.raza?.nombre || 'Raza desconocida'}
                 </p>
 
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-slate-600">
                   <p><span className="font-bold text-navy">{animal.pesoActualKg || 0} kg</span> <span className="text-slate-400">— Peso actual</span></p>
-                  <p className="font-semibold">{animal.categoria || 'Sin Categoría'}</p>
-                  <p className="font-semibold">{animal.activo ? (animal.potrero?.nombre || 'Sin Potrero') : 'Sin Potrero (Dado de Baja)'}</p>
+                  <p className="font-semibold">{animal.categoria || 'Sin categoría'}</p>
+                  <p className="font-semibold">{animal.activo ? (animal.potrero?.nombre || 'Sin potrero') : 'Sin potrero (dado de baja)'}</p>
                   {animal.fechaNacimiento && (
                     <p>{formatearFechaCivil(animal.fechaNacimiento)}</p>
                   )}
-                  {animal.padreId && <p>Padre: <span className="font-semibold">{animal.padreId}</span></p>}
+                  {animal.padreId && <p>Padre: <span className="font-semibold">{animal.padre?.areteInterno ? `#${animal.padre.areteInterno} ${animal.padre.nombre || ''}` : animal.padreId}</span></p>}
                   {animal.madreId && (
                     <p>Madre: <span className="font-semibold text-primary">{animal.madre?.areteInterno ? `#${animal.madre.areteInterno} ${animal.madre.nombre || ''}` : animal.madreId}</span></p>
                   )}
@@ -587,14 +611,14 @@ export default function ExpedienteAnimal() {
               <div className="bg-white border border-slate-200 rounded-xl p-6 sm:p-8 shadow-sm relative">
                 <div className="flex justify-between items-start mb-10">
                   <div>
-                    <h3 className="text-lg font-bold text-navy">Pedigrí y Genealogía</h3>
+                    <h3 className="text-lg font-bold text-navy">Pedigrí y genealogía</h3>
                     <p className="text-sm text-slate-500">Origen: <span className="font-semibold text-slate-700">{animal.origen}</span></p>
                   </div>
                   <button
                     onClick={() => setIsOrigenOpen(true)}
                     className="flex items-center gap-2 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50"
                   >
-                    <Pencil className="w-3.5 h-3.5" /> Editar Origen
+                    <Pencil className="w-3.5 h-3.5" /> Editar origen
                   </button>
                 </div>
 
@@ -622,38 +646,142 @@ export default function ExpedienteAnimal() {
                     {/* Padre */}
                     <div className="bg-white border border-slate-200 rounded-xl p-4 w-[45%] shadow-sm hover:border-slate-300 transition-colors">
                       <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Padre (Semental / Pajilla)</div>
-                      <div className="font-bold text-navy text-base">{animal.padreId ? `Semental #${animal.padreId}` : 'No registrado'}</div>
+                      <div className="font-bold text-navy text-base">
+                        {animal.padre ? (
+                          `Semental #${animal.padre.areteInterno} ${animal.padre.nombre || ''}`
+                        ) : animal.padreId ? (
+                          `Semental (ID: ${animal.padreId})`
+                        ) : animal.padreExternoDescripcion ? (
+                          `Pajilla / Externo: ${animal.padreExternoDescripcion}`
+                        ) : (
+                          'No registrado'
+                        )}
+                      </div>
                       <div className="flex items-center gap-2 mt-2 text-xs font-semibold">
                       </div>
                     </div>
 
                     {/* Madre */}
                     <div className="bg-green-50/30 border border-green-200 rounded-xl p-4 w-[45%] shadow-sm hover:border-green-300 transition-colors">
-                      <div className="text-[10px] font-bold text-green-600 uppercase tracking-wide mb-1">Madre (Vaca Matriz / Dam)</div>
+                      <div className="text-[10px] font-bold text-green-600 uppercase tracking-wide mb-1">Madre (vaca matriz)</div>
                       <div className="font-bold text-navy text-base">
-                        {animal.madre ? `Matriz #${animal.madre.areteInterno} ${animal.madre.nombre || ''}` : (animal.madreId ? `Matriz (ID: ${animal.madreId})` : 'No registrada')}
+                        {animal.madre ? (
+                          `Matriz #${animal.madre.areteInterno} ${animal.madre.nombre || ''}`
+                        ) : animal.madreId ? (
+                          `Matriz (ID: ${animal.madreId})`
+                        ) : (
+                          'No registrada'
+                        )}
                       </div>
                       <div className="flex items-center gap-2 mt-2 text-xs font-semibold">
                       </div>
                     </div>
                   </div>
                 </div>
+
+                {/* Composición Genética Ponderada (HATO-T006) */}
+                <div className="mt-8 pt-6 border-t border-slate-100">
+                  <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <Dna className="w-5 h-5 text-navy" />
+                      <h4 className="text-sm font-bold text-navy uppercase tracking-wide">Composición Genética Ponderada</h4>
+                    </div>
+                    {composicionGenetica?.metodo && (
+                      <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                        {composicionGenetica.metodo === 'PROMEDIO_PROGENITORES'
+                          ? 'Promedio de Progenitores'
+                          : composicionGenetica.metodo === 'PROGENITOR_UNICO'
+                          ? 'Progenitor Único Conocido'
+                          : 'Raza Directa Base'}
+                      </span>
+                    )}
+                  </div>
+                  {composicionGenetica?.composicion && composicionGenetica.composicion.length > 0 ? (
+                    <div className="space-y-3">
+                      <div className="flex w-full h-3 rounded-full overflow-hidden bg-slate-100">
+                        {composicionGenetica.composicion.map((item, idx) => {
+                          const colores = ['bg-navy', 'bg-emerald-600', 'bg-amber-500', 'bg-sky-500', 'bg-purple-600'];
+                          const color = colores[idx % colores.length];
+                          return (
+                            <div
+                              key={item.razaId}
+                              style={{ width: `${item.porcentaje}%` }}
+                              className={`${color} h-full transition-all`}
+                              title={`${item.nombre}: ${item.porcentaje}%`}
+                            />
+                          );
+                        })}
+                      </div>
+                      <div className="flex flex-wrap gap-3">
+                        {composicionGenetica.composicion.map((item, idx) => {
+                          const colores = [
+                            'text-navy bg-navy/10 border-navy/20',
+                            'text-emerald-700 bg-emerald-50 border-emerald-200',
+                            'text-amber-700 bg-amber-50 border-amber-200',
+                            'text-sky-700 bg-sky-50 border-sky-200',
+                          ];
+                          const estilo = colores[idx % colores.length] || 'text-slate-700 bg-slate-50 border-slate-200';
+                          return (
+                            <span
+                              key={item.razaId}
+                              className={`text-xs font-bold px-2.5 py-1 rounded-md border flex items-center gap-1.5 ${estilo}`}
+                            >
+                              <span>{item.nombre}:</span>
+                              <span>{item.porcentaje}%</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400">Sin datos de composición racial para este animal.</p>
+                  )}
+                </div>
               </div>
+
 
               {/* Descendencia Registrada */}
               <div className="bg-white border border-slate-200 rounded-xl p-6 sm:p-8 shadow-sm">
                 <div className="flex items-center gap-3 mb-2">
                   <h3 className="text-lg font-bold text-navy">Descendencia Registrada</h3>
-                  <span className="w-6 h-6 rounded bg-blue-50 text-blue-600 text-xs font-bold flex items-center justify-center">0</span>
+                  <span className="w-6 h-6 rounded bg-blue-50 text-blue-600 text-xs font-bold flex items-center justify-center">
+                    {crias?.length ?? 0}
+                  </span>
                 </div>
-                <p className="text-sm text-slate-500 mb-8">Crías registradas en el sistema donde este animal figura como padre o madre.</p>
+                <p className="text-sm text-slate-500 mb-6">Crías registradas en el sistema donde este animal figura como padre o madre.</p>
 
-                <div className="py-10 flex flex-col items-center justify-center text-center opacity-60">
-                  <div className="w-12 h-12 rounded-full border-2 border-slate-200 flex items-center justify-center text-slate-300 mb-4">
-                    <Plus className="w-6 h-6" />
+                {crias && crias.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {crias.map((cria) => (
+                      <Link
+                        key={cria.id}
+                        href={`/hato/${cria.id}`}
+                        className="p-4 border border-slate-200 rounded-xl hover:border-navy hover:shadow-sm transition-all group bg-slate-50/50 block"
+                      >
+                        <div className="flex justify-between items-start mb-1">
+                          <span className="font-bold text-navy group-hover:text-primary transition-colors text-sm">
+                            #{cria.areteInterno} {cria.nombre || ''}
+                          </span>
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-600">
+                            {cria.sexo}
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-500 flex flex-wrap gap-x-3 gap-y-1 mt-2">
+                          <span>{cria.categoria}</span>
+                          {cria.raza && <span>{cria.raza.nombre}</span>}
+                          {cria.fechaNacimiento && <span>Nac: {formatearFechaCivil(cria.fechaNacimiento)}</span>}
+                        </div>
+                      </Link>
+                    ))}
                   </div>
-                  <p className="text-sm font-semibold text-slate-400">No se registran crías ni partos para este animal.</p>
-                </div>
+                ) : (
+                  <div className="py-10 flex flex-col items-center justify-center text-center opacity-60">
+                    <div className="w-12 h-12 rounded-full border-2 border-slate-200 flex items-center justify-center text-slate-300 mb-4">
+                      <Plus className="w-6 h-6" />
+                    </div>
+                    <p className="text-sm font-semibold text-slate-400">No se registran crías directas para este animal.</p>
+                  </div>
+                )}
               </div>
 
               {/* Línea de Tiempo Gestación - Solo Hembras */}
@@ -882,7 +1010,14 @@ export default function ExpedienteAnimal() {
                 </RequireRole>
               </div>
               <div className="p-6">
-                {!documentosDocumentos || documentosDocumentos.length === 0 ? (
+                {documentosLoading ? (
+                  <p role="status" className="py-8 text-center text-sm text-slate-500">Cargando documentos del expediente…</p>
+                ) : documentosError ? (
+                  <div className="py-8 text-center">
+                    <p role="alert" className="text-sm text-red-700">No se pudieron cargar los documentos del expediente.</p>
+                    <button type="button" onClick={() => void recargarDocumentos()} className="mt-3 text-sm font-semibold text-navy underline">Reintentar</button>
+                  </div>
+                ) : !documentosDocumentos || documentosDocumentos.length === 0 ? (
                   <div className="py-8 flex flex-col items-center justify-center text-slate-400">
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 mb-3 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /></svg>
                     <p className="text-sm">No hay documentos registrados</p>
@@ -892,9 +1027,11 @@ export default function ExpedienteAnimal() {
                     {documentosDocumentos.map((doc: DocumentoAnimal) => (
                       <div key={doc.id} className="border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col h-full hover:shadow-md transition-shadow">
                         <div className="flex-1">
-                          <div className="w-10 h-10 rounded-lg bg-navy/5 border border-navy/10 flex items-center justify-center text-navy mb-4">
-                            <CheckCircle2 className="w-5 h-5" />
-                          </div>
+                          {!doc.objectPath || !/\.(png|jpe?g)$/i.test(doc.objectPath) ? (
+                            <div className="w-10 h-10 rounded-lg bg-navy/5 border border-navy/10 flex items-center justify-center text-navy mb-4">
+                              <CheckCircle2 className="w-5 h-5" />
+                            </div>
+                          ) : null}
                           <h4 className="font-bold text-navy text-sm mb-1">{doc.tipo}</h4>
                           <p className="text-xs text-slate-400">
                             Cargado el {formatearFechaCivil(doc.createdAt)}
@@ -903,6 +1040,8 @@ export default function ExpedienteAnimal() {
                         <div className="mt-5 pt-4 border-t border-slate-100">
                           {doc.objectPath ? <DocumentLink
                             objectPath={doc.objectPath}
+                            previewImage={/\.(png|jpe?g)$/i.test(doc.objectPath)}
+                            imageAlt={`Imagen adjunta: ${doc.tipo}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="w-full flex items-center justify-center gap-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-100 hover:border-slate-300 transition-all"

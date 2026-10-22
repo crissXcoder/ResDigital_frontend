@@ -1,15 +1,26 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getRazas, getAnimales, createAnimal, type CreateAnimalInput } from '@/lib/api/animales';
+import { getRazas, getAnimales, createAnimal, createDocumento, type CreateAnimalInput } from '@/lib/api/animales';
 import { getPotreros } from '@/lib/api/potreros';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { X, UploadCloud, Loader2, AlertCircle } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
-import { BUCKET_ANIMALES_FOTOS } from '@/lib/supabase/buckets';
 import { hoyLocal } from '@/lib/reproductivo/fechas';
+import { useAuthUser } from '@/lib/hooks/useAuthUser';
+import { isDefinitiveApiRejection } from '@/lib/api/client';
+import {
+  createAnimalDocumentPath,
+  getAnimalDocumentExtension,
+  removeAnimalDocument,
+  uploadAnimalDocument,
+} from '@/lib/supabase/animal-documents';
+import {
+  CATEGORIAS_HEMBRA,
+  CATEGORIAS_MACHO,
+  esCategoriaValidaPorSexo,
+} from '@/lib/api/catalogos';
 
 export default function NuevoAnimalPage() {
   const router = useRouter();
@@ -20,6 +31,12 @@ export default function NuevoAnimalPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [errorMensaje, setErrorMensaje] = useState<string | null>(null);
+  const [createdAnimalId, setCreatedAnimalId] = useState<string | null>(null);
+  const { user: authUser } = useAuthUser();
+
+  useEffect(() => () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
 
   const [formData, setFormData] = useState({
     areteInterno: '',
@@ -65,11 +82,7 @@ export default function NuevoAnimalPage() {
     mutationFn: createAnimal,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['animales'] });
-      router.push('/hato');
     },
-    onError: (error: Error) => {
-      setErrorMensaje(error.message);
-    }
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -79,8 +92,17 @@ export default function NuevoAnimalPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
-      setFile(selectedFile);
-      setPreviewUrl(URL.createObjectURL(selectedFile));
+      setErrorMensaje(null);
+      try {
+        getAnimalDocumentExtension(selectedFile);
+        setFile(selectedFile);
+        setPreviewUrl(URL.createObjectURL(selectedFile));
+      } catch (error) {
+        setFile(null);
+        setPreviewUrl(null);
+        setErrorMensaje(error instanceof Error ? error.message : 'Seleccione un archivo PNG o JPG válido.');
+      }
+      e.target.value = '';
     }
   };
 
@@ -108,35 +130,14 @@ export default function NuevoAnimalPage() {
       return;
     }
     
-    let uploadedFotoUrl = '';
-
     if (file) {
-      setIsUploading(true);
       try {
-        const supabase = createClient();
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
-        const filePath = `${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from(BUCKET_ANIMALES_FOTOS)
-          .upload(filePath, file);
-
-        if (uploadError) {
-          throw uploadError;
-        }
-
-        const { data } = supabase.storage
-          .from(BUCKET_ANIMALES_FOTOS)
-          .getPublicUrl(filePath);
-          
-        uploadedFotoUrl = data.publicUrl;
-      } catch (error: unknown) {
-        alert('Error subiendo imagen: ' + (error instanceof Error ? error.message : 'No se pudo subir la imagen.'));
-        setIsUploading(false);
+        getAnimalDocumentExtension(file);
+        if (!authUser?.tenantId) throw new Error('No se pudo validar la finca activa.');
+      } catch (error) {
+        setErrorMensaje(error instanceof Error ? error.message : 'No se pudo validar la foto seleccionada.');
         return;
       }
-      setIsUploading(false);
     }
 
     let refFinal = formData.referenciaPago;
@@ -164,7 +165,6 @@ export default function NuevoAnimalPage() {
       numeroOficialDiio: trimmedDiio || undefined,
       origen: origen === 'Externa' ? 'Externa' : 'Finca',
       referenciaPago: refFinal || undefined,
-      fotoUrl: uploadedFotoUrl || undefined,
       pesoActualKg: pesoActualKg ? Number(pesoActualKg) : undefined,
       valorCompraCrc: valorCompraCrc ? Number(valorCompraCrc) : undefined,
       metodoCompra: metodoCompra === 'Sinpe' || metodoCompra === 'Depósito' ||
@@ -181,10 +181,49 @@ export default function NuevoAnimalPage() {
     if (payload.metodoCompra !== 'Combinado') delete payload.metodosCombinados;
     if (!payload.razaOtra) delete payload.razaOtra;
 
-    createMutation.mutate(payload);
+    try {
+      const animalCreado = await createMutation.mutateAsync(payload);
+      if (file) {
+        setIsUploading(true);
+        try {
+          if (!authUser?.tenantId) throw new Error('No se pudo validar la finca activa.');
+          const objectPath = createAnimalDocumentPath(authUser.tenantId, animalCreado.id, 'Fotografía', file);
+          await uploadAnimalDocument(objectPath, file);
+          try {
+            await createDocumento(animalCreado.id, { tipo: 'Fotografía', objectPath });
+          } catch (error) {
+            if (isDefinitiveApiRejection(error)) await removeAnimalDocument(objectPath);
+            throw error;
+          }
+        } catch (error) {
+          setCreatedAnimalId(animalCreado.id);
+          setErrorMensaje(error instanceof Error ? error.message : 'No se pudo adjuntar la fotografía.');
+          return;
+        } finally {
+          setIsUploading(false);
+        }
+      }
+      router.push(`/hato/${animalCreado.id}`);
+    } catch (error) {
+      setErrorMensaje(error instanceof Error ? error.message : 'No se pudo registrar el animal.');
+    }
   };
 
   const isRazaOtra = razas.find(r => r.id === formData.razaId)?.nombre.toLowerCase() === 'otra';
+
+  if (createdAnimalId) {
+    return (
+      <main className="min-h-screen bg-slate-50 p-6 flex items-start justify-center">
+        <section className="mt-10 w-full max-w-xl rounded-2xl border border-amber-200 bg-white p-6 shadow-xl" role="status">
+          <h1 className="text-lg font-bold text-navy">Animal registrado; foto pendiente</h1>
+          <p className="mt-2 text-sm text-slate-600">{errorMensaje} El registro del animal se guardó y no hace falta repetirlo.</p>
+          <Link href={`/hato/${createdAnimalId}`} className="mt-5 inline-flex rounded-lg bg-navy px-4 py-2 text-sm font-semibold text-white">
+            Abrir expediente para agregar la foto
+          </Link>
+        </section>
+      </main>
+    );
+  }
 
   const handleCombinadoChange = (method: string) => {
     setFormData(prev => {
@@ -245,7 +284,15 @@ export default function NuevoAnimalPage() {
               <div className="flex rounded-lg border border-slate-200 p-1 bg-slate-50">
                 <button
                   type="button"
-                  onClick={() => setFormData({ ...formData, sexo: 'Hembra' })}
+                  onClick={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      sexo: 'Hembra',
+                      categoria: esCategoriaValidaPorSexo(prev.categoria, 'Hembra')
+                        ? prev.categoria
+                        : '',
+                    }))
+                  }
                   className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-colors ${
                     formData.sexo === 'Hembra' 
                       ? 'bg-navy text-white shadow-sm' 
@@ -256,7 +303,15 @@ export default function NuevoAnimalPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setFormData({ ...formData, sexo: 'Macho' })}
+                  onClick={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      sexo: 'Macho',
+                      categoria: esCategoriaValidaPorSexo(prev.categoria, 'Macho')
+                        ? prev.categoria
+                        : '',
+                    }))
+                  }
                   className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-colors ${
                     formData.sexo === 'Macho' 
                       ? 'bg-navy text-white shadow-sm' 
@@ -275,7 +330,7 @@ export default function NuevoAnimalPage() {
                 <div className="flex items-center gap-3">
                   <input
                     type="file"
-                    accept="image/*"
+                    accept=".png,.jpg,.jpeg,image/png,image/jpeg"
                     onChange={handleFileChange}
                     ref={fileInputRef}
                     className="hidden"
@@ -292,7 +347,7 @@ export default function NuevoAnimalPage() {
                     {file ? file.name : 'Ningún archivo seleccionado'}
                   </span>
                 </div>
-                <p className="text-xs text-slate-400 mt-2">Opcional — se asigna imagen por defecto según el sexo si no subes una.</p>
+                <p className="text-xs text-slate-400 mt-2">Opcional — PNG o JPG de hasta 10 MiB. Se guarda en los adjuntos privados del expediente.</p>
               </div>
             </div>
           </div>
@@ -391,21 +446,18 @@ export default function NuevoAnimalPage() {
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light bg-white"
                 >
                   <option value="">— Seleccione categoría —</option>
-                  {(!formData.sexo || formData.sexo === 'Hembra') && (
-                    <>
-                      <option value="Ternera">Ternera</option>
-                      <option value="Novilla">Novilla</option>
-                      <option value="Vaca">Vaca</option>
-                    </>
-                  )}
-                  {(!formData.sexo || formData.sexo === 'Macho') && (
-                    <>
-                      <option value="Ternero">Ternero</option>
-                      <option value="Novillo">Novillo</option>
-                      <option value="Novillo mayor">Novillo mayor</option>
-                      <option value="Toro">Toro</option>
-                    </>
-                  )}
+                  {(!formData.sexo || formData.sexo === 'Hembra') &&
+                    CATEGORIAS_HEMBRA.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  {(!formData.sexo || formData.sexo === 'Macho') &&
+                    CATEGORIAS_MACHO.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
                 </select>
               </div>
 
@@ -659,7 +711,7 @@ export default function NuevoAnimalPage() {
               className="flex items-center gap-2 px-6 py-2.5 bg-navy text-white rounded-md hover:bg-navy-light transition-colors text-sm font-semibold disabled:opacity-50"
             >
               {(createMutation.isPending || isUploading) && <Loader2 className="w-4 h-4 animate-spin" />}
-              {createMutation.isPending ? 'Registrando...' : isUploading ? 'Subiendo foto...' : 'Registrar Animal'}
+              {createMutation.isPending ? 'Registrando...' : isUploading ? 'Adjuntando foto privada...' : 'Registrar Animal'}
             </button>
           </div>
           

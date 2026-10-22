@@ -120,6 +120,30 @@ describe("SelectorAnimalReporte (Hatos Extensos UX & Descarga Directa)", () => {
     expect(link.getAttribute("href")).toBe("/hato/animal-1");
   });
 
+  it("muestra un mensaje de error visible si la descarga del PDF falla (RF-027)", async () => {
+    mockDescargarExpediente.mockRejectedValueOnce(new Error("Network error"));
+
+    render(
+      <SelectorAnimalReporte animales={mockAnimales} nombreFinca="Hacienda El Progreso" />,
+    );
+
+    const input = screen.getByLabelText(/buscar animal por arete/i);
+    fireEvent.focus(input);
+    fireEvent.click(screen.getByRole("button", { name: /#101.*Lola/i }));
+
+    const downloadBtn = screen.getByRole("button", { name: /descargar expediente pdf/i });
+    fireEvent.click(downloadBtn);
+
+    expect(
+      await screen.findByText(
+        "No se pudo generar el PDF del expediente. Verifica tu conexión e intenta de nuevo.",
+      ),
+    ).toBeDefined();
+
+    // El botón vuelve a estar habilitado y usable, no queda inerte
+    expect(downloadBtn.hasAttribute("disabled")).toBe(false);
+  });
+
   it("limita la visualización y maneja hatos grandes (>50 animales) sin saturar el DOM", () => {
     const hatoGrande: Animal[] = Array.from({ length: 150 }, (_, i) => ({
       id: `animal-${i}`,

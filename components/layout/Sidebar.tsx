@@ -38,19 +38,17 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
   const resesActivas = animales ? animales.filter(a => a.activo).length : 0;
 
   const navItems: NavItem[] = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Hato Ganadero', href: '/hato', icon: Users },
+    { name: 'Panel principal', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Hato ganadero', href: '/hato', icon: Users },
     { name: 'Reproducción', href: '/reproductivo', icon: Clock },
     {
-      name: 'Producción Lechera',
-      disabled: true,
-      badge: 'Próximamente',
-      reason: 'Módulo de pesaje y control lechero en desarrollo',
+      name: 'Producción lechera',
+      href: '/produccion',
       icon: FileText,
     },
     { name: 'Reportes', href: '/reportes', icon: ClipboardList },
-    { name: 'Módulo de Potreros', href: '/potreros', icon: Map },
-    { name: 'Escáner QR / Arete', href: '/qr', icon: QrCode },
+    { name: 'Módulo de potreros', href: '/potreros', icon: Map },
+    { name: 'Escáner QR / arete', href: '/qr', icon: QrCode },
   ];
 
   return (
@@ -77,7 +75,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
           </div>
           <div>
             <h2 className="text-lg font-bold text-white leading-tight">ResDigital</h2>
-            <p className="text-xs text-slate-400">Gestión Ganadera</p>
+            <p className="text-xs text-slate-400">Gestión ganadera</p>
           </div>
         </div>
 
@@ -131,7 +129,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
                     href={item.href}
                     onClick={onClose}
                     className={`
-                      flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors relative
+                      flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors relative outline-none focus-visible:ring-2 focus-visible:ring-blue-400
                       ${isActive 
                         ? 'bg-navy-light text-white font-medium' 
                         : 'hover:bg-navy-light hover:text-white'

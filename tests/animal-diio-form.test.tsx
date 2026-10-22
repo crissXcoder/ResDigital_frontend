@@ -75,6 +75,28 @@ describe('Formularios de Identidad y Unicidad DIIO (HATO-T002)', () => {
     expect(diioInput.value).toBe('CR-998877');
   });
 
+  it('ModalEditarAnimal envía null cuando el animal queda sin potrero', async () => {
+    const updateSpy = vi.mocked(animalesApi.updateAnimal).mockResolvedValueOnce({} as unknown as animalesApi.Animal);
+
+    renderWithClient(
+      <ModalEditarAnimal
+        isOpen={true}
+        onClose={vi.fn()}
+        animal={animalMock}
+      />
+    );
+
+    const submitBtn = screen.getByRole('button', { name: /guardar cambios/i });
+    fireEvent.submit(submitBtn.closest('form')!);
+
+    await waitFor(() => {
+      expect(updateSpy).toHaveBeenCalledWith(
+        'animal-123',
+        expect.objectContaining({ potreroId: null })
+      );
+    });
+  });
+
   it('ModalEditarAnimal aplica trim al enviar DIIO modificado', async () => {
     const updateSpy = vi.mocked(animalesApi.updateAnimal).mockResolvedValueOnce({} as unknown as animalesApi.Animal);
     const onCloseMock = vi.fn();

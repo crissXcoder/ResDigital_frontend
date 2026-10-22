@@ -5,7 +5,8 @@ import type { ServicioInput, DiagnosticoInput } from './reproductivo';
 export interface Raza {
   id: string;
   nombre: string;
-  dias_gestacion: number; // In DB it's dias_gestacion? Wait, catalogo_raza entity. Let's check it later.
+  diasGestacion?: number;
+  dias_gestacion?: number;
 }
 
 export interface Animal {
@@ -22,6 +23,7 @@ export interface Animal {
   activo: boolean;
   madreId?: string;
   padreId?: string;
+  padreExternoDescripcion?: string | null;
   madre?: Animal;
   padre?: Animal;
   fotoUrl?: string;
@@ -92,6 +94,9 @@ export interface EventoBajaResponse {
   pesoFinalKg?: number | null;
   usuarioId?: string | null;
 }
+export type DescendenciaAnimal = Pick<Animal,
+  'id' | 'areteInterno' | 'nombre' | 'sexo' | 'categoria' | 'fechaNacimiento' | 'madreId' | 'padreId' | 'activo'
+>;
 export type CreatePesajeInput = components['schemas']['CreatePesajeDto'];
 export interface Pesaje {
   id: string;
@@ -104,6 +109,8 @@ export interface Pesaje {
   updatedAt: string;
 }
 export type DocumentoAnimal = components['schemas']['DocumentoAnimalResponseDto'];
+export type ComposicionGenetica = components['schemas']['ComposicionGeneticaResponseDto'];
+export type ComposicionRazaItem = components['schemas']['ComposicionRazaItemDto'];
 
 export const getRazas = async (): Promise<Raza[]> => {
   return await fetchApi<Raza[]>('/catalogos/razas');
@@ -117,6 +124,10 @@ export const getAnimales = async (filters: Record<string, string> = {}): Promise
 
 export const getAnimal = async (id: string): Promise<Animal> => {
   return fetchApi<Animal>(`/animales/${id}`);
+};
+
+export const getDescendenciaAnimal = async (id: string): Promise<DescendenciaAnimal[]> => {
+  return fetchApi<DescendenciaAnimal[]>(`/animales/${id}/descendencia`);
 };
 
 export const createAnimal = async (animalData: CreateAnimalInput): Promise<Animal> => {
@@ -185,4 +196,12 @@ export const createDiagnosticoReproductivo = async (animalId: string, data: Diag
     method: 'POST',
     body: JSON.stringify(data),
   });
+};
+
+export const getComposicionGenetica = async (animalId: string): Promise<ComposicionGenetica> => {
+  return fetchApi<ComposicionGenetica>(`/animales/${animalId}/composicion-genetica`);
+};
+
+export const getCriasByAnimal = async (animalId: string): Promise<Animal[]> => {
+  return fetchApi<Animal[]>(`/animales/${animalId}/crias`);
 };

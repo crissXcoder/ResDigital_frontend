@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Topbar } from '@/components/layout/Topbar';
+import { SessionGate } from '@/components/auth/SessionAccess';
 
 export default function DashboardLayout({
   children,
@@ -12,6 +13,7 @@ export default function DashboardLayout({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
+    <SessionGate>
     <div className="min-h-screen bg-slate-50 flex">
       {/* Sidebar */}
       <Sidebar 
@@ -28,5 +30,6 @@ export default function DashboardLayout({
         </main>
       </div>
     </div>
+    </SessionGate>
   );
 }

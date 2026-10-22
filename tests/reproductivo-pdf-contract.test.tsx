@@ -83,7 +83,11 @@ it('REPORT-T002: genera el PDF de programación reproductiva con datos reales, h
     }),
   );
 
-  expect(save).toHaveBeenCalledWith(expect.stringMatching(/^Programacion_Reproductiva_60d_.*\.pdf$/));
+  const ventana = screen.getByRole('combobox', { name: /ventana/i }) as HTMLSelectElement;
+  expect(ventana.value).toBe('365');
+  expect(screen.getByRole('option', { name: '365 días' })).toBeDefined();
+
+  expect(save).toHaveBeenCalledWith(expect.stringMatching(/^Programacion_Reproductiva_365d_.*\.pdf$/));
 
   expect(text).toHaveBeenCalledWith(
     expect.stringMatching(/Programación Reproductiva y Partos Proyectados/i),

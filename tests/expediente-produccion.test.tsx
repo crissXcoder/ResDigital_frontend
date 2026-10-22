@@ -8,7 +8,7 @@ import type { TratamientoSanitario } from '@/lib/api/sanitary';
 import type { ProduccionLeche } from '@/lib/api/produccion';
 
 const { table } = vi.hoisted(() => ({ table: vi.fn() }));
-vi.mock('next/navigation', () => ({ useParams: () => ({ id: 'animal-1' }) }));
+vi.mock('next/navigation', () => ({ useParams: () => ({ id: 'animal-1' }), useSearchParams: () => new URLSearchParams() }));
 vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({ storage: {} }) }));
 vi.mock('@/lib/hooks/useAuthUser', () => ({ useAuthUser: () => ({ user: null }) }));
 vi.mock('@/components/auth/RequireRole', () => ({ RequireRole: ({ children }: { children: React.ReactNode }) => children }));

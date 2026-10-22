@@ -140,7 +140,7 @@ describe('HATO-T001 — Eliminación de estados falsos en Hato', () => {
       expect(screen.getByText('Esperanza')).toBeDefined();
     });
 
-    expect(screen.getByText('Estado Hato')).toBeDefined();
+    expect(screen.getByText('Estado en hato')).toBeDefined();
     expect(screen.queryByText('Estado Sanitario')).toBeNull();
   });
 
@@ -171,5 +171,27 @@ describe('HATO-T001 — Eliminación de estados falsos en Hato', () => {
     expect(screen.queryByText('Esperanza')).toBeNull();
     expect(screen.queryByText('Paloma')).toBeNull();
     expect(screen.getByText('Rayo')).toBeDefined();
+  });
+
+  it('filtra hembras y machos junto con el estado del hato', async () => {
+    vi.mocked(getAnimales).mockResolvedValue(mockAnimales);
+    vi.mocked(getRazas).mockResolvedValue(mockRazas);
+    renderConQuery(<HatoPage />);
+
+    await waitFor(() => expect(screen.getByText('Esperanza')).toBeDefined());
+    const sexo = screen.getByLabelText('Filtrar por sexo');
+    fireEvent.change(sexo, { target: { value: 'Hembra' } });
+    expect(screen.getByText('Esperanza')).toBeDefined();
+    expect(screen.getByText('Paloma')).toBeDefined();
+    expect(screen.queryByText('Faraón')).toBeNull();
+    expect(screen.queryByText('Rayo')).toBeNull();
+
+    fireEvent.change(screen.getByLabelText('Filtrar por estado en hato'), { target: { value: 'Activo' } });
+    expect(screen.getByText('Esperanza')).toBeDefined();
+    expect(screen.queryByText('Paloma')).toBeNull();
+
+    fireEvent.change(sexo, { target: { value: 'Macho' } });
+    expect(screen.getByText('Faraón')).toBeDefined();
+    expect(screen.queryByText('Rayo')).toBeNull();
   });
 });

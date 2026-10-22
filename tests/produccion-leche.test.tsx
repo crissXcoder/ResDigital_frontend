@@ -193,7 +193,7 @@ describe('TabProduccion por rol y estado de lactancia', () => {
     api.produccion = [registro({})];
     conQuery(<TabProduccion {...props} />);
 
-    expect(await screen.findByRole('button', { name: 'Registrar Producción' })).toBeDefined();
+    expect(await screen.findByRole('button', { name: /registrar producción/i })).toBeDefined();
     await screen.findByTestId('produccion-p-1');
     expect(screen.queryByRole('button', { name: /finalizar lactancia/i })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Anular producción' })).toBeNull();
@@ -216,14 +216,14 @@ describe('TabProduccion por rol y estado de lactancia', () => {
 
     expect(await screen.findByRole('button', { name: 'Iniciar lactancia' })).toBeDefined();
     expect(screen.getByTestId('estado-lactancia').textContent).toBe('No lactante');
-    expect(screen.queryByRole('button', { name: 'Registrar Producción' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /registrar producción/i })).toBeNull();
   });
 
   it('un macho solo ve pesajes', () => {
     conQuery(<TabProduccion {...props} isMacho />);
 
-    expect(screen.getByText('Historial de Pesajes')).toBeDefined();
-    expect(screen.queryByText('Historial de Producción de Leche')).toBeNull();
+    expect(screen.getByText(/historial de pesajes/i)).toBeDefined();
+    expect(screen.queryByText(/historial de producción de leche/i)).toBeNull();
     expect(screen.queryByTestId('estado-lactancia')).toBeNull();
   });
 });

@@ -3,6 +3,7 @@
 import React from 'react';
 import { Menu, AlertCircle } from 'lucide-react';
 import { useAuthUser } from '@/lib/hooks/useAuthUser';
+import { LogoutButton } from '@/components/auth/SessionAccess';
 
 /** Extrae hasta 2 iniciales del nombre completo del usuario. */
 function getInitials(nombreCompleto: string): string {
@@ -46,11 +47,12 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
 
     return (
       <div className="flex items-center gap-3">
-        <div className="hidden md:block text-right">
-          <p className="text-sm font-bold text-navy">{user.nombreCompleto}</p>
-          <p className="text-xs text-slate-500">
+        <div className="max-w-32 sm:max-w-64 min-w-0 text-right">
+          <p className="truncate text-sm font-bold text-navy">{user.nombreCompleto}</p>
+          <p className="truncate text-xs text-slate-500">
             {user.nombreFinca || <span className="italic text-slate-400">Sin finca asignada</span>}
           </p>
+          <p className="text-xs capitalize text-slate-500">{user.rol}</p>
         </div>
         <div
           className="w-10 h-10 rounded-full bg-navy text-white flex items-center justify-center font-bold text-sm"
@@ -67,6 +69,7 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
       <div className="flex items-center gap-4 flex-1">
         <button
           onClick={onMenuClick}
+          aria-label="Abrir menú"
           className="p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg lg:hidden"
         >
           <Menu size={20} />
@@ -76,8 +79,9 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
         <div className="flex-1" />
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4">
         {renderUserInfo()}
+        <LogoutButton />
       </div>
     </header>
   );

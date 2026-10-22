@@ -20,7 +20,8 @@ import type { TipoEventoFeed } from '@/lib/reproductivo/tipos';
  * (ver lib/reproductivo/tipos.ts, TipoEventoFeed) — distinto de 'Parto FPP'
  * que usa el hito de un solo animal.
  */
-const DIAS_VENTANA_DEFAULT = 60;
+/** Horizonte máximo del API (365). Una gestación Holstein (~281 d) no cabe en 180. */
+const DIAS_VENTANA_DEFAULT = 365;
 
 const FILTROS: { label: string; tipo: TipoEventoFeed | 'Todos' }[] = [
   { label: 'Todos', tipo: 'Todos' },
@@ -127,6 +128,7 @@ export default function ReproductivoPage() {
               <option value={60}>60 días</option>
               <option value={90}>90 días</option>
               <option value={180}>180 días</option>
+              <option value={365}>365 días</option>
             </select>
           </label>
         </div>

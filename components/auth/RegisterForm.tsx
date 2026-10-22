@@ -11,11 +11,13 @@ const registerSchema = z
   .object({
     nombreCompleto: z
       .string()
+      .trim()
       .min(3, 'El nombre completo debe tener al menos 3 caracteres'),
     nombreFinca: z
       .string()
+      .trim()
       .min(2, 'El nombre de la finca debe tener al menos 2 caracteres'),
-    correo: z.string().email('Ingresá un correo electrónico válido'),
+    correo: z.string().trim().email('Ingresá un correo electrónico válido'),
     password: z
       .string()
       .min(6, 'La contraseña debe tener al menos 6 caracteres'),
@@ -52,6 +54,7 @@ export function RegisterForm() {
           email: value.correo.trim(),
           password: value.password,
           options: {
+            emailRedirectTo: `${window.location.origin}/login`,
             data: {
               nombre_completo: value.nombreCompleto.trim(),
               nombre_finca: value.nombreFinca.trim(),
@@ -63,7 +66,7 @@ export function RegisterForm() {
           if (error.message.includes('User already registered')) {
             setServerError('Ya existe una cuenta registrada con este correo.');
           } else {
-            setServerError(error.message);
+            setServerError('No se pudo completar el registro. Revisá los datos o intentá de nuevo más tarde.');
           }
           setIsLoading(false);
           return;
@@ -71,14 +74,14 @@ export function RegisterForm() {
 
         // Si Supabase no requiere confirmación de correo o ya inició sesión
         if (data.session) {
-          router.push('/dashboard');
+          router.replace('/dashboard');
           router.refresh();
           return;
         }
 
         // Si requiere confirmación por correo electrónico
         setSuccessMessage(
-          '¡Finca y cuenta creadas con éxito! Te enviamos un enlace de confirmación a tu correo para activar el acceso.',
+          'Revisá tu correo para confirmar el registro y habilitar el acceso. Si ya tenés una cuenta, podés iniciar sesión.',
         );
         setIsLoading(false);
       } catch {
@@ -131,6 +134,7 @@ export function RegisterForm() {
       )}
 
       <form
+        method="post"
         onSubmit={(e) => {
           e.preventDefault();
           e.stopPropagation();

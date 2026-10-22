@@ -43,7 +43,9 @@ export default function EstadoReproductivoPanel({
           <ChipEstado estado={estadoActual} />
           {typeof diasEnEstado === 'number' && (
             <span className="text-sm text-slate-500">
-              hace {diasEnEstado} día{diasEnEstado === 1 ? '' : 's'}
+              {estadoActual === 'Vacía'
+                ? `${diasEnEstado} día${diasEnEstado === 1 ? '' : 's'} abiertos`
+                : `hace ${diasEnEstado} día${diasEnEstado === 1 ? '' : 's'}`}
             </span>
           )}
         </div>
@@ -82,7 +84,7 @@ export default function EstadoReproductivoPanel({
           <Dato etiqueta="Tipo" valor={servicioActivo.tipoServicio} />
           <Dato etiqueta="Toro / pajilla" valor={servicioActivo.toroOPajilla} />
           <Dato
-            etiqueta="FPP"
+            etiqueta="FPP (estimación)"
             valor={formatearFecha(servicioActivo.fpp)}
             destacado
           />
