@@ -42,8 +42,6 @@ function ModalDarBajaForm({ isOpen, onClose, animal }: Omit<ModalDarBajaProps, '
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['animales'] });
       queryClient.invalidateQueries({ queryKey: ['animal', animal?.id] });
-      queryClient.invalidateQueries({ queryKey: ['potreros'] });
-      queryClient.invalidateQueries({ queryKey: ['potrero'] });
       onClose();
     },
     onError: (error: Error) => {
