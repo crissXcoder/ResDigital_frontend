@@ -456,10 +456,10 @@ export default function ExpedienteAnimal() {
   const isMacho = animal?.sexo === 'Macho';
 
   const tabs = [
-    { id: 'resumen', label: 'Resumen General' },
-    { id: 'sanitario', label: 'Historial Sanitario' },
-    ...(!isMacho ? [{ id: 'reproductivo', label: 'Ciclo Reproductivo' }] : []),
-    { id: 'produccion', label: isMacho ? 'Historial de Pesajes' : 'Pesajes y Leche' },
+    { id: 'resumen', label: 'Resumen general' },
+    { id: 'sanitario', label: 'Historial sanitario' },
+    ...(!isMacho ? [{ id: 'reproductivo', label: 'Ciclo reproductivo' }] : []),
+    { id: 'produccion', label: isMacho ? 'Historial de pesajes' : 'Pesajes y leche' },
     { id: 'documentos', label: 'Documentos' },
   ];
 
@@ -532,7 +532,7 @@ export default function ExpedienteAnimal() {
                 onClick={() => setIsBajaOpen(true)}
                 className="flex items-center gap-2 px-4 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-50 bg-white transition-colors"
               >
-                Dar de Baja
+                Dar de baja
               </button>
             )}</RequireRole>
             <RequireRole roles={['propietario', 'administrador']}>
@@ -541,7 +541,7 @@ export default function ExpedienteAnimal() {
               className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 bg-white transition-colors"
             >
               <Pencil className="w-4 h-4" />
-              Editar Animal
+              Editar animal
             </button>
             </RequireRole>
           </div>
@@ -635,13 +635,13 @@ export default function ExpedienteAnimal() {
                 </div>
 
                 <p className="text-slate-600 font-medium">
-                  {animal.raza?.nombre || 'Raza Desconocida'}
+                  {animal.raza?.nombre || 'Raza desconocida'}
                 </p>
 
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-slate-600">
                   <p><span className="font-bold text-navy">{animal.pesoActualKg || 0} kg</span> <span className="text-slate-400">— Peso actual</span></p>
-                  <p className="font-semibold">{animal.categoria || 'Sin Categoría'}</p>
-                  <p className="font-semibold">{animal.activo ? (animal.potrero?.nombre || 'Sin Potrero') : 'Sin Potrero (Dado de Baja)'}</p>
+                  <p className="font-semibold">{animal.categoria || 'Sin categoría'}</p>
+                  <p className="font-semibold">{animal.activo ? (animal.potrero?.nombre || 'Sin potrero') : 'Sin potrero (dado de baja)'}</p>
                   {animal.fechaNacimiento && (
                     <p>{formatearFechaCivil(animal.fechaNacimiento)}</p>
                   )}
@@ -748,14 +748,14 @@ export default function ExpedienteAnimal() {
               <div className="bg-white border border-slate-200 rounded-xl p-6 sm:p-8 shadow-sm relative">
                 <div className="flex justify-between items-start mb-10">
                   <div>
-                    <h3 className="text-lg font-bold text-navy">Pedigrí y Genealogía</h3>
+                    <h3 className="text-lg font-bold text-navy">Pedigrí y genealogía</h3>
                     <p className="text-sm text-slate-500">Origen: <span className="font-semibold text-slate-700">{animal.origen}</span></p>
                   </div>
                   <button
                     onClick={() => setIsOrigenOpen(true)}
                     className="flex items-center gap-2 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50"
                   >
-                    <Pencil className="w-3.5 h-3.5" /> Editar Origen
+                    <Pencil className="w-3.5 h-3.5" /> Editar origen
                   </button>
                 </div>
 
@@ -796,7 +796,7 @@ export default function ExpedienteAnimal() {
 
                     {/* Madre */}
                     <div className="bg-green-50/30 border border-green-200 rounded-xl p-4 w-[45%] shadow-sm hover:border-green-300 transition-colors">
-                      <div className="text-[10px] font-bold text-green-600 uppercase tracking-wide mb-1">Madre (Vaca Matriz / Dam)</div>
+                      <div className="text-[10px] font-bold text-green-600 uppercase tracking-wide mb-1">Madre (vaca matriz)</div>
                       <div className="font-bold text-navy text-base">
                         {animal.madre ? `Matriz #${animal.madre.areteInterno} ${animal.madre.nombre || ''}` : (animal.madreId ? `Matriz (ID: ${animal.madreId})` : 'No registrada')}
                       </div>

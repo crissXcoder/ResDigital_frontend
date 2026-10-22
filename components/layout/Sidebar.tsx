@@ -39,10 +39,10 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
 
   const navItems: NavItem[] = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Hato Ganadero', href: '/hato', icon: Users },
+    { name: 'Hato ganadero', href: '/hato', icon: Users },
     { name: 'Reproducción', href: '/reproductivo', icon: Clock },
     {
-      name: 'Producción Lechera',
+      name: 'Producción lechera',
       disabled: true,
       badge: 'Próximamente',
       reason: 'Módulo de pesaje y control lechero en desarrollo',
@@ -55,8 +55,8 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
       reason: 'Módulo de exportaciones oficiales en desarrollo',
       icon: ClipboardList,
     },
-    { name: 'Módulo de Potreros', href: '/potreros', icon: Map },
-    { name: 'Escáner QR / Arete', href: '/qr', icon: QrCode },
+    { name: 'Módulo de potreros', href: '/potreros', icon: Map },
+    { name: 'Escáner QR / arete', href: '/qr', icon: QrCode },
   ];
 
   return (
@@ -83,7 +83,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
           </div>
           <div>
             <h2 className="text-lg font-bold text-white leading-tight">ResDigital</h2>
-            <p className="text-xs text-slate-400">Gestión Ganadera</p>
+            <p className="text-xs text-slate-400">Gestión ganadera</p>
           </div>
         </div>
 

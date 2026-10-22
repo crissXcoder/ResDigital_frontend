@@ -251,7 +251,7 @@ function ModalEditarAnimalForm({ isOpen, onClose, animal }: Omit<ModalEditarAnim
                 onChange={(e) => setFormData({ ...formData, potreroId: e.target.value })}
                 className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light focus:border-transparent text-slate-700"
               >
-                <option value="">Sin Asignar</option>
+                <option value="">Sin asignar</option>
                 {potreros.map(p => (
                   <option key={p.id} value={p.id}>{p.nombre}</option>
                 ))}
@@ -273,7 +273,7 @@ function ModalEditarAnimalForm({ isOpen, onClose, animal }: Omit<ModalEditarAnim
               className="flex-1 px-4 py-2.5 bg-navy text-white rounded-lg text-sm font-bold shadow-sm hover:bg-navy-light transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {updateMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-              Guardar Cambios
+              Guardar cambios
             </button>
           </div>
         </form>

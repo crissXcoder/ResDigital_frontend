@@ -28,16 +28,16 @@ export default function PotrerosPage() {
   const filters = [
     { label: 'Todos', count: totalPotreros },
     { label: 'Disponibles', count: potreros.filter(p => !p.sobrecargado && (p.estadoOperativo === 'DISPONIBLE' || p.estadoCalculado === 'DISPONIBLE')).length },
-    { label: 'En Recuperación', count: potreros.filter(p => p.estadoOperativo === 'EN RECUPERACIÓN' || p.estadoCalculado === 'EN RECUPERACIÓN').length },
-    { label: 'Descanso Programado', count: potreros.filter(p => p.estadoOperativo === 'EN MANTENIMIENTO' || p.estadoOperativo === 'DESCANSO PROGRAMADO' || p.estadoCalculado === 'EN MANTENIMIENTO').length },
+    { label: 'En recuperación', count: potreros.filter(p => p.estadoOperativo === 'EN RECUPERACIÓN' || p.estadoCalculado === 'EN RECUPERACIÓN').length },
+    { label: 'Descanso programado', count: potreros.filter(p => p.estadoOperativo === 'EN MANTENIMIENTO' || p.estadoOperativo === 'DESCANSO PROGRAMADO' || p.estadoCalculado === 'EN MANTENIMIENTO').length },
     { label: 'Sobrecargados', count: alertasActivas },
   ];
 
   const filteredPotreros = potreros.filter(p => {
     if (activeFilter === 'Todos') return true;
     if (activeFilter === 'Disponibles') return !p.sobrecargado && (p.estadoOperativo === 'DISPONIBLE' || p.estadoCalculado === 'DISPONIBLE');
-    if (activeFilter === 'En Recuperación') return p.estadoOperativo === 'EN RECUPERACIÓN' || p.estadoCalculado === 'EN RECUPERACIÓN';
-    if (activeFilter === 'Descanso Programado') return p.estadoOperativo === 'EN MANTENIMIENTO' || p.estadoOperativo === 'DESCANSO PROGRAMADO' || p.estadoCalculado === 'EN MANTENIMIENTO';
+    if (activeFilter === 'En recuperación') return p.estadoOperativo === 'EN RECUPERACIÓN' || p.estadoCalculado === 'EN RECUPERACIÓN';
+    if (activeFilter === 'Descanso programado') return p.estadoOperativo === 'EN MANTENIMIENTO' || p.estadoOperativo === 'DESCANSO PROGRAMADO' || p.estadoCalculado === 'EN MANTENIMIENTO';
     if (activeFilter === 'Sobrecargados') return p.sobrecargado || p.estadoCarga === 'SOBRECARGADO' || p.estadoCalculado === 'SOBRECARGADO';
     return true;
   });
@@ -72,7 +72,7 @@ export default function PotrerosPage() {
 
         {/* Header Title */}
         <div>
-          <h1 className="text-3xl font-extrabold text-navy">Módulo de Potreros</h1>
+          <h1 className="text-3xl font-extrabold text-navy">Módulo de potreros</h1>
         </div>
 
         {/* Top Navigation Tabs */}

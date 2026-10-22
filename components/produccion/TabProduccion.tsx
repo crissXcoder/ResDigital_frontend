@@ -135,7 +135,7 @@ export default function TabProduccion({
                   onClick={() => setIsProduccionOpen(true)}
                   className="px-4 py-2 bg-sky-600 text-white rounded-lg text-sm font-bold shadow-sm hover:bg-sky-700 transition-colors"
                 >
-                  Registrar Producción
+                  Registrar producción
                 </button>
               </RequireRole>
             )}
@@ -203,7 +203,7 @@ export default function TabProduccion({
       {!isMacho && (
         <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
           <div className="p-6 border-b border-slate-100">
-            <h3 className="text-lg font-bold text-navy">Historial de Producción de Leche</h3>
+            <h3 className="text-lg font-bold text-navy">Historial de producción de leche</h3>
           </div>
           <div className="p-6 overflow-x-auto">
             {produccion && produccion.length > 0 ? (
@@ -276,14 +276,14 @@ export default function TabProduccion({
 
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-          <h3 className="text-lg font-bold text-navy">Historial de Pesajes</h3>
+          <h3 className="text-lg font-bold text-navy">Historial de pesajes</h3>
           <RequireRole roles={['propietario', 'administrador', 'peon']}>
             <button
               type="button"
               onClick={onRegistrarPesaje}
               className="px-4 py-2 bg-navy text-white rounded-lg text-sm font-bold shadow-sm hover:bg-navy-light transition-colors"
             >
-              + Registrar Pesaje
+              + Registrar pesaje
             </button>
           </RequireRole>
         </div>

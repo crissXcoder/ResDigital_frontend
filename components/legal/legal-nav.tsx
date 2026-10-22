@@ -37,14 +37,14 @@ export function LegalHeader({ current }: LegalNavProps) {
               href="/privacidad"
               className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
             >
-              Ver Política de Privacidad
+              Ver política de privacidad
             </Link>
           ) : (
             <Link
               href="/terminos"
               className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
             >
-              Ver Términos y Condiciones
+              Ver términos y condiciones
             </Link>
           )}
 
@@ -80,11 +80,11 @@ export function LegalFooter({ current }: LegalNavProps) {
       <div className="flex items-center gap-4">
         {current === 'terminos' ? (
           <Link href="/privacidad" className="text-blue-600 hover:underline">
-            Política de Privacidad
+            Política de privacidad
           </Link>
         ) : (
           <Link href="/terminos" className="text-blue-600 hover:underline">
-            Términos y Condiciones
+            Términos y condiciones
           </Link>
         )}
         <span>·</span>
@@ -94,7 +94,7 @@ export function LegalFooter({ current }: LegalNavProps) {
           </Link>
         ) : (
           <Link href="/" className="text-slate-600 hover:underline">
-            Página Principal
+            Página principal
           </Link>
         )}
       </div>

@@ -71,13 +71,13 @@ function HatoContent() {
         
         {/* Top Actions (simulating top bar) */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <h1 className="text-2xl md:text-3xl font-bold text-navy">Hato Ganadero</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-navy">Hato ganadero</h1>
           <RequireRole roles={['propietario', 'administrador']}><Link
             href="/hato/nuevo" 
             className="flex items-center gap-2 bg-navy text-white px-5 py-2.5 rounded-full hover:bg-navy-light transition-colors text-sm font-semibold shadow-sm"
           >
             <Plus size={18} />
-            Nuevo Animal
+            Nuevo animal
           </Link></RequireRole>
         </div>
 
@@ -131,11 +131,11 @@ function HatoContent() {
                   <th className="px-6 py-4">Foto</th>
                   <th className="px-6 py-4">Arete #</th>
                   <th className="px-6 py-4">Nombre</th>
-                  <th className="px-6 py-4">Raza / Híbrido</th>
-                  <th className="px-6 py-4">Nacimiento / Edad</th>
+                  <th className="px-6 py-4">Raza / híbrido</th>
+                  <th className="px-6 py-4">Nacimiento / edad</th>
                   <th className="px-6 py-4">Categoría</th>
-                  <th className="px-6 py-4">Estado Repro</th>
-                  <th className="px-6 py-4 text-center">Estado Hato</th>
+                  <th className="px-6 py-4">Estado reproductivo</th>
+                  <th className="px-6 py-4 text-center">Estado en hato</th>
                   <th className="px-6 py-4">Potrero</th>
                   <th className="px-6 py-4">Acciones</th>
                 </tr>
@@ -251,7 +251,7 @@ function HatoContent() {
                                   }}
                                   className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
                                 >
-                                  <Edit2 size={16} /> Editar Datos
+                                  <Edit2 size={16} /> Editar datos
                                 </button>
                                 <button 
                                   onClick={() => {
