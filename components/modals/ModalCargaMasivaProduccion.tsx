@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { X, Upload, Download, FileText, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -31,15 +31,19 @@ export default function ModalCargaMasivaProduccion({
   const [resultadoExitoso, setResultadoExitoso] = useState<ImportarLoteResponse | null>(null);
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!isOpen) {
-      setArchivo(null);
-      setFilas([]);
-      setErrores([]);
-      setResultadoExitoso(null);
-      setErrorServidor(null);
-    }
-  }, [isOpen]);
+  const resetState = () => {
+    setArchivo(null);
+    setFilas([]);
+    setErrores([]);
+    setResultadoExitoso(null);
+    setErrorServidor(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleCerrar = () => {
+    resetState();
+    onClose();
+  };
 
   const importMutation = useMutation({
     mutationFn: (datos: { filas: FilaImportarProduccionLeche[] }) => importarProduccionLote(datos),
@@ -112,7 +116,7 @@ export default function ModalCargaMasivaProduccion({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={handleCerrar} />
 
       <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
@@ -125,7 +129,7 @@ export default function ModalCargaMasivaProduccion({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleCerrar}
             aria-label="Cerrar modal"
             className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
           >
@@ -289,7 +293,7 @@ export default function ModalCargaMasivaProduccion({
           <div className="flex gap-3 p-4 border-t border-slate-100 bg-slate-50/50">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleCerrar}
               disabled={importMutation.isPending}
               className="flex-1 py-2.5 px-4 bg-white border border-slate-200 text-slate-700 text-sm font-semibold rounded-lg hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 disabled:opacity-50"
             >

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { getAnimales, getRazas, type Animal } from '@/lib/api/animales';
@@ -42,30 +42,26 @@ function HatoContent() {
   const [filterCategoria, setFilterCategoria] = useState('');
   const [filterPotrero, setFilterPotrero] = useState('');
 
-  const [columnas, setColumnas] = useState<ColumnasConfig>(DEFAULT_COLUMNAS);
-  const [columnMenuOpen, setColumnMenuOpen] = useState(false);
-
-  const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
-  const [editingAnimal, setEditingAnimal] = useState<Animal | null>(null);
-  const [bajaAnimal, setBajaAnimal] = useState<Animal | null>(null);
-
-  // Cargar preferencia de columnas desde localStorage (sin datos privados)
-  useEffect(() => {
+  const [columnas, setColumnas] = useState<ColumnasConfig>(() => {
+    if (typeof window === 'undefined') return DEFAULT_COLUMNAS;
     try {
       const saved = localStorage.getItem(STORAGE_KEY_COLUMNAS);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (typeof parsed === 'object' && parsed !== null) {
-          setColumnas((prev) => ({
-            ...prev,
-            ...parsed,
-          }));
+          return { ...DEFAULT_COLUMNAS, ...parsed };
         }
       }
     } catch {
       // Ignorar fallos de almacenamiento en entornos restringidos
     }
-  }, []);
+    return DEFAULT_COLUMNAS;
+  });
+  const [columnMenuOpen, setColumnMenuOpen] = useState(false);
+
+  const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
+  const [editingAnimal, setEditingAnimal] = useState<Animal | null>(null);
+  const [bajaAnimal, setBajaAnimal] = useState<Animal | null>(null);
 
   const actualizarColumna = (key: keyof ColumnasConfig, valor: boolean) => {
     setColumnas((prev) => {
