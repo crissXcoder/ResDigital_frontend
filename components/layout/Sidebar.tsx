@@ -43,7 +43,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
     { name: 'Reproducción', href: '/reproductivo', icon: Clock },
     {
       name: 'Producción Lechera',
-      href: '/hato',
+      href: '/produccion',
       icon: FileText,
     },
     {
