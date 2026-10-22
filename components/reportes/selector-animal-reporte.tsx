@@ -218,7 +218,7 @@ export function SelectorAnimalReporte({
         <label htmlFor="buscador-animal-reporte" className="text-xs font-semibold text-slate-700 block mb-1.5">
           {animalSeleccionado ? "Buscar otro animal del hato:" : "Selecciona o busca un animal del hato:"}
         </label>
-        
+
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
           <input

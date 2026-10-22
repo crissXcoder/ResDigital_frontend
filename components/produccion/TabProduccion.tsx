@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Ban, Loader2, Droplet, Upload } from 'lucide-react';
+import { Ban, Loader2, Droplet } from 'lucide-react';
 import {
   LineChart,
   Line,
@@ -15,7 +15,6 @@ import {
 } from 'recharts';
 import { RequireRole } from '@/components/auth/RequireRole';
 import ModalProduccionLeche from '@/components/modals/ModalProduccionLeche';
-import ModalCargaMasivaProduccion from '@/components/modals/ModalCargaMasivaProduccion';
 import type { RolUsuario } from '@/lib/hooks/useAuthUser';
 import type { Pesaje } from '@/lib/api/animales';
 import { formatearFecha, hoyLocal } from '@/lib/reproductivo/fechas';
@@ -54,7 +53,6 @@ export default function TabProduccion({
 }: TabProduccionProps) {
   const queryClient = useQueryClient();
   const [isProduccionOpen, setIsProduccionOpen] = useState(false);
-  const [isCargaMasivaOpen, setIsCargaMasivaOpen] = useState(false);
   const [accionLactancia, setAccionLactancia] = useState<AccionLactancia | null>(null);
   const [fechaLactancia, setFechaLactancia] = useState(hoyLocal());
   const [registroAAnular, setRegistroAAnular] = useState<ProduccionLeche | null>(null);
@@ -141,16 +139,6 @@ export default function TabProduccion({
                 </button>
               </RequireRole>
             )}
-            <RequireRole roles={['propietario', 'administrador', 'peon']}>
-              <button
-                type="button"
-                onClick={() => setIsCargaMasivaOpen(true)}
-                className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-semibold shadow-sm hover:bg-slate-50 transition-colors flex items-center gap-1.5"
-              >
-                <Upload size={15} className="text-slate-500" />
-                Carga masiva (CSV)
-              </button>
-            </RequireRole>
             {lactancia != null && (
               <RequireRole roles={ROLES_GESTIONAN_PRODUCCION}>
                 <button
@@ -313,10 +301,6 @@ export default function TabProduccion({
         </div>
       </div>
 
-      <ModalCargaMasivaProduccion
-        isOpen={isCargaMasivaOpen}
-        onClose={() => setIsCargaMasivaOpen(false)}
-      />
       <ModalProduccionLeche
         isOpen={isProduccionOpen}
         onClose={() => setIsProduccionOpen(false)}

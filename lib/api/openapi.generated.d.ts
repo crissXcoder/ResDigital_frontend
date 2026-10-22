@@ -46,7 +46,25 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Invitar un usuario a la finca del propietario */
         post: operations["AuthController_invitarUsuario"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/invitaciones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Consultar invitaciones de la finca del propietario */
+        get: operations["AuthController_listarInvitaciones"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -121,6 +139,23 @@ export interface paths {
         patch: operations["AnimalesController_update"];
         trace?: never;
     };
+    "/animales/{id}/descendencia": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Consultar descendencia registrada del animal en la finca */
+        get: operations["AnimalesController_findDescendencia"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/animales/{id}/baja": {
         parameters: {
             query?: never;
@@ -132,6 +167,23 @@ export interface paths {
         get: operations["AnimalesController_getBaja"];
         put?: never;
         post: operations["AnimalesController_darDeBaja"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/animales/{id}/reactivar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reactivar un animal dado de baja si su arete interno está libre */
+        post: operations["AnimalesController_reactivar"];
         delete?: never;
         options?: never;
         head?: never;
@@ -572,6 +624,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/produccion-leche/lote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["ProduccionLecheController_importarLote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/produccion-leche": {
         parameters: {
             query?: never;
@@ -604,6 +672,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/produccion-leche/registros": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ProduccionLecheController_registros"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/produccion-leche/animal/{animalId}": {
         parameters: {
             query?: never;
@@ -618,6 +702,22 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/produccion-leche/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["ProduccionLecheController_update"];
         trace?: never;
     };
     "/produccion-leche/{id}/anulacion": {
@@ -700,23 +800,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/auth/invitaciones": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Consultar invitaciones de la finca del propietario */
-        get: operations["AuthController_listarInvitaciones"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -739,6 +822,30 @@ export interface components {
             /** @enum {string} */
             rol: "administrador" | "peon" | "veterinario";
             nombreCompleto?: string;
+        };
+        InviteUserResponseDto: {
+            success: boolean;
+            /** Format: uuid */
+            invitacionId: string;
+            /** @enum {string} */
+            rolAsignado: "administrador" | "peon" | "veterinario";
+            emailSent: boolean | null;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        InvitationSummaryResponseDto: {
+            /** Format: uuid */
+            invitacionId: string;
+            /** Format: email */
+            correo: string;
+            /** @enum {string} */
+            rol: "administrador" | "peon" | "veterinario";
+            /** @enum {string} */
+            estado: "PENDIENTE" | "ACEPTADA" | "CANCELADA" | "EXPIRADA";
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            expiresAt: string;
         };
         ConfirmInvitationDto: {
             nombreCompleto: string;
@@ -778,7 +885,7 @@ export interface components {
         ComposicionRazaItemDto: {
             /**
              * Format: uuid
-             * @description Identificador único de la raza en el catálogo
+             * @description Identificador ├║nico de la raza en el cat├ílogo
              * @example a0b9432d-cf48-4be7-a2f0-1a76c66cfcb1
              */
             razaId: string;
@@ -788,7 +895,7 @@ export interface components {
              */
             nombre: string;
             /**
-             * @description Porcentaje genético de la raza (0 a 100)
+             * @description Porcentaje gen├®tico de la raza (0 a 100)
              * @example 50
              */
             porcentaje: number;
@@ -796,7 +903,7 @@ export interface components {
         ProgenitoresAnalizadosDto: {
             /**
              * Format: uuid
-             * @description ID de la madre si está registrada en el hato
+             * @description ID de la madre si est├í registrada en el hato
              */
             madreId?: string | null;
             /**
@@ -804,7 +911,7 @@ export interface components {
              * @description ID del padre si es un toro registrado en el hato
              */
             padreId?: string | null;
-            /** @description Descripción o pajilla del padre externo */
+            /** @description Descripci├│n o pajilla del padre externo */
             padreExternoDescripcion?: string | null;
         };
         ComposicionGeneticaResponseDto: {
@@ -818,15 +925,15 @@ export interface components {
              * @example 101
              */
             areteInterno: string;
-            /** @description Desglose ponderado de la composición genética por raza */
+            /** @description Desglose ponderado de la composici├│n gen├®tica por raza */
             composicion: components["schemas"]["ComposicionRazaItemDto"][];
             /**
-             * @description Método zootécnico utilizado para determinar la composición
+             * @description M├®todo zoot├®cnico utilizado para determinar la composici├│n
              * @example PROMEDIO_PROGENITORES
              * @enum {string}
              */
             metodo: "DIRECTO" | "PROMEDIO_PROGENITORES" | "PROGENITOR_UNICO" | "DESCONOCIDO";
-            /** @description Información de los progenitores analizados */
+            /** @description Informaci├│n de los progenitores analizados */
             progenitoresAnalizados: components["schemas"]["ProgenitoresAnalizadosDto"];
         };
         CreatePesajeDto: {
@@ -1312,19 +1419,29 @@ export interface components {
             /** @example false */
             urgente: boolean;
         };
-        CreateProduccionLecheDto: {
-            /** Format: uuid */
-            animalId: string;
+        FilaImportarProduccionLecheDto: {
             /**
-             * @description Fecha del ordeño (YYYY-MM-DD). No puede ser futura.
-             * @example 2026-10-06
+             * @description Fecha del ordeño (YYYY-MM-DD)
+             * @example 2026-10-21
              */
             fecha: string;
-            /** @enum {string} */
+            /**
+             * @example MANANA
+             * @enum {string}
+             */
             turno: "MANANA" | "TARDE";
+            /**
+             * @description Arete interno del animal activo
+             * @example 101
+             */
+            areteInterno: string;
             /** @example 12.5 */
             litros: number;
             notas?: string;
+        };
+        ImportarProduccionLecheLoteDto: {
+            /** @description Lista de registros a importar (máximo 200) */
+            filas: components["schemas"]["FilaImportarProduccionLecheDto"][];
         };
         ProduccionLecheResponseDto: {
             /** Format: uuid */
@@ -1353,6 +1470,31 @@ export interface components {
             /** Format: date-time */
             fechaRegistro: string;
         };
+        ImportarLoteResponseDto: {
+            /** @example 5 */
+            totalImportados: number;
+            /** @example 62.5 */
+            litrosTotales: number;
+            /** @example 50 */
+            litrosComercializables: number;
+            /** @example 12.5 */
+            litrosDescarte: number;
+            registros: components["schemas"]["ProduccionLecheResponseDto"][];
+        };
+        CreateProduccionLecheDto: {
+            /** Format: uuid */
+            animalId: string;
+            /**
+             * @description Fecha del ordeño (YYYY-MM-DD). No puede ser futura.
+             * @example 2026-10-06
+             */
+            fecha: string;
+            /** @enum {string} */
+            turno: "MANANA" | "TARDE";
+            /** @example 12.5 */
+            litros: number;
+            notas?: string;
+        };
         ResumenProduccionDiaDto: {
             /** @example 2026-10-06 */
             fecha: string;
@@ -1371,6 +1513,11 @@ export interface components {
             litrosDescarte: number;
             registros: number;
             porFecha: components["schemas"]["ResumenProduccionDiaDto"][];
+        };
+        UpdateProduccionLecheDto: {
+            /** @example 14.5 */
+            litros: number;
+            notas?: string;
         };
         AnularProduccionDto: {
             motivo: string;
@@ -1421,31 +1568,6 @@ export interface components {
             notas: string | null;
             /** Format: uuid */
             usuarioId: string;
-        };
-        InviteUserResponseDto: {
-            /** @enum {boolean} */
-            success: true;
-            /** Format: uuid */
-            invitacionId: string;
-            /** @enum {string} */
-            rolAsignado: "administrador" | "peon" | "veterinario";
-            emailSent: boolean | null;
-            /** Format: date-time */
-            expiresAt: string;
-        };
-        InvitationSummaryResponseDto: {
-            /** Format: uuid */
-            invitacionId: string;
-            /** Format: email */
-            correo: string;
-            /** @enum {string} */
-            rol: "administrador" | "peon" | "veterinario";
-            /** @enum {string} */
-            estado: "PENDIENTE" | "ACEPTADA" | "CANCELADA" | "EXPIRADA";
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            expiresAt: string;
         };
     };
     responses: never;
@@ -1520,6 +1642,32 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["InviteUserResponseDto"];
                 };
+            };
+        };
+    };
+    AuthController_listarInvitaciones: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationSummaryResponseDto"][];
+                };
+            };
+            /** @description Solo el propietario puede ver invitaciones */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -1649,6 +1797,25 @@ export interface operations {
             };
         };
     };
+    AnimalesController_findDescendencia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     AnimalesController_getBaja: {
         parameters: {
             query?: never;
@@ -1692,6 +1859,40 @@ export interface operations {
         };
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AnimalesController_reactivar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Animal reactivado exitosamente en el hato */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Animal no encontrado en esta finca */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description El animal ya está activo o su arete interno está en uso por otro animal activo */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2531,6 +2732,29 @@ export interface operations {
             };
         };
     };
+    ProduccionLecheController_importarLote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportarProduccionLecheLoteDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportarLoteResponseDto"];
+                };
+            };
+        };
+    };
     ProduccionLecheController_create: {
         parameters: {
             query?: never;
@@ -2578,6 +2802,30 @@ export interface operations {
             };
         };
     };
+    ProduccionLecheController_registros: {
+        parameters: {
+            query?: {
+                /** @description Inicio del rango (YYYY-MM-DD). Por defecto, 29 días antes de `hasta`. */
+                desde?: string;
+                /** @description Fin del rango (YYYY-MM-DD). Por defecto, hoy en la zona horaria de la finca. */
+                hasta?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProduccionLecheResponseDto"][];
+                };
+            };
+        };
+    };
     ProduccionLecheController_findAllByAnimal: {
         parameters: {
             query?: never;
@@ -2595,6 +2843,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProduccionLecheResponseDto"][];
+                };
+            };
+        };
+    };
+    ProduccionLecheController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProduccionLecheDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProduccionLecheResponseDto"];
                 };
             };
         };
@@ -2717,32 +2990,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["EventoLactanciaResponseDto"];
                 };
-            };
-        };
-    };
-    AuthController_listarInvitaciones: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InvitationSummaryResponseDto"][];
-                };
-            };
-            /** @description Solo el propietario puede ver invitaciones */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };

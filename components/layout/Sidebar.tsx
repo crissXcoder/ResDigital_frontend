@@ -43,9 +43,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
     { name: 'Reproducción', href: '/reproductivo', icon: Clock },
     {
       name: 'Producción lechera',
-      disabled: true,
-      badge: 'Próximamente',
-      reason: 'Módulo de pesaje y control lechero en desarrollo',
+      href: '/produccion',
       icon: FileText,
     },
     { name: 'Reportes', href: '/reportes', icon: ClipboardList },

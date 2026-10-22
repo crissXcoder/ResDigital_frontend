@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { exportarExpedientePdf } from '@/lib/reportes/expediente-pdf';
 import type { UpdateAnimalInput, Pesaje, DocumentoAnimal } from '@/lib/api/animales';
 import type { TratamientoSanitario } from '@/lib/api/sanitary';
 import type { PesajeFormData } from '@/components/modals/ModalPesaje';
 import type { ServicioFormData } from '@/components/modals/ModalServicio';
 import type { DiagnosticoFormData } from '@/components/modals/ModalDiagnostico';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getAnimal,
@@ -114,8 +115,9 @@ import LineaTiempoGestacion from '@/components/reproductivo/LineaTiempoGestacion
 export default function ExpedienteAnimal() {
   const params = useParams();
   const animalId = params.id as string;
+  const searchParams = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState('resumen');
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') === 'produccion' ? 'produccion' : 'resumen');
 
   // Modals state
   const [isPesajeOpen, setIsPesajeOpen] = useState(false);

@@ -14,7 +14,7 @@ const { table, save, text, perfil, fetchApi } = vi.hoisted(() => ({
   perfil: { animal: null as unknown, reproductivo: null as unknown },
   fetchApi: vi.fn(),
 }));
-vi.mock('next/navigation', () => ({ useParams: () => ({ id: 'animal-1' }) }));
+vi.mock('next/navigation', () => ({ useParams: () => ({ id: 'animal-1' }), useSearchParams: () => new URLSearchParams() }));
 vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({ storage: {} }) }));
 vi.mock('@/lib/hooks/useAuthUser', () => ({ useAuthUser: () => ({ user: null }) }));
 vi.mock('@/components/auth/RequireRole', () => ({ RequireRole: ({ children }: { children: React.ReactNode }) => children }));

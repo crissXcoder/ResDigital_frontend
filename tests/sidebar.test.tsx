@@ -92,16 +92,12 @@ describe('Sidebar Component (CORE-T005)', () => {
     }
   });
 
-  it('CORE-T005: módulos en desarrollo están deshabilitados con motivo visible (Próximamente)', () => {
+  it('CORE-T005: producción lechera abre el tablero', () => {
     renderSidebar();
 
-    // Producción Lechera sigue en desarrollo (Escáner QR y Reportes ya fueron activados)
-    const disabledItems = screen.getAllByText('Próximamente');
-    expect(disabledItems.length).toBe(1);
-
-    const lechera = screen.getByText(/producción lechera/i).closest('[aria-disabled="true"]');
-    expect(lechera?.getAttribute('aria-disabled')).toBe('true');
-    expect(lechera?.getAttribute('title')).toContain('desarrollo');
+    expect(screen.queryByText('Próximamente')).toBeNull();
+    const lechera = screen.getByRole('link', { name: /producción lechera/i });
+    expect(lechera.getAttribute('href')).toBe('/produccion');
   });
 
   it('CORE-T005: no contiene el botón falso "Restaurar Base de Datos"', () => {

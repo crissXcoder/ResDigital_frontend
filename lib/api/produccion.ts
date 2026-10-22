@@ -6,6 +6,10 @@ type Schemas = components['schemas'];
 export type TurnoOrdeno = Schemas['CreateProduccionLecheDto']['turno'];
 export type DisposicionLeche = Schemas['ProduccionLecheResponseDto']['disposicion'];
 export type CreateProduccionLecheInput = Schemas['CreateProduccionLecheDto'];
+export type UpdateProduccionLecheInput = {
+  litros: number;
+  notas?: string;
+};
 export type ProduccionLeche = Schemas['ProduccionLecheResponseDto'];
 export type AnulacionProduccion = Schemas['AnulacionProduccionResponseDto'];
 export type ResumenProduccion = Schemas['ResumenProduccionDto'];
@@ -103,6 +107,20 @@ export async function createProduccionLeche(
 
 export async function getProduccionByAnimal(animalId: string): Promise<ProduccionLeche[]> {
   return await fetchApi<ProduccionLeche[]>(`/produccion-leche/animal/${animalId}`);
+}
+
+export async function updateProduccionLeche(
+  id: string,
+  payload: UpdateProduccionLecheInput,
+): Promise<ProduccionLeche> {
+  return await fetchApi<ProduccionLeche>(`/produccion-leche/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getProduccionRegistros(desde: string, hasta: string): Promise<ProduccionLeche[]> {
+  return await fetchApi<ProduccionLeche[]>(`/produccion-leche/registros${query({ desde, hasta })}`);
 }
 
 export async function getResumenProduccion(desde?: string, hasta?: string): Promise<ResumenProduccion> {
