@@ -332,7 +332,7 @@ export default function ExpedienteAnimal() {
     return (
       <div className="min-h-screen bg-slate-50 p-6 flex flex-col items-center justify-center gap-4">
         <div className="text-slate-500 font-semibold">Error al cargar el expediente del animal.</div>
-        <Link href="/hato" className="px-4 py-2 bg-navy text-white rounded-lg text-sm font-bold shadow-sm hover:bg-navy-light transition-colors">Volver al Hato</Link>
+        <Link href="/hato" className="px-4 py-2 bg-navy text-white rounded-lg text-sm font-bold shadow-sm hover:bg-navy-light transition-colors">Volver al hato</Link>
       </div>
     );
   }
@@ -374,13 +374,13 @@ export default function ExpedienteAnimal() {
         <div className="flex items-center justify-between">
           <Link href="/hato" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-navy transition-colors">
             <ChevronLeft className="w-4 h-4" />
-            Volver al Hato
+            Volver al hato
           </Link>
           <div className="flex items-center gap-3">
             <RequireRole roles={['propietario', 'administrador']}>{animal.activo && (
               <button
                 onClick={() => setIsBajaOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-50 bg-white transition-colors"
+                className="flex items-center gap-2 px-4 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-50 bg-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-400"
               >
                 Dar de baja
               </button>
@@ -388,7 +388,7 @@ export default function ExpedienteAnimal() {
             <RequireRole roles={['propietario', 'administrador']}>
             <button
               onClick={() => setIsEditarAnimalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 bg-white transition-colors"
+              className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 bg-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-slate-300"
             >
               <Pencil className="w-4 h-4" />
               Editar animal

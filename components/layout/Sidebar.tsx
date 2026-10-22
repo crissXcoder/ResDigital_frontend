@@ -131,7 +131,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
                     href={item.href}
                     onClick={onClose}
                     className={`
-                      flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors relative
+                      flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors relative outline-none focus-visible:ring-2 focus-visible:ring-blue-400
                       ${isActive 
                         ? 'bg-navy-light text-white font-medium' 
                         : 'hover:bg-navy-light hover:text-white'
