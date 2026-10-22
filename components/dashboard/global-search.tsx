@@ -8,6 +8,20 @@ import { Input } from "@/components/ui/input";
 import { getAnimales, Animal } from "@/lib/api/animales";
 
 /**
+ * Elimina animales duplicados por ID, preservando la primera aparición.
+ * Defensa de UI ante una respuesta de API con filas repetidas (ej. join
+ * duplicado en el backend) — nunca debe mostrarse el mismo expediente dos veces.
+ */
+export function dedupeAnimales(animales: Animal[]): Animal[] {
+  const vistos = new Set<string>();
+  return animales.filter((a) => {
+    if (vistos.has(a.id)) return false;
+    vistos.add(a.id);
+    return true;
+  });
+}
+
+/**
  * Buscador global de animales por arete, DIIO o nombre (DASH-T002).
  * Conectado a la API real de animales (GET /animales?buscar=), filtra
  * exclusivamente registros del tenant activo y permite navegar directamente
@@ -22,7 +36,7 @@ export function GlobalSearch() {
   const shouldSearch = cleanQuery.length > 0;
 
   const {
-    data: animales = [],
+    data: animalesCrudos = [],
     isLoading,
     isFetching,
     isError,
@@ -33,6 +47,8 @@ export function GlobalSearch() {
     enabled: shouldSearch,
     staleTime: 1000 * 30, // 30 segundos
   });
+
+  const animales = dedupeAnimales(animalesCrudos);
 
   // Cerrar al hacer click afuera
   useEffect(() => {

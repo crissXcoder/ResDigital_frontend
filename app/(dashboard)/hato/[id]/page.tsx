@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import jsPDF from 'jspdf';
-import autoTable, { type Table } from 'jspdf-autotable';
+import Image from 'next/image';
+import { exportarExpedientePdf } from '@/lib/reportes/expediente-pdf';
 import type { UpdateAnimalInput, Pesaje, DocumentoAnimal } from '@/lib/api/animales';
 import type { TratamientoSanitario } from '@/lib/api/sanitary';
 import type { PesajeFormData } from '@/components/modals/ModalPesaje';
@@ -36,9 +36,13 @@ import {
   toCreateTratamientoPayload,
   toDatosTratamientoPayload,
 } from '@/lib/api/sanitary';
-import { createClient } from '@/lib/supabase/client';
-import { BUCKET_ANIMAL_DOCS } from '@/lib/supabase/buckets';
 import { isDefinitiveApiRejection } from '@/lib/api/client';
+import {
+  createAnimalDocumentPath,
+  removeAnimalDocument,
+  signedAnimalDocumentUrl,
+  uploadAnimalDocument,
+} from '@/lib/supabase/animal-documents';
 import {
   ChevronLeft,
   Plus,
@@ -72,27 +76,39 @@ import {
   getProduccionByAnimal,
   toCreatePesajePayload,
 } from '@/lib/api/produccion';
-function DocumentLink({ objectPath, children, ...props }: React.ComponentProps<'a'> & { objectPath: string }) {
+function DocumentLink({
+  objectPath,
+  previewImage = false,
+  imageAlt,
+  previewImageClassName,
+  children,
+  ...props
+}: React.ComponentProps<'a'> & { objectPath: string; previewImage?: boolean; imageAlt?: string; previewImageClassName?: string }) {
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let active = true;
-    createClient().storage.from(BUCKET_ANIMAL_DOCS).createSignedUrl(objectPath, 60 * 10)
-      .then(({ data, error }) => {
+    signedAnimalDocumentUrl(objectPath)
+      .then((signedUrl) => {
         if (!active) return;
-        if (error) setFailed(true);
-        else setUrl(data.signedUrl);
+        setUrl(signedUrl);
       }).catch(() => { if (active) setFailed(true); });
     return () => { active = false; };
   }, [objectPath]);
 
   if (failed) return <span className="text-xs text-slate-500">No se pudo cargar el documento.</span>;
   if (!url) return <span className="text-xs text-slate-500">Preparando documento…</span>;
-  return <a href={url} {...props}>{children}</a>;
+  return (
+    <a href={url} {...props}>
+      {previewImage && <Image src={url} alt={imageAlt ?? 'Imagen del expediente'} width={640} height={320} unoptimized className={previewImageClassName ?? 'mb-4 h-40 w-full rounded-lg bg-slate-50 object-contain'} />}
+      {children}
+    </a>
+  );
 }
 import { ModalEditarAnimal } from '@/components/modals/ModalEditarAnimal';
 import { ModalDarBaja } from '@/components/modals/ModalDarBaja';
+import DescendenciaRegistrada from '../components/DescendenciaRegistrada';
 import TabReproductivo from '@/components/reproductivo/TabReproductivo';
 import LineaTiempoGestacion from '@/components/reproductivo/LineaTiempoGestacion';
 
@@ -119,8 +135,6 @@ export default function ExpedienteAnimal() {
 
   // Documentos state
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
-  const supabase = createClient();
-
   const queryClient = useQueryClient();
 
   const { data: animal, isLoading, isError } = useQuery({
@@ -155,7 +169,12 @@ export default function ExpedienteAnimal() {
     queryFn: () => getEstadoSanitario(animalId),
   });
 
-  const { data: documentosDocumentos } = useQuery({
+  const {
+    data: documentosDocumentos,
+    isLoading: documentosLoading,
+    isError: documentosError,
+    refetch: recargarDocumentos,
+  } = useQuery({
     queryKey: ['documentos', animalId],
     queryFn: () => getDocumentos(animalId),
   });
@@ -165,6 +184,10 @@ export default function ExpedienteAnimal() {
     queryFn: () => getBajaAnimal(animalId),
     enabled: Boolean(animal && !animal.activo),
   });
+
+  const fotoAdjunta = documentosDocumentos?.find(
+    (documento) => documento.tipo === 'Fotografía' && !!documento.objectPath && /\.(png|jpe?g)$/i.test(documento.objectPath),
+  );
 
   const { data: composicionGenetica } = useQuery({
     queryKey: ['composicionGenetica', animalId],
@@ -267,24 +290,8 @@ export default function ExpedienteAnimal() {
       setIsUploadingDoc(true);
       const tenantId = authUser?.tenantId;
       if (!tenantId) throw new Error('No se pudo validar la finca activa.');
-
-      const fileExt = file.name.split('.').pop()?.toLowerCase();
-      if (!fileExt || !['pdf', 'png', 'jpg'].includes(fileExt)) {
-        throw new Error('El documento debe ser PDF, PNG o JPG.');
-      }
-      if (file.size === 0 || file.size > 10 * 1024 * 1024) {
-        throw new Error('El documento debe tener un tamaño mayor que 0 y máximo 10 MB.');
-      }
-      const category = tipo.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-      const documentId = crypto.randomUUID();
-      const objectPath = `${tenantId}/${animalId}/${category}/${documentId}.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from(BUCKET_ANIMAL_DOCS)
-        .upload(objectPath, file);
-
-      if (uploadError) throw uploadError;
+      const objectPath = createAnimalDocumentPath(tenantId, animalId, tipo, file);
+      await uploadAnimalDocument(objectPath, file);
 
       try {
         await documentoMutation.mutateAsync({ tipo, objectPath });
@@ -293,182 +300,36 @@ export default function ExpedienteAnimal() {
         // Una falla de red o 5xx puede ocurrir después del commit; borrar aquí
         // dejaría la fila confirmada apuntando a un objeto inexistente.
         if (isDefinitiveApiRejection(error)) {
-          const { error: cleanupError } = await supabase.storage.from(BUCKET_ANIMAL_DOCS).remove([objectPath]);
-          if (cleanupError) console.error('No se pudo retirar el archivo sin registro:', cleanupError);
+          await removeAnimalDocument(objectPath);
         }
         throw error;
       }
 
       setIsDocumentoOpen(false);
-    } catch (error) {
-      console.error('Error al subir documento:', error);
-      alert(error instanceof Error ? error.message : 'Hubo un error al subir el documento. Por favor, intente de nuevo.');
     } finally {
       setIsUploadingDoc(false);
     }
   };
   const handleDownloadPDF = () => {
     if (!animal) return;
-
-    const doc = new jsPDF();
-    let yPos = 20;
-
-    // Título
-    doc.setFontSize(18);
-    doc.setTextColor(15, 23, 42);
-    doc.text(`Expediente Animal: #${animal.areteInterno} ${animal.nombre || ''}${animal.numeroOficialDiio ? ` (DIIO: ${animal.numeroOficialDiio})` : ''}`, 14, yPos);
-    yPos += 10;
-
-    // Info General
-    doc.setFontSize(12);
-    doc.setTextColor(100, 116, 139);
-    doc.text(`Raza: ${animal.raza?.nombre || 'N/A'}`, 14, yPos);
-    doc.text(`Categoría: ${animal.categoria || 'N/A'}`, 80, yPos);
-    doc.text(`Sexo: ${animal.sexo || 'N/A'}`, 150, yPos);
-    yPos += 8;
-
-    doc.text(`Peso Actual: ${animal.pesoActualKg || 0} kg`, 14, yPos);
-    doc.text(`Potrero: ${animal.potrero?.nombre || 'N/A'}`, 80, yPos);
-    if (animal.fechaNacimiento) {
-      doc.text(`Fecha Nac.: ${formatearFechaCivil(animal.fechaNacimiento)}`, 150, yPos);
-    }
-    yPos += 15;
-
-    const seccionTabla = (titulo: string, head: string[], body: string[][]) => {
-      doc.setFontSize(14);
-      doc.setTextColor(15, 23, 42);
-      doc.text(titulo, 14, yPos);
-      if (body.length > 0) {
-        yPos += 5;
-        autoTable(doc, {
-          startY: yPos,
-          head: [head],
-          body,
-          theme: 'striped',
-          styles: { fontSize: 9 },
-          headStyles: { fillColor: [15, 23, 42] }
-        });
-        yPos = ((doc as jsPDF & { lastAutoTable: Table }).lastAutoTable.finalY ?? yPos) + 15;
-      } else {
-        yPos += 8;
-        doc.setFontSize(10);
-        doc.setTextColor(100, 116, 139);
-        doc.text('Sin registros', 14, yPos);
-        yPos += 15;
-      }
-    };
-
-    seccionTabla(
-      'Historial de Pesajes',
-      ['Fecha', 'Peso (kg)'],
-      (pesajes ?? []).map((p: Pesaje) => [
-        formatearFechaCivil(p.fecha),
-        p.pesoActualKg != null ? `${p.pesoActualKg} kg` : '-',
-      ]),
-    );
-
-    if (animal.sexo !== 'Macho') {
-      seccionTabla(
-        'Historial de Producción de Leche',
-        ['Fecha', 'Turno', 'Litros', 'Disposición'],
-        (produccion ?? []).map((r) => [
-          formatearFechaCivil(r.fecha),
-          ETIQUETA_TURNO[r.turno],
-          `${Number(r.litros).toFixed(1)} L`,
-          r.revertido ? `${ETIQUETA_DISPOSICION[r.disposicion]} (anulado)` : ETIQUETA_DISPOSICION[r.disposicion],
-        ]),
-      );
-    }
-
-    // Sección: Sanitario
-    if (tratamientos && tratamientos.length > 0) {
-      if (yPos > 250) { doc.addPage(); yPos = 20; }
-
-      doc.setFontSize(14);
-      doc.setTextColor(15, 23, 42);
-      doc.text('Historial Sanitario', 14, yPos);
-      yPos += 5;
-
-      const tableData = tratamientos.map((t: TratamientoSanitario) => [
-        t.fecha ? formatearFechaCivil(t.fecha) : '-',
-        t.diagnostico || '-',
-        t.farmaco || '-',
-        t.dosis || '-',
-        t.veterinario || '-'
-      ]);
-
-      autoTable(doc, {
-        startY: yPos,
-        head: [['Fecha', 'Enfermedad', 'Medicamento', 'Dosis', 'Responsable']],
-        body: tableData,
-        theme: 'striped',
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: [15, 23, 42] }
-      });
-      yPos = ((doc as jsPDF & { lastAutoTable: Table }).lastAutoTable.finalY ?? yPos) + 15;
-    } else {
-      if (yPos > 250) { doc.addPage(); yPos = 20; }
-      doc.setFontSize(14);
-      doc.setTextColor(15, 23, 42);
-      doc.text('Historial Sanitario', 14, yPos);
-      yPos += 8;
-      doc.setFontSize(10);
-      doc.setTextColor(100, 116, 139);
-      doc.text('Sin registros', 14, yPos);
-      yPos += 15;
-    }
-
-    // Sección: Reproductivo
-    const serviciosActivos = estadoReproductivo?.servicioActivo ? [estadoReproductivo.servicioActivo] : [];
-    if (serviciosActivos.length > 0) {
-      if (yPos > 250) { doc.addPage(); yPos = 20; }
-
-      doc.setFontSize(14);
-      doc.setTextColor(15, 23, 42);
-      doc.text('Historial Reproductivo', 14, yPos);
-      yPos += 5;
-
-      const tableData = serviciosActivos.map((s) => {
-        return [
-          s.fechaServicio ? formatearFechaCivil(s.fechaServicio) : '-',
-          s.tipoServicio || '-',
-          s.toroOPajilla || '-',
-          estadoReproductivo?.ultimoDiagnostico?.resultado || 'Pendiente'
-        ];
-      });
-
-      autoTable(doc, {
-        startY: yPos,
-        head: [['Fecha', 'Tipo', 'Toro/Semen', 'Estado']],
-        body: tableData,
-        theme: 'striped',
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: [15, 23, 42] }
-      });
-      yPos = ((doc as jsPDF & { lastAutoTable: Table }).lastAutoTable.finalY ?? yPos) + 15;
-    } else {
-      if (yPos > 250) { doc.addPage(); yPos = 20; }
-      doc.setFontSize(14);
-      doc.setTextColor(15, 23, 42);
-      doc.text('Historial Reproductivo', 14, yPos);
-      yPos += 8;
-      doc.setFontSize(10);
-      doc.setTextColor(100, 116, 139);
-      doc.text('Sin registros', 14, yPos);
-      yPos += 15;
-    }
-
-    // Descargar
-    doc.save(`Expediente_${animal.areteInterno}_${hoyLocal()}.pdf`);
+    exportarExpedientePdf({
+      animal,
+      pesajes,
+      produccion,
+      estadoReproductivo,
+      estadoSanitario,
+      tratamientos,
+      nombreFinca: authUser?.nombreFinca,
+    });
   };
 
   const isMacho = animal?.sexo === 'Macho';
 
   const tabs = [
-    { id: 'resumen', label: 'Resumen General' },
-    { id: 'sanitario', label: 'Historial Sanitario' },
-    ...(!isMacho ? [{ id: 'reproductivo', label: 'Ciclo Reproductivo' }] : []),
-    { id: 'produccion', label: isMacho ? 'Historial de Pesajes' : 'Pesajes y Leche' },
+    { id: 'resumen', label: 'Resumen general' },
+    { id: 'sanitario', label: 'Historial sanitario' },
+    ...(!isMacho ? [{ id: 'reproductivo', label: 'Ciclo reproductivo' }] : []),
+    { id: 'produccion', label: isMacho ? 'Historial de pesajes' : 'Pesajes y leche' },
     { id: 'documentos', label: 'Documentos' },
   ];
 
@@ -484,7 +345,7 @@ export default function ExpedienteAnimal() {
     return (
       <div className="min-h-screen bg-slate-50 p-6 flex flex-col items-center justify-center gap-4">
         <div className="text-slate-500 font-semibold">Error al cargar el expediente del animal.</div>
-        <Link href="/hato" className="px-4 py-2 bg-navy text-white rounded-lg text-sm font-bold shadow-sm hover:bg-navy-light transition-colors">Volver al Hato</Link>
+        <Link href="/hato" className="px-4 py-2 bg-navy text-white rounded-lg text-sm font-bold shadow-sm hover:bg-navy-light transition-colors">Volver al hato</Link>
       </div>
     );
   }
@@ -526,31 +387,24 @@ export default function ExpedienteAnimal() {
         <div className="flex items-center justify-between">
           <Link href="/hato" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-navy transition-colors">
             <ChevronLeft className="w-4 h-4" />
-            Volver al Hato
+            Volver al hato
           </Link>
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setIsQrOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 bg-white transition-colors shadow-xs"
-            >
-              <QrCode className="w-4 h-4 text-navy" />
-              <span>Código QR</span>
-            </button>
             <RequireRole roles={['propietario', 'administrador']}>{animal.activo && (
               <button
                 onClick={() => setIsBajaOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-50 bg-white transition-colors"
+                className="flex items-center gap-2 px-4 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-50 bg-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-400"
               >
-                Dar de Baja
+                Dar de baja
               </button>
             )}</RequireRole>
             <RequireRole roles={['propietario', 'administrador']}>
             <button
               onClick={() => setIsEditarAnimalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 bg-white transition-colors"
+              className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 bg-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-slate-300"
             >
               <Pencil className="w-4 h-4" />
-              Editar Animal
+              Editar animal
             </button>
             </RequireRole>
           </div>
@@ -597,7 +451,15 @@ export default function ExpedienteAnimal() {
             {/* Info Animal */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
               <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl bg-slate-100 overflow-hidden border border-slate-200 shadow-sm relative shrink-0">
-                {animal.fotoUrl ? (
+                {fotoAdjunta?.objectPath ? (
+                  <DocumentLink
+                    objectPath={fotoAdjunta.objectPath}
+                    previewImage
+                    imageAlt={`Fotografía del animal ${animal.areteInterno}`}
+                    previewImageClassName="h-full w-full object-cover"
+                    className="absolute inset-0"
+                  />
+                ) : animal.fotoUrl ? (
                   <img
                     src={animal.fotoUrl}
                     alt={`Vaca ${animal.areteInterno}`}
@@ -636,17 +498,17 @@ export default function ExpedienteAnimal() {
                 </div>
 
                 <p className="text-slate-600 font-medium">
-                  {animal.raza?.nombre || 'Raza Desconocida'}
+                  {animal.raza?.nombre || 'Raza desconocida'}
                 </p>
 
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-slate-600">
                   <p><span className="font-bold text-navy">{animal.pesoActualKg || 0} kg</span> <span className="text-slate-400">— Peso actual</span></p>
-                  <p className="font-semibold">{animal.categoria || 'Sin Categoría'}</p>
-                  <p className="font-semibold">{animal.activo ? (animal.potrero?.nombre || 'Sin Potrero') : 'Sin Potrero (Dado de Baja)'}</p>
+                  <p className="font-semibold">{animal.categoria || 'Sin categoría'}</p>
+                  <p className="font-semibold">{animal.activo ? (animal.potrero?.nombre || 'Sin potrero') : 'Sin potrero (dado de baja)'}</p>
                   {animal.fechaNacimiento && (
                     <p>{formatearFechaCivil(animal.fechaNacimiento)}</p>
                   )}
-                  {animal.padreId && <p>Padre: <span className="font-semibold">{animal.padreId}</span></p>}
+                  {animal.padreId && <p>Padre: <span className="font-semibold">{animal.padre?.areteInterno ? `#${animal.padre.areteInterno} ${animal.padre.nombre || ''}` : animal.padreId}</span></p>}
                   {animal.madreId && (
                     <p>Madre: <span className="font-semibold text-primary">{animal.madre?.areteInterno ? `#${animal.madre.areteInterno} ${animal.madre.nombre || ''}` : animal.madreId}</span></p>
                   )}
@@ -667,7 +529,7 @@ export default function ExpedienteAnimal() {
                 className="w-full sm:w-auto px-5 py-2.5 bg-white border border-slate-200 text-navy rounded-lg text-sm font-bold shadow-sm hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
               >
                 <QrCode className="w-4 h-4 text-navy" />
-                <span>Generar QR</span>
+                <span>Código QR</span>
               </button>
             </div>
           </div>
@@ -749,14 +611,14 @@ export default function ExpedienteAnimal() {
               <div className="bg-white border border-slate-200 rounded-xl p-6 sm:p-8 shadow-sm relative">
                 <div className="flex justify-between items-start mb-10">
                   <div>
-                    <h3 className="text-lg font-bold text-navy">Pedigrí y Genealogía</h3>
+                    <h3 className="text-lg font-bold text-navy">Pedigrí y genealogía</h3>
                     <p className="text-sm text-slate-500">Origen: <span className="font-semibold text-slate-700">{animal.origen}</span></p>
                   </div>
                   <button
                     onClick={() => setIsOrigenOpen(true)}
                     className="flex items-center gap-2 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50"
                   >
-                    <Pencil className="w-3.5 h-3.5" /> Editar Origen
+                    <Pencil className="w-3.5 h-3.5" /> Editar origen
                   </button>
                 </div>
 
@@ -801,7 +663,7 @@ export default function ExpedienteAnimal() {
 
                     {/* Madre */}
                     <div className="bg-green-50/30 border border-green-200 rounded-xl p-4 w-[45%] shadow-sm hover:border-green-300 transition-colors">
-                      <div className="text-[10px] font-bold text-green-600 uppercase tracking-wide mb-1">Madre (Vaca Matriz / Dam)</div>
+                      <div className="text-[10px] font-bold text-green-600 uppercase tracking-wide mb-1">Madre (vaca matriz)</div>
                       <div className="font-bold text-navy text-base">
                         {animal.madre ? (
                           `Matriz #${animal.madre.areteInterno} ${animal.madre.nombre || ''}`
@@ -876,6 +738,7 @@ export default function ExpedienteAnimal() {
                   )}
                 </div>
               </div>
+
 
               {/* Descendencia Registrada */}
               <div className="bg-white border border-slate-200 rounded-xl p-6 sm:p-8 shadow-sm">
@@ -1147,7 +1010,14 @@ export default function ExpedienteAnimal() {
                 </RequireRole>
               </div>
               <div className="p-6">
-                {!documentosDocumentos || documentosDocumentos.length === 0 ? (
+                {documentosLoading ? (
+                  <p role="status" className="py-8 text-center text-sm text-slate-500">Cargando documentos del expediente…</p>
+                ) : documentosError ? (
+                  <div className="py-8 text-center">
+                    <p role="alert" className="text-sm text-red-700">No se pudieron cargar los documentos del expediente.</p>
+                    <button type="button" onClick={() => void recargarDocumentos()} className="mt-3 text-sm font-semibold text-navy underline">Reintentar</button>
+                  </div>
+                ) : !documentosDocumentos || documentosDocumentos.length === 0 ? (
                   <div className="py-8 flex flex-col items-center justify-center text-slate-400">
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 mb-3 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /></svg>
                     <p className="text-sm">No hay documentos registrados</p>
@@ -1157,9 +1027,11 @@ export default function ExpedienteAnimal() {
                     {documentosDocumentos.map((doc: DocumentoAnimal) => (
                       <div key={doc.id} className="border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col h-full hover:shadow-md transition-shadow">
                         <div className="flex-1">
-                          <div className="w-10 h-10 rounded-lg bg-navy/5 border border-navy/10 flex items-center justify-center text-navy mb-4">
-                            <CheckCircle2 className="w-5 h-5" />
-                          </div>
+                          {!doc.objectPath || !/\.(png|jpe?g)$/i.test(doc.objectPath) ? (
+                            <div className="w-10 h-10 rounded-lg bg-navy/5 border border-navy/10 flex items-center justify-center text-navy mb-4">
+                              <CheckCircle2 className="w-5 h-5" />
+                            </div>
+                          ) : null}
                           <h4 className="font-bold text-navy text-sm mb-1">{doc.tipo}</h4>
                           <p className="text-xs text-slate-400">
                             Cargado el {formatearFechaCivil(doc.createdAt)}
@@ -1168,6 +1040,8 @@ export default function ExpedienteAnimal() {
                         <div className="mt-5 pt-4 border-t border-slate-100">
                           {doc.objectPath ? <DocumentLink
                             objectPath={doc.objectPath}
+                            previewImage={/\.(png|jpe?g)$/i.test(doc.objectPath)}
+                            imageAlt={`Imagen adjunta: ${doc.tipo}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="w-full flex items-center justify-center gap-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-100 hover:border-slate-300 transition-all"

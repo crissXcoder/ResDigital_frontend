@@ -64,7 +64,7 @@ describe('Sidebar Component (CORE-T005)', () => {
   it('renderiza módulos reales con rutas navegables activas', () => {
     renderSidebar();
 
-    const linkDashboard = screen.getByRole('link', { name: /dashboard/i });
+    const linkDashboard = screen.getByRole('link', { name: /panel principal/i });
     expect(linkDashboard.getAttribute('href')).toBe('/dashboard');
 
     const linkHato = screen.getByRole('link', { name: /hato ganadero/i });
@@ -78,6 +78,9 @@ describe('Sidebar Component (CORE-T005)', () => {
 
     const linkQr = screen.getByRole('link', { name: /escáner qr \/ arete/i });
     expect(linkQr.getAttribute('href')).toBe('/qr');
+
+    const linkReportes = screen.getByRole('link', { name: /reportes/i });
+    expect(linkReportes.getAttribute('href')).toBe('/reportes');
   });
 
   it('CORE-T005: ningún módulo aparente tiene href="#"', () => {
@@ -89,18 +92,12 @@ describe('Sidebar Component (CORE-T005)', () => {
     }
   });
 
-  it('CORE-T005: módulos en desarrollo están deshabilitados con motivo visible (Próximamente)', () => {
+  it('CORE-T005: producción lechera abre el tablero', () => {
     renderSidebar();
 
-    // Solo Reportes continúa en desarrollo.
-    const disabledItems = screen.getAllByText('Próximamente');
-    expect(disabledItems.length).toBe(1);
-
+    expect(screen.queryByText('Próximamente')).toBeNull();
     const lechera = screen.getByRole('link', { name: /producción lechera/i });
     expect(lechera.getAttribute('href')).toBe('/produccion');
-
-    const reportes = screen.getByText('Reportes').closest('[aria-disabled="true"]');
-    expect(reportes?.getAttribute('aria-disabled')).toBe('true');
   });
 
   it('CORE-T005: no contiene el botón falso "Restaurar Base de Datos"', () => {

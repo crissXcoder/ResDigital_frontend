@@ -8,7 +8,19 @@ import type {
 export type ProximoEvento = components['schemas']['ProximoEventoReproductivoDto'];
 export type ServicioInput = components['schemas']['RegistrarServicioDto'];
 export type DiagnosticoInput = components['schemas']['RegistrarDiagnosticoDto'];
-export type PartoInput = components['schemas']['RegistrarPartoDto'];
+export type NuevaCriaPartoInput = {
+  areteInterno: string;
+  nombre?: string;
+  sexo?: 'Hembra' | 'Macho';
+  razaId?: string;
+  razaOtra?: string;
+  numeroOficialDiio?: string;
+  pesoNacimientoKg?: number;
+};
+
+export type PartoInput = components['schemas']['RegistrarPartoDto'] & {
+  nuevaCria?: NuevaCriaPartoInput;
+};
 export type SecadoInput = components['schemas']['RegistrarSecadoDto'];
 export type RegistrarServicioResponse =
   components['schemas']['RegistrarServicioResponseDto'];

@@ -6,14 +6,14 @@ import ExpedienteAnimal from '@/app/(dashboard)/hato/[id]/page';
 import type { Animal } from '@/lib/api/animales';
 import type { EstadoReproductivoResponse } from '@/lib/reproductivo/tipos';
 
-const { table, save } = vi.hoisted(() => ({ table: vi.fn(), save: vi.fn() }));
+const { table, save, text } = vi.hoisted(() => ({ table: vi.fn(), save: vi.fn(), text: vi.fn() }));
 vi.mock('next/navigation', () => ({ useParams: () => ({ id: 'animal-1' }), useSearchParams: () => new URLSearchParams() }));
 vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({ storage: {} }) }));
-vi.mock('@/lib/hooks/useAuthUser', () => ({ useAuthUser: () => ({ user: null }) }));
+vi.mock('@/lib/hooks/useAuthUser', () => ({ useAuthUser: () => ({ user: { nombreFinca: 'Hacienda El Progreso' } }) }));
 vi.mock('@/components/auth/RequireRole', () => ({ RequireRole: ({ children }: { children: React.ReactNode }) => children }));
 vi.mock('jspdf', () => ({ default: class {
   lastAutoTable = { finalY: 80 };
-  setFontSize() {} setTextColor() {} text() {} addPage() {}
+  setFontSize() {} setTextColor() {} text = text; addPage() {}
   save = save;
 } }));
 vi.mock('jspdf-autotable', () => ({ default: table }));
@@ -44,4 +44,19 @@ it('incluye la fechaServicio y toroOPajilla reales en el historial PDF', async (
     body: [['10/09/2026', 'Monta Natural', 'Titan', 'Pendiente']],
   }));
   expect(save).toHaveBeenCalledOnce();
+  expect(text).toHaveBeenCalledWith(
+    expect.stringMatching(/Documento técnico para control y gestión interna/i),
+    expect.any(Number),
+    expect.any(Number)
+  );
+  expect(text).toHaveBeenCalledWith(
+    expect.stringMatching(/Fecha de emisión:/i),
+    expect.any(Number),
+    expect.any(Number)
+  );
+  expect(text).toHaveBeenCalledWith(
+    expect.stringMatching(/Finca: Hacienda El Progreso/i),
+    expect.any(Number),
+    expect.any(Number)
+  );
 });

@@ -62,6 +62,13 @@ it('carga registros reales, bloquea retiro y guarda el turno nuevo', async () =>
 
   fireEvent.change(screen.getByLabelText('Fecha de producción'), { target: { value: fecha } });
   expect(await screen.findByLabelText('Mañana 101')).toBeDefined();
+  await waitFor(() => expect(api.getResumenProduccion).toHaveBeenCalledWith('2026-09-22', fecha));
+  fireEvent.change(screen.getByLabelText('Período del gráfico y ranking'), { target: { value: '7' } });
+  await waitFor(() => expect(api.getResumenProduccion).toHaveBeenCalledWith('2026-10-15', fecha));
+  fireEvent.change(screen.getByLabelText('Período del gráfico y ranking'), { target: { value: 'personalizado' } });
+  fireEvent.change(screen.getByLabelText('Histórico desde'), { target: { value: '2026-10-01' } });
+  fireEvent.change(screen.getByLabelText('Histórico hasta'), { target: { value: '2026-10-20' } });
+  await waitFor(() => expect(api.getResumenProduccion).toHaveBeenCalledWith('2026-10-01', '2026-10-20'));
   expect(screen.queryByLabelText('Mañana 102')).toBeNull();
   expect(screen.getByText('BLOQUEADA')).toBeDefined();
   fireEvent.change(screen.getByLabelText('Mañana 101'), { target: { value: '12' } });

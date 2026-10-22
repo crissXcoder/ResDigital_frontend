@@ -17,7 +17,7 @@ import {
   type ProduccionLeche,
   type TurnoOrdeno,
 } from '@/lib/api/produccion';
-import { formatearFecha, hoyLocal } from '@/lib/reproductivo/fechas';
+import { formatearFecha, hoyLocal, normalizarFechaCivil, sumarDiasCivil } from '@/lib/reproductivo/fechas';
 import { RequireRole } from '@/components/auth/RequireRole';
 
 type Turnos = { MANANA: string; TARDE: string };
@@ -27,13 +27,6 @@ const SUMAR = (registros: ProduccionLeche[], turno?: TurnoOrdeno) =>
     .reduce((total, r) => total + Number(r.litros), 0);
 const LITROS = (n: number) => `${n.toFixed(1)} L`;
 
-function inicioRango(fecha: string) {
-  const dia = new Date(`${fecha}T12:00:00Z`);
-  if (Number.isNaN(dia.getTime())) return fecha;
-  dia.setUTCDate(dia.getUTCDate() - 29);
-  return dia.toISOString().slice(0, 10);
-}
-
 export default function ProduccionPage() {
   const queryClient = useQueryClient();
   const [fecha, setFecha] = useState(hoyLocal());
@@ -41,8 +34,15 @@ export default function ProduccionPage() {
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');
   const [guardando, setGuardando] = useState(false);
+  const [periodo, setPeriodo] = useState('30');
+  const [desdeManual, setDesdeManual] = useState(sumarDiasCivil(hoyLocal(), -29) ?? hoyLocal());
+  const [hastaManual, setHastaManual] = useState(hoyLocal());
   const hoy = hoyLocal();
   const fechaValida = /^\d{4}-\d{2}-\d{2}$/.test(fecha) && fecha <= hoy;
+  const desde = periodo === 'personalizado' ? desdeManual : sumarDiasCivil(fecha, 1 - Number(periodo)) ?? fecha;
+  const hasta = periodo === 'personalizado' ? hastaManual : fecha;
+  const rangoValido = !!normalizarFechaCivil(desde) && !!normalizarFechaCivil(hasta) &&
+    desde <= hasta && hasta <= hoy;
 
   const animalesQuery = useQuery({ queryKey: ['animales', 'produccion'], queryFn: () => getAnimales() });
   const animales = useMemo(
@@ -55,9 +55,9 @@ export default function ProduccionPage() {
     enabled: fechaValida,
   });
   const resumenQuery = useQuery({
-    queryKey: ['produccionResumen', inicioRango(fecha), fecha],
-    queryFn: () => getResumenProduccion(inicioRango(fecha), fecha),
-    enabled: fechaValida,
+    queryKey: ['produccionResumen', desde, hasta],
+    queryFn: () => getResumenProduccion(desde, hasta),
+    enabled: rangoValido,
   });
   const registrosQueries = useQueries({
     queries: animales.map((animal) => ({
@@ -74,7 +74,7 @@ export default function ProduccionPage() {
   });
   const cargando = animalesQuery.isLoading || lactanciaQuery.isLoading ||
     registrosQueries.some((q) => q.isLoading) || sanitarioQueries.some((q) => q.isLoading);
-  const fallo = animalesQuery.isError || lactanciaQuery.isError || resumenQuery.isError ||
+  const fallo = animalesQuery.isError || lactanciaQuery.isError ||
     registrosQueries.some((q) => q.isError) || sanitarioQueries.some((q) => q.isError);
   const lactantes = new Set((lactanciaQuery.data ?? []).map((a) => a.animalId));
   const filas = animales.map((animal, index) => {
@@ -101,9 +101,9 @@ export default function ProduccionPage() {
   const tarde = SUMAR(guardados, 'TARDE') + pendientePorTurno('TARDE');
   const ranking = filas.map(({ animal }, index) => ({
     animal,
-    litros: SUMAR((registrosQueries[index]?.data ?? []).filter((r) => r.fecha >= inicioRango(fecha) && r.fecha <= fecha)),
+    litros: SUMAR((registrosQueries[index]?.data ?? []).filter((r) => r.fecha >= desde && r.fecha <= hasta)),
   })).sort((a, b) => b.litros - a.litros).slice(0, 4);
-  const grafica = resumenQuery.data?.porFecha ?? [];
+  const grafica = rangoValido ? resumenQuery.data?.porFecha ?? [] : [];
 
   const cambiarFecha = (nueva: string) => {
     setFecha(nueva);
@@ -221,8 +221,24 @@ export default function ProduccionPage() {
           </section>
           <aside className="rounded-2xl bg-white p-5 shadow-sm">
             <h2 className="font-bold text-navy">Producción General (L/día)</h2>
-            <div className="mt-5 h-48">{grafica.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={grafica}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="fecha" tickFormatter={formatearFecha} tick={{ fontSize: 10 }} /><YAxis tick={{ fontSize: 10 }} /><Tooltip labelFormatter={(value) => formatearFecha(String(value))} formatter={(value) => [LITROS(Number(value)), 'Producido']} /><Bar dataKey="litrosProducidos" fill="#1e3a5f" radius={[3, 3, 0, 0]} /></BarChart></ResponsiveContainer> : <p className="flex h-full items-center justify-center text-xs text-slate-400">Sin registros en los últimos 30 días</p>}</div>
-            <div className="mt-5 border-t border-slate-100 pt-4"><h3 className="text-xs font-bold uppercase text-slate-400">Top productoras · 30 días</h3>{ranking.map(({ animal, litros }, index) => <div key={animal.id} className="mt-3 flex justify-between gap-2 text-xs"><Link href={`/hato/${animal.id}?tab=produccion`} className="font-semibold text-navy hover:text-sky-700">{index + 1}. #{animal.areteInterno} {animal.nombre}</Link><span>{LITROS(litros)}</span></div>)}</div>
+            <div className="mt-4 space-y-2">
+              <label htmlFor="periodo-produccion" className="block text-xs font-semibold text-slate-500">Período del gráfico y ranking</label>
+              <select id="periodo-produccion" value={periodo} onChange={(event) => setPeriodo(event.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-navy">
+                <option value="7">Últimos 7 días</option>
+                <option value="30">Últimos 30 días</option>
+                <option value="90">Últimos 90 días</option>
+                <option value="personalizado">Rango personalizado</option>
+              </select>
+              {periodo === 'personalizado' && <div className="grid grid-cols-2 gap-2">
+                <label className="text-xs text-slate-500">Desde<input aria-label="Histórico desde" type="date" max={hoy} value={desdeManual} onChange={(event) => setDesdeManual(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-2 text-xs" /></label>
+                <label className="text-xs text-slate-500">Hasta<input aria-label="Histórico hasta" type="date" max={hoy} value={hastaManual} onChange={(event) => setHastaManual(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-2 text-xs" /></label>
+              </div>}
+              {periodo !== 'personalizado' && <p className="text-xs text-slate-400">Hasta el {formatearFecha(fecha)} seleccionado en Registro Diario</p>}
+              {!rangoValido && <p role="alert" className="text-xs text-red-600">Elija un rango válido, en orden y sin fechas futuras.</p>}
+            </div>
+            <div className="mt-5 h-48">{rangoValido && resumenQuery.isLoading ? <p className="flex h-full items-center justify-center text-xs text-slate-400">Cargando histórico…</p> : resumenQuery.isError ? <p className="flex h-full items-center justify-center text-xs text-red-600">No se pudo cargar el histórico.</p> : grafica.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={grafica}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="fecha" tickFormatter={formatearFecha} minTickGap={20} tick={{ fontSize: 10 }} /><YAxis tick={{ fontSize: 10 }} /><Tooltip labelFormatter={(value) => formatearFecha(String(value))} formatter={(value) => [LITROS(Number(value)), 'Producido']} /><Bar dataKey="litrosProducidos" fill="#1e3a5f" radius={[3, 3, 0, 0]} /></BarChart></ResponsiveContainer> : <p className="flex h-full items-center justify-center text-xs text-slate-400">Sin registros en el período seleccionado</p>}</div>
+            {rangoValido && resumenQuery.data && <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-500"><span>Total: <strong className="text-navy">{LITROS(Number(resumenQuery.data.litrosProducidos))}</strong></span><span>Comercializable: <strong className="text-emerald-700">{LITROS(Number(resumenQuery.data.litrosComercializables))}</strong></span><span>Descarte: <strong className="text-red-600">{LITROS(Number(resumenQuery.data.litrosDescarte))}</strong></span></div>}
+            <div className="mt-5 border-t border-slate-100 pt-4"><h3 className="text-xs font-bold uppercase text-slate-400">Top productoras · {rangoValido ? `${formatearFecha(desde)}–${formatearFecha(hasta)}` : 'sin período'}</h3>{rangoValido && !registrosQueries.some((q) => q.isLoading || q.isError) && ranking.map(({ animal, litros }, index) => <div key={animal.id} className="mt-3 flex justify-between gap-2 text-xs"><Link href={`/hato/${animal.id}?tab=produccion`} className="font-semibold text-navy hover:text-sky-700">{index + 1}. #{animal.areteInterno} {animal.nombre}</Link><span>{LITROS(litros)}</span></div>)}</div>
           </aside>
         </div>
       </div>

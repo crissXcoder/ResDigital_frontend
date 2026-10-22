@@ -77,11 +77,12 @@ function ModalDarBajaForm({ isOpen, onClose, animal }: Omit<ModalDarBajaProps, '
       <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between p-6 border-b border-slate-100">
           <h2 className="text-xl font-bold text-red-600">
-            Dar de Baja #{animal.areteInterno}
+            Dar de baja #{animal.areteInterno}
           </h2>
           <button 
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
+            aria-label="Cerrar modal"
+            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
           >
             <X size={20} />
           </button>
@@ -93,7 +94,7 @@ function ModalDarBajaForm({ isOpen, onClose, animal }: Omit<ModalDarBajaProps, '
           </p>
           <div>
             <label htmlFor="tipo-baja-select" className="block text-sm font-semibold text-slate-700 mb-1.5">
-              Tipo de Baja *
+              Tipo de baja *
             </label>
             <select
               id="tipo-baja-select"
@@ -107,36 +108,36 @@ function ModalDarBajaForm({ isOpen, onClose, animal }: Omit<ModalDarBajaProps, '
               <option value="Fallecimiento">Fallecimiento</option>
               <option value="Descarte">Descarte</option>
               <option value="Traslado">Traslado</option>
-              <option value="Otro">Otro</option>
+              <option value="Otro">Otro motivo</option>
             </select>
           </div>
 
           {(formData.tipoBaja && formData.tipoBaja !== 'Venta Comercial') && (
             <div>
               <label htmlFor="motivo-baja-input" className="block text-sm font-semibold text-slate-700 mb-1.5">
-                Motivo / Causa / Destino
+                {isOtroMotivo ? 'Especifique el motivo *' : 'Detalles adicionales (opcional)'}
               </label>
               <input
                 id="motivo-baja-input"
-                required={isOtroMotivo}
                 type="text"
+                required={isOtroMotivo}
                 value={formData.motivoBaja}
                 onChange={(e) => setFormData({ ...formData, motivoBaja: e.target.value })}
                 className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-400 text-slate-700"
-                placeholder={isOtroMotivo ? "Especifique el motivo" : "Opcional..."}
+                placeholder={isOtroMotivo ? "Especifique el motivo" : "Ej. Causa de muerte o destino"}
               />
             </div>
           )}
 
           <div>
             <label htmlFor="peso-final-input" className="block text-sm font-semibold text-slate-700 mb-1.5">
-              Peso Final (kg)
+              Peso al momento de la salida (kg, opcional)
             </label>
             <input
               id="peso-final-input"
               type="number"
+              step="0.01"
               min="0"
-              step="0.1"
               value={formData.pesoFinalKg}
               onChange={(e) => setFormData({ ...formData, pesoFinalKg: e.target.value })}
               className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-400 text-slate-700"
@@ -148,17 +149,17 @@ function ModalDarBajaForm({ isOpen, onClose, animal }: Omit<ModalDarBajaProps, '
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors"
+              className="flex-1 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-slate-300"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={bajaMutation.isPending}
-              className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg text-sm font-bold shadow-sm hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg text-sm font-bold shadow-sm hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-400"
             >
               {bajaMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-              Confirmar Baja
+              Confirmar baja
             </button>
           </div>
         </form>

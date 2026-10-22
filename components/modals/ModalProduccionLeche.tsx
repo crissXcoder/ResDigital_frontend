@@ -91,7 +91,7 @@ export default function ModalProduccionLeche({
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between p-5 border-b border-slate-100">
           <div>
-            <h2 className="text-lg font-bold text-navy">Registrar Producción de Leche</h2>
+            <h2 className="text-lg font-bold text-navy">Registrar producción de leche</h2>
             {animalLabel && <p className="text-xs text-slate-500">{animalLabel}</p>}
           </div>
           <button onClick={onClose} disabled={isSubmitting} className="text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50">
@@ -187,7 +187,7 @@ export default function ModalProduccionLeche({
               className="px-4 py-2 bg-navy text-white rounded-lg text-sm font-semibold hover:bg-navy-light transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {(isSubmitting || cargandoLactancia) && <Loader2 className="w-4 h-4 animate-spin" />}
-              Guardar Producción
+              Guardar producción
             </button>
           </div>
         </form>

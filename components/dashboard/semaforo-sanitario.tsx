@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DashboardStatusBadge } from "@/components/dashboard/status-badge";
@@ -55,26 +56,39 @@ function fechaLiberacion(animal: AnimalEnRetiro): string | null {
  * de retiros con el detalle del tratamiento que originó la restricción.
  */
 export function SemaforoSanitario() {
-  const { data, isLoading } = useAnimalesEnRetiro();
+  const { data, isLoading, isError } = useAnimalesEnRetiro();
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+      <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 space-y-0">
         <div>
           <CardTitle>Semáforo de Retiro Sanitario</CardTitle>
           <p className="mt-1 text-sm text-slate-500">
             Animales con restricción activa de leche o carne
           </p>
         </div>
-        {!isLoading && data && data.length > 0 && (
-          <Badge variant="danger" className="shrink-0 rounded-full px-3 py-1 text-xs font-semibold">
-            {data.length} en retiro
-          </Badge>
-        )}
+        <div className="flex items-center gap-3">
+          {!isLoading && data && data.length > 0 && (
+            <Badge variant="danger" className="shrink-0 rounded-full px-3 py-1 text-xs font-semibold">
+              {data.length} en retiro
+            </Badge>
+          )}
+          <Link
+            href="/reportes"
+            className="text-xs font-semibold text-navy hover:text-navy-light transition-colors"
+          >
+            Ver en Reportes →
+          </Link>
+        </div>
       </CardHeader>
       <CardContent>
         {isLoading ? (
           <div className="h-32 animate-pulse rounded-md bg-muted" />
+        ) : isError ? (
+          <div className="flex items-center gap-2 rounded-lg bg-red-50 p-4 text-xs text-red-700">
+            <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
+            <span>No se pudieron cargar los retiros sanitarios desde el servidor.</span>
+          </div>
         ) : !data || data.length === 0 ? (
           <p className="text-sm text-slate-500">Ningún animal en retiro sanitario hoy.</p>
         ) : (

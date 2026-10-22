@@ -25,6 +25,7 @@ describe('QR Scanner Page (QR-T002)', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
     Object.defineProperty(navigator, 'mediaDevices', {
       value: originalMediaDevices,
@@ -54,6 +55,57 @@ describe('QR Scanner Page (QR-T002)', () => {
       writable: true,
     });
   });
+
+  it('muestra mensaje específico de HTTPS cuando el contexto no es seguro (RF-028)', async () => {
+    const originalMediaDevices = navigator.mediaDevices;
+    Object.defineProperty(navigator, 'mediaDevices', {
+      value: undefined,
+      configurable: true,
+      writable: true,
+    });
+    Object.defineProperty(window, 'isSecureContext', {
+      value: false,
+      configurable: true,
+    });
+
+    render(<QrScannerPage />);
+
+    expect(
+      await screen.findByText(/la cámara solo funciona en conexiones seguras \(https\)/i),
+    ).toBeDefined();
+
+    Object.defineProperty(navigator, 'mediaDevices', {
+      value: originalMediaDevices,
+      configurable: true,
+      writable: true,
+    });
+    Object.defineProperty(window, 'isSecureContext', {
+      value: true,
+      configurable: true,
+    });
+  });
+
+  it('RF-031/RF-032: no se queda en spinner eterno si getUserMedia nunca resuelve ni rechaza', async () => {
+    vi.useFakeTimers();
+
+    // Simula un prompt de permiso que nunca se resuelve en ningún sentido.
+    const mockGetUserMedia = vi.fn().mockReturnValue(new Promise(() => {}));
+    Object.defineProperty(navigator, 'mediaDevices', {
+      value: { getUserMedia: mockGetUserMedia },
+      configurable: true,
+      writable: true,
+    });
+
+    render(<QrScannerPage />);
+
+    expect(screen.getByText(/iniciando cámara del dispositivo/i)).toBeDefined();
+
+    await vi.advanceTimersByTimeAsync(13000);
+
+    expect(
+      screen.getByText(/la cámara tardó demasiado en responder/i),
+    ).toBeDefined();
+  }, 10000);
 
   it('maneja y muestra error cuando el permiso de cámara es denegado (NotAllowedError)', async () => {
     const mockGetUserMedia = vi.fn().mockRejectedValue({

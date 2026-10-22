@@ -107,10 +107,10 @@ describe('Páginas Legales y Términos para Piloto (LEG-T001)', () => {
       expect(mockBack).toHaveBeenCalledTimes(1);
     });
 
-    it('muestra acceso directo al Dashboard cuando el usuario está autenticado', () => {
+    it('muestra acceso directo al panel principal cuando el usuario está autenticado', () => {
       render(<TerminosPage />);
 
-      const dashboardLink = screen.getByRole('link', { name: /ir al dashboard/i });
+      const dashboardLink = screen.getByRole('link', { name: /ir al panel principal/i });
       expect(dashboardLink.getAttribute('href')).toBe('/dashboard');
     });
   });

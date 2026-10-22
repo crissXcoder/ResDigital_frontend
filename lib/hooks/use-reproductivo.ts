@@ -52,7 +52,7 @@ export function useHistorialReproductivo(animalId: string, habilitado = true) {
  */
 export function useProximosEventosFinca(diasVentana?: number) {
   return useQuery({
-    queryKey: clavesReproductivo.feed(),
+    queryKey: [...clavesReproductivo.feed(), diasVentana ?? 'default'],
     queryFn: () => getProximosEventos(diasVentana),
   });
 }
@@ -94,9 +94,13 @@ export function useRegistrarDiagnostico(animalId: string) {
 
 export function useRegistrarParto(animalId: string) {
   const invalidar = useInvalidarReproductivo(animalId);
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: PartoInput) => registrarPartoReproductivo(animalId, data),
-    onSuccess: invalidar,
+    onSuccess: () => {
+      invalidar();
+      queryClient.invalidateQueries({ queryKey: ['animales'] });
+    },
   });
 }
 

@@ -43,21 +43,21 @@ interface AccionConfig {
 
 const CONFIG_ACCIONES: Record<TipoAccionRapida, AccionConfig> = {
   tratamiento: {
-    titulo: "Registrar Tratamiento Médico",
+    titulo: "Registrar tratamiento médico",
     subtitulo: "Aplicar fármaco y programar retiro",
-    tituloSelector: "Seleccionar Animal para Tratamiento",
+    tituloSelector: "Seleccionar animal para tratamiento",
     descripcionSelector: "Elige el animal activo al que deseas aplicarle el medicamento.",
   },
   reproductivo: {
-    titulo: "Nuevo Evento Reproductivo",
+    titulo: "Nuevo evento reproductivo",
     subtitulo: "Registrar celo, IA o monta",
-    tituloSelector: "Seleccionar Hembra para Evento Reproductivo",
+    tituloSelector: "Seleccionar hembra para evento reproductivo",
     descripcionSelector: "Elige una hembra activa para registrar su celo o servicio.",
   },
   leche: {
-    titulo: "Registrar Producción de Leche",
+    titulo: "Registrar producción de leche",
     subtitulo: "Solo hembras en lactancia",
-    tituloSelector: "Seleccionar Hembra para Registro de Leche",
+    tituloSelector: "Seleccionar hembra para registro de leche",
     descripcionSelector: "Elige la hembra activa para registrar los litros del turno.",
   },
 };
@@ -243,6 +243,7 @@ export function AccionesRapidas() {
           <button
             type="button"
             onClick={() => setMensajeExito(null)}
+            aria-label="Cerrar notificación"
             className="text-success hover:opacity-75"
           >
             <X className="h-4 w-4" />
@@ -251,7 +252,7 @@ export function AccionesRapidas() {
       )}
 
       <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-800">
-        Acciones Rápidas
+        Acciones rápidas
       </h2>
 
       {/* Grid de 3 tarjetas de acción rápida */}
@@ -300,12 +301,22 @@ export function AccionesRapidas() {
 
       {/* Modal: Selector de Animal antes de abrir el formulario */}
       {accionActiva && !isFormOpen && configActual && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4"
+          onKeyDown={(e) => {
+            if (e.key === "Escape") cancelarFlujo();
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="titulo-selector-accion-rapida"
+            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150"
+          >
             {/* Header del selector */}
             <div className="flex items-start justify-between gap-4 pb-3 border-b border-slate-100">
               <div>
-                <h3 className="text-base font-bold text-navy">
+                <h3 id="titulo-selector-accion-rapida" className="text-base font-bold text-navy">
                   {configActual.tituloSelector}
                 </h3>
                 <p className="mt-0.5 text-xs text-slate-500">

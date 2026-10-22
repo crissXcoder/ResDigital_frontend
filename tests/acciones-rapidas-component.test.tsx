@@ -101,7 +101,7 @@ describe('AccionesRapidas Component — Autorización por rol y flujo real (DASH
       fireEvent.click(btnLeche);
 
       // El modal selector NO debe abrirse
-      expect(screen.queryByText('Seleccionar Hembra para Registro de Leche')).toBeNull();
+      expect(screen.queryByText('Seleccionar hembra para registro de leche')).toBeNull();
     });
 
     it('abre el selector de animales cuando pulsa una acción autorizada (tratamiento)', async () => {
@@ -111,8 +111,29 @@ describe('AccionesRapidas Component — Autorización por rol y flujo real (DASH
       fireEvent.click(btnTratamiento);
 
       expect(
-        await screen.findByText('Seleccionar Animal para Tratamiento'),
+        await screen.findByText('Seleccionar animal para tratamiento'),
       ).toBeDefined();
+    });
+
+    it('RF-030: el selector modal expone semántica de diálogo para lectores de pantalla', async () => {
+      renderWithQueryClient(<AccionesRapidas />);
+
+      fireEvent.click(screen.getByTestId('accion-rapida-tratamiento'));
+
+      const dialog = await screen.findByRole('dialog');
+      expect(dialog.getAttribute('aria-modal')).toBe('true');
+      expect(dialog.getAttribute('aria-labelledby')).toBeTruthy();
+    });
+
+    it('RF-030: Escape cierra el selector modal sin dejarlo como estado inerte', async () => {
+      renderWithQueryClient(<AccionesRapidas />);
+
+      fireEvent.click(screen.getByTestId('accion-rapida-tratamiento'));
+      const dialog = await screen.findByRole('dialog');
+
+      fireEvent.keyDown(dialog.parentElement!, { key: 'Escape' });
+
+      expect(screen.queryByRole('dialog')).toBeNull();
     });
   });
 
@@ -151,7 +172,7 @@ describe('AccionesRapidas Component — Autorización por rol y flujo real (DASH
       // Abrir leche
       fireEvent.click(btnLeche);
       expect(
-        await screen.findByText('Seleccionar Hembra para Registro de Leche'),
+        await screen.findByText('Seleccionar hembra para registro de leche'),
       ).toBeDefined();
     });
   });
@@ -189,7 +210,7 @@ describe('AccionesRapidas Component — Autorización por rol y flujo real (DASH
       expect(screen.queryByText('Rol no autorizado')).toBeNull();
 
       fireEvent.click(btnReproductivo);
-      expect(screen.getByText('Seleccionar Hembra para Evento Reproductivo')).toBeDefined();
+      expect(screen.getByText('Seleccionar hembra para evento reproductivo')).toBeDefined();
     });
   });
 });

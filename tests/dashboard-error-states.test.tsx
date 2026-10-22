@@ -1,9 +1,11 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CalendarioReproductivo } from '@/components/dashboard/calendario-reproductivo';
 import { KpiRow } from '@/components/dashboard/kpi-row';
+import { SemaforoSanitario } from '@/components/dashboard/semaforo-sanitario';
+import { NotificationBell } from '@/components/dashboard/notification-bell';
 import * as dashboardDataModule from '@/lib/hooks/use-dashboard-data';
 
 vi.mock('@/lib/hooks/use-dashboard-data', async () => {
@@ -12,6 +14,8 @@ vi.mock('@/lib/hooks/use-dashboard-data', async () => {
     ...actual,
     useProximosEventosReproductivos: vi.fn(),
     useKpisDashboard: vi.fn(),
+    useAnimalesEnRetiro: vi.fn(),
+    useAlertas: vi.fn(),
   };
 });
 
@@ -90,6 +94,84 @@ describe('Manejo honesto de errores en Dashboard (MOD-04 / FL-10 - Cero Mocks Si
       // Los valores por defecto quedan en 0, no en números ficticios heredados del mock
       const cards = screen.getAllByText('0');
       expect(cards.length).toBeGreaterThanOrEqual(4);
+    });
+  });
+
+  describe('SemaforoSanitario — no debe fingir "sin retiros" cuando la API falla (RF-026)', () => {
+    it('muestra alerta de error visible si la petición de retiros activos falla', () => {
+      vi.mocked(dashboardDataModule.useAnimalesEnRetiro).mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        isError: true,
+        error: new Error('Fallo de conexión 500'),
+        refetch: vi.fn(),
+      } as unknown as ReturnType<typeof dashboardDataModule.useAnimalesEnRetiro>);
+
+      renderWithQueryClient(<SemaforoSanitario />);
+
+      expect(
+        screen.getByText('No se pudieron cargar los retiros sanitarios desde el servidor.'),
+      ).toBeDefined();
+
+      // No debe mostrar el estado vacío "todo bien" cuando en realidad falló la carga
+      expect(screen.queryByText('Ningún animal en retiro sanitario hoy.')).toBeNull();
+    });
+
+    it('muestra estado vacío real si la API responde exitosamente sin retiros', () => {
+      vi.mocked(dashboardDataModule.useAnimalesEnRetiro).mockReturnValue({
+        data: [],
+        isLoading: false,
+        isError: false,
+        error: null,
+        refetch: vi.fn(),
+      } as unknown as ReturnType<typeof dashboardDataModule.useAnimalesEnRetiro>);
+
+      renderWithQueryClient(<SemaforoSanitario />);
+
+      expect(screen.getByText('Ningún animal en retiro sanitario hoy.')).toBeDefined();
+    });
+  });
+
+  describe('NotificationBell — no debe fingir "sin alertas" cuando la API falla (RF-026)', () => {
+    it('muestra alerta de error visible si la petición de alertas falla', async () => {
+      vi.mocked(dashboardDataModule.useAlertas).mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        isError: true,
+        error: new Error('Fallo de conexión 500'),
+        refetch: vi.fn(),
+      } as unknown as ReturnType<typeof dashboardDataModule.useAlertas>);
+
+      renderWithQueryClient(<NotificationBell />);
+
+      const trigger = screen.getByRole('button', { name: 'Notificaciones' });
+      fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: 'mouse' });
+      fireEvent.pointerUp(trigger, { button: 0, ctrlKey: false, pointerType: 'mouse' });
+      fireEvent.click(trigger);
+
+      expect(
+        await screen.findByText('No se pudieron cargar las alertas desde el servidor.'),
+      ).toBeDefined();
+      expect(screen.queryByText('Sin alertas por el momento')).toBeNull();
+    });
+
+    it('muestra estado vacío real si la API responde exitosamente sin alertas', async () => {
+      vi.mocked(dashboardDataModule.useAlertas).mockReturnValue({
+        data: [],
+        isLoading: false,
+        isError: false,
+        error: null,
+        refetch: vi.fn(),
+      } as unknown as ReturnType<typeof dashboardDataModule.useAlertas>);
+
+      renderWithQueryClient(<NotificationBell />);
+
+      const trigger = screen.getByRole('button', { name: 'Notificaciones' });
+      fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: 'mouse' });
+      fireEvent.pointerUp(trigger, { button: 0, ctrlKey: false, pointerType: 'mouse' });
+      fireEvent.click(trigger);
+
+      expect(await screen.findByText('Sin alertas por el momento')).toBeDefined();
     });
   });
 });

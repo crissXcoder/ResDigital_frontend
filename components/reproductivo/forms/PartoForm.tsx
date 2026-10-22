@@ -2,8 +2,17 @@
 
 import { useState } from 'react';
 import { useForm } from '@tanstack/react-form';
+import { useQuery } from '@tanstack/react-query';
+import { getAnimales } from '@/lib/api/animales';
+import { SEXOS } from '@/lib/api/catalogos';
 import { useRegistrarParto } from '@/lib/hooks/use-reproductivo';
-import { partoSchema } from '@/lib/reproductivo/schemas';
+import {
+  fechaEventoSchema,
+  MODALIDADES_CRIA,
+  partoAPayload,
+  partoSchema,
+  type ModalidadCria,
+} from '@/lib/reproductivo/schemas';
 import { FACILIDADES_PARTO } from '@/lib/reproductivo/tipos';
 import ModalFormulario from './ModalFormulario';
 
@@ -14,6 +23,12 @@ interface PartoFormProps {
   onClose: () => void;
 }
 
+const ETIQUETA_MODALIDAD: Record<ModalidadCria, string> = {
+  ninguna: 'Sin alta de cría',
+  nueva: 'Cría nueva',
+  existente: 'Cría existente',
+};
+
 export default function PartoForm({
   animalId,
   eventoServicioId,
@@ -21,31 +36,34 @@ export default function PartoForm({
 }: PartoFormProps) {
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
   const mutation = useRegistrarParto(animalId);
+  const listado = useQuery({
+    queryKey: ['animales'],
+    queryFn: () => getAnimales({ activo: 'true' }),
+  });
 
   const form = useForm({
     defaultValues: {
       fechaEvento: '',
       eventoServicioId: eventoServicioId ?? '',
+      modalidadCria: 'ninguna' as ModalidadCria,
       criaAnimalId: '',
+      areteInterno: '',
+      sexo: '' as '' | (typeof SEXOS)[number],
+      pesoNacimientoKg: '',
       facilidadParto: 'Normal',
       observaciones: '',
     },
     onSubmit: async ({ value }) => {
+      const parsed = partoSchema.safeParse(value);
+      if (!parsed.success) {
+        setErrorServidor(
+          parsed.error.issues[0]?.message ?? 'Revisá los datos del parto',
+        );
+        return;
+      }
       setErrorServidor(null);
       try {
-        await mutation.mutateAsync({
-          fechaEvento: value.fechaEvento,
-          eventoServicioId: value.eventoServicioId || undefined,
-          criaAnimalId: value.criaAnimalId || undefined,
-          facilidadParto:
-            (value.facilidadParto as
-              | 'Normal'
-              | 'Distocia'
-              | 'Cesárea'
-              | 'Aborto'
-              | '') || undefined,
-          observaciones: value.observaciones || undefined,
-        });
+        await mutation.mutateAsync(partoAPayload(parsed.data));
         onClose();
       } catch (error) {
         setErrorServidor(
@@ -54,6 +72,9 @@ export default function PartoForm({
       }
     },
   });
+
+  const candidatos =
+    listado.data?.filter((animal) => animal.id !== animalId) ?? [];
 
   return (
     <ModalFormulario titulo="Registrar parto" onClose={onClose}>
@@ -79,7 +100,7 @@ export default function PartoForm({
             name="fechaEvento"
             validators={{
               onChange: ({ value }) => {
-                const res = partoSchema.shape.fechaEvento.safeParse(value);
+                const res = fechaEventoSchema.safeParse(value);
                 return res.success ? undefined : res.error.issues[0]?.message;
               },
             }}
@@ -119,7 +140,12 @@ export default function PartoForm({
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white"
                   value={field.state.value}
                   onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
+                  onChange={(e) => {
+                    field.handleChange(e.target.value);
+                    if (e.target.value === 'Aborto') {
+                      form.setFieldValue('modalidadCria', 'ninguna');
+                    }
+                  }}
                 >
                   {FACILIDADES_PARTO.map((facilidad) => (
                     <option key={facilidad} value={facilidad}>
@@ -129,32 +155,171 @@ export default function PartoForm({
                 </select>
                 {field.state.value === 'Aborto' && (
                   <p className="text-xs text-slate-400">
-                    Cierra la preñez sin cría viable.
+                    Cierra la preñez sin cría viable. Se sugiere no dar de alta cría.
                   </p>
                 )}
               </div>
             )}
           </form.Field>
 
-          <form.Field name="criaAnimalId">
+          <form.Field name="modalidadCria">
             {(field) => (
-              <div className="sm:col-span-2 space-y-1.5">
-                <label htmlFor={field.name} className="block text-sm font-semibold text-navy">
-                  ID de la cría (si ya está registrada en el hato)
-                </label>
-                <input
-                  id={field.name}
-                  name={field.name}
-                  type="text"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  placeholder="e1d67412-21d9-482f-870d-f55da282b810"
-                />
-              </div>
+              <fieldset className="sm:col-span-2 space-y-2">
+                <legend className="block text-sm font-semibold text-navy">
+                  Cría
+                </legend>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  {MODALIDADES_CRIA.map((modalidad) => (
+                    <label
+                      key={modalidad}
+                      className="inline-flex items-center gap-2 text-sm text-slate-700"
+                    >
+                      <input
+                        type="radio"
+                        name={field.name}
+                        value={modalidad}
+                        checked={field.state.value === modalidad}
+                        onChange={() => field.handleChange(modalidad)}
+                      />
+                      {ETIQUETA_MODALIDAD[modalidad]}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
             )}
           </form.Field>
+
+          <form.Subscribe selector={(state) => state.values.modalidadCria}>
+            {(modalidadCria) =>
+              modalidadCria === 'nueva' ? (
+                <>
+                  <form.Field
+                    name="areteInterno"
+                    validators={{
+                      onChange: ({ value, fieldApi }) => {
+                        const res = partoSchema.safeParse({
+                          ...fieldApi.form.state.values,
+                          areteInterno: value,
+                        });
+                        if (res.success) return undefined;
+                        return res.error.issues.find((issue) => issue.path[0] === 'areteInterno')
+                          ?.message;
+                      },
+                    }}
+                  >
+                    {(field) => (
+                      <div className="space-y-1.5">
+                        <label htmlFor={field.name} className="block text-sm font-semibold text-navy">
+                          Arete interno *
+                        </label>
+                        <input
+                          id={field.name}
+                          name={field.name}
+                          type="text"
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light"
+                          value={field.state.value}
+                          onBlur={field.handleBlur}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          placeholder="CR-2026-001"
+                        />
+                        {field.state.meta.errors.length > 0 && (
+                          <p className="text-xs text-danger font-medium">
+                            {field.state.meta.errors[0]}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </form.Field>
+
+                  <form.Field name="sexo">
+                    {(field) => (
+                      <div className="space-y-1.5">
+                        <label htmlFor={field.name} className="block text-sm font-semibold text-navy">
+                          Sexo
+                        </label>
+                        <select
+                          id={field.name}
+                          name={field.name}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white"
+                          value={field.state.value}
+                          onChange={(e) =>
+                            field.handleChange(e.target.value as '' | (typeof SEXOS)[number])
+                          }
+                        >
+                          <option value="">Hembra (por defecto)</option>
+                          {SEXOS.map((sexo) => (
+                            <option key={sexo} value={sexo}>
+                              {sexo}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </form.Field>
+
+                  <form.Field name="pesoNacimientoKg">
+                    {(field) => (
+                      <div className="sm:col-span-2 space-y-1.5">
+                        <label htmlFor={field.name} className="block text-sm font-semibold text-navy">
+                          Peso al nacer (kg)
+                        </label>
+                        <input
+                          id={field.name}
+                          name={field.name}
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light"
+                          value={field.state.value}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          placeholder="38.5"
+                        />
+                      </div>
+                    )}
+                  </form.Field>
+                </>
+              ) : modalidadCria === 'existente' ? (
+                <div className="sm:col-span-2 space-y-1.5">
+                  {listado.isLoading ? (
+                    <p className="text-sm text-slate-500">Cargando animales de la finca…</p>
+                  ) : listado.isError ? (
+                    <p role="alert" className="text-sm text-danger font-medium">
+                      No se pudo cargar el hato para elegir la cría.
+                    </p>
+                  ) : candidatos.length === 0 ? (
+                    <p className="text-sm text-slate-500">
+                      No hay otros animales activos en la finca para vincular como cría.
+                    </p>
+                  ) : (
+                    <form.Field name="criaAnimalId">
+                      {(field) => (
+                        <div className="space-y-1.5">
+                          <label htmlFor={field.name} className="block text-sm font-semibold text-navy">
+                            Animal de la finca
+                          </label>
+                          <select
+                            id={field.name}
+                            name={field.name}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white"
+                            value={field.state.value}
+                            onChange={(e) => field.handleChange(e.target.value)}
+                          >
+                            <option value="">Seleccionar por arete</option>
+                            {candidatos.map((animal) => (
+                              <option key={animal.id} value={animal.id}>
+                                {animal.areteInterno}
+                                {animal.nombre ? ` · ${animal.nombre}` : ''}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </form.Field>
+                  )}
+                </div>
+              ) : null
+            }
+          </form.Subscribe>
 
           <form.Field name="observaciones">
             {(field) => (

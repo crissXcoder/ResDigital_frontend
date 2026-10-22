@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Bell } from "lucide-react";
+import { AlertTriangle, Bell } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,7 +21,7 @@ import { useAlertas } from "@/lib/hooks/use-dashboard-data";
  */
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
-  const { data } = useAlertas();
+  const { data, isError } = useAlertas();
   const total = data?.length ?? 0;
 
   return (
@@ -34,13 +34,23 @@ export function NotificationBell() {
           aria-label="Notificaciones"
         >
           <Bell className="size-4" strokeWidth={1.5} />
-          {total > 0 && (
+          {isError ? (
             <Badge
               variant="danger"
-              className="absolute -right-1.5 -top-1.5 h-4 min-w-4 justify-center rounded-full px-1 text-[10px] font-mono"
+              aria-label="Error al cargar alertas"
+              className="absolute -right-1.5 -top-1.5 h-4 min-w-4 justify-center rounded-full px-1 text-[10px]"
             >
-              {total}
+              <AlertTriangle className="size-2.5" />
             </Badge>
+          ) : (
+            total > 0 && (
+              <Badge
+                variant="danger"
+                className="absolute -right-1.5 -top-1.5 h-4 min-w-4 justify-center rounded-full px-1 text-[10px] font-mono"
+              >
+                {total}
+              </Badge>
+            )
           )}
         </Button>
       </DropdownMenuTrigger>
@@ -60,7 +70,12 @@ export function NotificationBell() {
           </button>
         </div>
 
-        {total === 0 ? (
+        {isError ? (
+          <div className="flex items-center gap-2 rounded-lg bg-red-50 p-3 text-xs text-red-700">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-red-600" />
+            <span>No se pudieron cargar las alertas desde el servidor.</span>
+          </div>
+        ) : total === 0 ? (
           <p className="py-4 text-center text-xs text-slate-400">
             Sin alertas por el momento
           </p>

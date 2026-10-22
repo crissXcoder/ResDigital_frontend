@@ -3,11 +3,9 @@
  *
  * Estas formas reflejan lo que deberían devolver los endpoints reales de los
  * demás módulos (ver 05-Modulos/MOD-04-Dashboard-Alertas.md en la bóveda):
- * - Ari (Sanitario): animales en retiro hoy, con fechas de liberación.
+ * - Ari (Sanitario): animales en retiro hoy, con fechas de liberación (GET /tratamientos/retiros-activos).
  * - Cristhian (Reproductivo): GET /reproductivo/proximos-eventos.
- * - Danny (Hato/Expediente): búsqueda de animales por arete/nombre + categoría.
- *
- * Mientras esos endpoints no existan, se consumen desde lib/mock/dashboard-mock.ts.
+ * - Danny (Hato/Expediente): GET /animales.
  */
 
 export interface KpisDashboard {

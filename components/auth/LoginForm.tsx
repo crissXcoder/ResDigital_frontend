@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from '@tanstack/react-form';
@@ -8,17 +8,37 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/client';
 
 const loginSchema = z.object({
-  correo: z.string().email('Ingresá un correo electrónico válido'),
+  correo: z.string().trim().email('Ingresá un correo electrónico válido'),
   password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
 });
 
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectPath = searchParams.get('redirect') || '/dashboard';
+  const requestedRedirect = searchParams.get('redirect');
+  const redirectPath = requestedRedirect?.startsWith('/') &&
+    !requestedRedirect.startsWith('//') && !/[\\\u0000-\u001f]/.test(requestedRedirect)
+    ? requestedRedirect : '/dashboard';
 
   const [serverError, setServerError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    // El cliente SSR intercambia el código de confirmación por cookies de sesión.
+    createClient().auth.getSession().then(({ data, error }) => {
+      if (!active) return;
+      if (error) {
+        setServerError('El enlace de acceso no es válido o venció. Volvé a iniciar sesión.');
+      } else if (data.session) {
+        router.replace(redirectPath);
+        router.refresh();
+      }
+    }).catch(() => {
+      if (active) setServerError('No se pudo comprobar la sesión. Volvé a intentar.');
+    });
+    return () => { active = false; };
+  }, [redirectPath, router]);
 
   const form = useForm({
     defaultValues: {
@@ -37,7 +57,6 @@ export function LoginForm() {
         });
 
         if (error) {
-          console.error('[LoginForm] Error retornado por Supabase Auth:', error);
           const errorMsg = error.message?.toLowerCase() || '';
           const errorCode = (error as { code?: string }).code;
 
@@ -51,29 +70,17 @@ export function LoginForm() {
               'Tu correo aún no ha sido confirmado. Revisá tu bandeja de entrada.',
             );
           } else {
-            setServerError(error.message || 'Error al autenticar con el servidor.');
+            setServerError('No se pudo iniciar sesión. Esperá un momento y volvé a intentar.');
           }
           setIsLoading(false);
           return;
         }
 
         // Refrescar el router para que el middleware reconozca la sesión en cookies
-        router.push(redirectPath);
+        router.replace(redirectPath);
         router.refresh();
-      } catch (err: unknown) {
-        console.error(
-          '[LoginForm] Excepción inesperada durante el inicio de sesión:',
-          err,
-        );
-        if (err instanceof Error) {
-          setServerError(
-            process.env.NODE_ENV === 'development'
-              ? `Error de inicialización o conexión: ${err.message}`
-              : 'Ocurrió un error inesperado al iniciar sesión.',
-          );
-        } else {
-          setServerError('Ocurrió un error inesperado al iniciar sesión.');
-        }
+      } catch {
+        setServerError('No se pudo conectar para iniciar sesión. Volvé a intentar.');
         setIsLoading(false);
       }
     },
@@ -100,6 +107,7 @@ export function LoginForm() {
       )}
 
       <form
+        method="post"
         onSubmit={(e) => {
           e.preventDefault();
           e.stopPropagation();

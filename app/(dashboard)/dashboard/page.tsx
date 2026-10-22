@@ -7,9 +7,8 @@ import { SemaforoSanitario } from "@/components/dashboard/semaforo-sanitario";
 
 /**
  * MOD-04 — Dashboard + Motor de Alertas (responsable: Karla).
- * Hoy corre 100% con datos de prueba (lib/mock/dashboard-mock.ts) — no depende de que
- * ningún otro módulo esté terminado. Se conecta a datos reales endpoint por endpoint,
- * a medida que Ari y Cristhian publiquen los suyos (ver lib/hooks/use-dashboard-data.ts).
+ * Conectado 100% a endpoints reales de backend (animales, retiros sanitarios,
+ * eventos reproductivos y alertas derivadas) a través de lib/hooks/use-dashboard-data.ts.
  */
 export default function DashboardPage() {
   return (
@@ -18,7 +17,7 @@ export default function DashboardPage() {
         <div>
           {/* H1 — DESIGN.md: text-3xl font-bold tracking-tight text-slate-900 */}
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-            Dashboard
+            Panel principal
           </h1>
           {/* Body muted — DESIGN.md: text-sm text-slate-500 */}
           <p className="text-sm text-slate-500 mt-1">

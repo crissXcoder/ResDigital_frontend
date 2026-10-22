@@ -140,7 +140,7 @@ describe('HATO-T001 — Eliminación de estados falsos en Hato', () => {
       expect(screen.getByText('Esperanza')).toBeDefined();
     });
 
-    expect(screen.getByText('Estado Hato')).toBeDefined();
+    expect(screen.getByText('Estado en hato')).toBeDefined();
     expect(screen.queryByText('Estado Sanitario')).toBeNull();
   });
 
