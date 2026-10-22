@@ -19,6 +19,7 @@ function HatoContent() {
   const [searchInput, setSearchInput] = useState({ query: queryParam, value: queryParam });
   const searchTerm = searchInput.query === queryParam ? searchInput.value : queryParam;
   const [filterRaza, setFilterRaza] = useState('');
+  const [filterSexo, setFilterSexo] = useState('');
   const [filterEstadoHato, setFilterEstadoHato] = useState('');
   const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
   const [editingAnimal, setEditingAnimal] = useState<Animal | null>(null);
@@ -56,12 +57,13 @@ function HatoContent() {
     const searchRaza = filterRaza.toLowerCase();
     const razaName = (animal.razaOtra || animal.raza?.nombre || '').toLowerCase();
     const matchesRaza = filterRaza === '' || razaName.includes(searchRaza);
+    const matchesSexo = filterSexo === '' || animal.sexo === filterSexo;
 
     // Filter by status (estado en hato: activo o motivo de baja)
     const estadoHato = animal.activo ? 'Activo' : (animal.tipoBaja || 'Inactivo');
     const matchesEstadoHato = filterEstadoHato === '' || estadoHato.toLowerCase() === filterEstadoHato.toLowerCase();
 
-    return Boolean(matchesSearch && matchesRaza && matchesEstadoHato);
+    return Boolean(matchesSearch && matchesRaza && matchesSexo && matchesEstadoHato);
   });
 
   return (
@@ -81,8 +83,8 @@ function HatoContent() {
         </div>
 
         {/* Filters and Search */}
-        <div className="flex flex-col md:flex-row gap-3">
-          <div className="relative flex-1">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="relative w-full lg:w-[380px] lg:max-w-[40%] lg:shrink-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               type="text"
@@ -92,7 +94,17 @@ function HatoContent() {
               className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light bg-white text-slate-700"
             />
           </div>
-          <div className="flex gap-3">
+          <div className="flex min-w-0 flex-wrap gap-3">
+            <select
+              aria-label="Filtrar por sexo"
+              value={filterSexo}
+              onChange={(e) => setFilterSexo(e.target.value)}
+              className="min-w-[145px] rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-navy-light"
+            >
+              <option value="">Todos los sexos</option>
+              <option value="Hembra">Hembras</option>
+              <option value="Macho">Machos</option>
+            </select>
             <select 
               value={filterRaza}
               onChange={(e) => setFilterRaza(e.target.value)}
