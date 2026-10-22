@@ -2,7 +2,14 @@
 
 import { useState } from 'react';
 import { useForm } from '@tanstack/react-form';
+import { useQuery } from '@tanstack/react-query';
+import { getAnimales } from '@/lib/api/animales';
 import { useRegistrarServicio } from '@/lib/hooks/use-reproductivo';
+import {
+  esMachoReproductor,
+  etiquetaToro,
+  TORO_EXTERNO,
+} from '@/lib/reproductivo/machos-reproductores';
 import { servicioSchema } from '@/lib/reproductivo/schemas';
 import { TIPOS_SERVICIO } from '@/lib/reproductivo/tipos';
 import ModalFormulario from './ModalFormulario';
@@ -23,7 +30,12 @@ interface ServicioFormProps {
 
 export default function ServicioForm({ animalId, onClose }: ServicioFormProps) {
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
+  const [toroExterno, setToroExterno] = useState(false);
   const mutation = useRegistrarServicio(animalId);
+  const listado = useQuery({
+    queryKey: ['animales'],
+    queryFn: () => getAnimales({ activo: 'true' }),
+  });
 
   const form = useForm({
     defaultValues: {
@@ -34,12 +46,21 @@ export default function ServicioForm({ animalId, onClose }: ServicioFormProps) {
       notas: '',
     },
     onSubmit: async ({ value }) => {
+      const parsed = servicioSchema.safeParse(value);
+      if (!parsed.success) {
+        setErrorServidor(
+          parsed.error.issues[0]?.message ?? 'Revisá los datos del servicio',
+        );
+        return;
+      }
       setErrorServidor(null);
       try {
         await mutation.mutateAsync({
-          fechaEvento: value.fechaEvento,
-          tipoServicio: value.tipoServicio as 'Inseminación Artificial' | 'Monta Natural',
-          toroOPajilla: value.toroOPajilla,
+          fechaEvento: parsed.data.fechaEvento,
+          tipoServicio: parsed.data.tipoServicio as
+            | 'Inseminación Artificial'
+            | 'Monta Natural',
+          toroOPajilla: parsed.data.toroOPajilla,
           responsable: value.responsable || undefined,
           notas: value.notas || undefined,
         });
@@ -92,7 +113,11 @@ export default function ServicioForm({ animalId, onClose }: ServicioFormProps) {
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white"
                   value={field.state.value}
                   onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
+                  onChange={(e) => {
+                    field.handleChange(e.target.value);
+                    form.setFieldValue('toroOPajilla', '');
+                    setToroExterno(false);
+                  }}
                 >
                   {TIPOS_SERVICIO.map((tipo) => (
                     <option key={tipo} value={tipo}>
@@ -144,38 +169,123 @@ export default function ServicioForm({ animalId, onClose }: ServicioFormProps) {
             )}
           </form.Field>
 
-          <form.Field
-            name="toroOPajilla"
-            validators={{
-              onChange: ({ value }) => {
-                const res = servicioSchema.shape.toroOPajilla.safeParse(value);
-                return res.success ? undefined : res.error.issues[0]?.message;
-              },
-            }}
-          >
-            {(field) => (
-              <div className="space-y-1.5">
-                <label htmlFor={field.name} className="block text-sm font-semibold text-navy">
-                  Toro / ID pajilla *
-                </label>
-                <input
-                  id={field.name}
-                  name={field.name}
-                  type="text"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  placeholder="Titan (CRC-B-001)"
-                />
-                {field.state.meta.errors.length > 0 && (
-                  <p className="text-xs text-danger font-medium">
-                    {field.state.meta.errors[0]}
-                  </p>
-                )}
-              </div>
-            )}
-          </form.Field>
+          <form.Subscribe selector={(state) => state.values.tipoServicio}>
+            {(tipoServicio) =>
+              tipoServicio === 'Monta Natural' ? (
+                <form.Field
+                  name="toroOPajilla"
+                  validators={{
+                    onChange: ({ value }) => {
+                      if (!value.trim()) return 'Seleccioná un toro de la finca o escribí uno externo';
+                      const res = servicioSchema.shape.toroOPajilla.safeParse(value);
+                      return res.success ? undefined : res.error.issues[0]?.message;
+                    },
+                  }}
+                >
+                  {(field) => {
+                    const machos =
+                      listado.data?.filter(
+                        (animal) =>
+                          animal.id !== animalId && esMachoReproductor(animal),
+                      ) ?? [];
+                    return (
+                      <div className="space-y-1.5">
+                        <label htmlFor={field.name} className="block text-sm font-semibold text-navy">
+                          Toro *
+                        </label>
+                        {listado.isLoading ? (
+                          <p className="text-sm text-slate-500">Cargando machos de la finca…</p>
+                        ) : listado.isError ? (
+                          <p role="alert" className="text-sm text-danger font-medium">
+                            No se pudo cargar el hato para elegir el toro.
+                          </p>
+                        ) : (
+                          <select
+                            id={field.name}
+                            name={field.name}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white"
+                            value={toroExterno ? TORO_EXTERNO : field.state.value}
+                            onBlur={field.handleBlur}
+                            onChange={(e) => {
+                              if (e.target.value === TORO_EXTERNO) {
+                                setToroExterno(true);
+                                field.handleChange('');
+                                return;
+                              }
+                              setToroExterno(false);
+                              field.handleChange(e.target.value);
+                            }}
+                          >
+                            <option value="">Seleccionar por arete</option>
+                            {machos.map((animal) => (
+                              <option key={animal.id} value={etiquetaToro(animal)}>
+                                {etiquetaToro(animal)}
+                              </option>
+                            ))}
+                            <option value={TORO_EXTERNO}>Otro toro (escribir)</option>
+                          </select>
+                        )}
+                        {toroExterno && (
+                          <input
+                            aria-label="Toro externo"
+                            type="text"
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light"
+                            value={field.state.value}
+                            onChange={(e) => field.handleChange(e.target.value)}
+                            placeholder="Nombre o arete del toro externo"
+                          />
+                        )}
+                        {machos.length === 0 && !listado.isLoading && !listado.isError && (
+                          <p className="text-xs text-slate-400">
+                            No hay toros reproductores activos. Escribí uno externo o registralo en el hato.
+                          </p>
+                        )}
+                        {field.state.meta.isBlurred && field.state.meta.errors.length > 0 && (
+                          <p className="text-xs text-danger font-medium">
+                            {field.state.meta.errors[0]}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  }}
+                </form.Field>
+              ) : (
+                <form.Field
+                  name="toroOPajilla"
+                  validators={{
+                    onChange: ({ value }) => {
+                      if (!value.trim()) return 'El ID de pajilla es requerido';
+                      const res = servicioSchema.shape.toroOPajilla.safeParse(value);
+                      return res.success ? undefined : res.error.issues[0]?.message;
+                    },
+                  }}
+                >
+                  {(field) => (
+                    <div className="space-y-1.5">
+                      <label htmlFor={field.name} className="block text-sm font-semibold text-navy">
+                        ID pajilla *
+                      </label>
+                      <input
+                        id={field.name}
+                        name={field.name}
+                        type="text"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light"
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        placeholder="CRC-B-001"
+                      />
+                      {field.state.meta.isBlurred && field.state.meta.errors.length > 0 && (
+                        <p className="text-xs text-danger font-medium">
+                          {field.state.meta.errors[0]}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </form.Field>
+              )
+            }
+          </form.Subscribe>
 
           <form.Field name="responsable">
             {(field) => (

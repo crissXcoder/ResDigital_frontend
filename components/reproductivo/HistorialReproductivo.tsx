@@ -91,7 +91,15 @@ function DetalleEvento({ evento }: { evento: EventoHistorial }) {
     );
   }
   if (esDetalleParto(evento)) {
-    return <span>{evento.detalle.facilidadParto ?? 'Normal'}</span>;
+    const cria =
+      evento.detalle.criaAreteInterno || evento.detalle.criaAnimalId || null;
+    const desenlace = evento.detalle.facilidadParto ?? 'Normal';
+    return (
+      <span>
+        {desenlace}
+        {cria ? ` · cría ${cria}` : ''}
+      </span>
+    );
   }
   return <span className="text-slate-400">—</span>;
 }
