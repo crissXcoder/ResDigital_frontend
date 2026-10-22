@@ -92,13 +92,12 @@ describe('Sidebar Component (CORE-T005)', () => {
   it('CORE-T005: módulos en desarrollo están deshabilitados con motivo visible (Próximamente)', () => {
     renderSidebar();
 
-    // Producción Lechera, Reportes (Escáner QR ya fue activado con QR-T002)
+    // Solo Reportes continúa en desarrollo.
     const disabledItems = screen.getAllByText('Próximamente');
-    expect(disabledItems.length).toBe(2);
+    expect(disabledItems.length).toBe(1);
 
-    const lechera = screen.getByText('Producción Lechera').closest('[aria-disabled="true"]');
-    expect(lechera?.getAttribute('aria-disabled')).toBe('true');
-    expect(lechera?.getAttribute('title')).toContain('desarrollo');
+    const lechera = screen.getByRole('link', { name: /producción lechera/i });
+    expect(lechera.getAttribute('href')).toBe('/produccion');
 
     const reportes = screen.getByText('Reportes').closest('[aria-disabled="true"]');
     expect(reportes?.getAttribute('aria-disabled')).toBe('true');

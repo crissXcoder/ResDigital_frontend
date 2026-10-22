@@ -7,7 +7,7 @@ import type { Animal } from '@/lib/api/animales';
 import type { EstadoReproductivoResponse } from '@/lib/reproductivo/tipos';
 
 const { table, save } = vi.hoisted(() => ({ table: vi.fn(), save: vi.fn() }));
-vi.mock('next/navigation', () => ({ useParams: () => ({ id: 'animal-1' }) }));
+vi.mock('next/navigation', () => ({ useParams: () => ({ id: 'animal-1' }), useSearchParams: () => new URLSearchParams() }));
 vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({ storage: {} }) }));
 vi.mock('@/lib/hooks/useAuthUser', () => ({ useAuthUser: () => ({ user: null }) }));
 vi.mock('@/components/auth/RequireRole', () => ({ RequireRole: ({ children }: { children: React.ReactNode }) => children }));

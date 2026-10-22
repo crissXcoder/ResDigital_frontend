@@ -8,6 +8,7 @@ import * as sanitaryApi from '@/lib/api/sanitary';
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ id: 'animal-f1-uuid' }),
+  useSearchParams: () => new URLSearchParams(),
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
 }));
 
