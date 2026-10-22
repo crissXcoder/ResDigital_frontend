@@ -64,7 +64,7 @@ describe('Sidebar Component (CORE-T005)', () => {
   it('renderiza módulos reales con rutas navegables activas', () => {
     renderSidebar();
 
-    const linkDashboard = screen.getByRole('link', { name: /dashboard/i });
+    const linkDashboard = screen.getByRole('link', { name: /panel principal/i });
     expect(linkDashboard.getAttribute('href')).toBe('/dashboard');
 
     const linkHato = screen.getByRole('link', { name: /hato ganadero/i });

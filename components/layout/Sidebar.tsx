@@ -38,7 +38,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
   const resesActivas = animales ? animales.filter(a => a.activo).length : 0;
 
   const navItems: NavItem[] = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Panel principal', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Hato ganadero', href: '/hato', icon: Users },
     { name: 'Reproducción', href: '/reproductivo', icon: Clock },
     {
