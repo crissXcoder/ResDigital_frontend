@@ -28,7 +28,13 @@ export function InvitationAcceptance() {
   useEffect(() => {
     let active = true;
     const supabase = createClient();
-    void supabase.auth.getSession().then(({ data, error: sessionError }) => {
+    const hash = new URLSearchParams(window.location.hash.slice(1));
+    const accessToken = hash.get('access_token');
+    const refreshToken = hash.get('refresh_token');
+    const sessionPromise = hash.get('type') === 'invite' && accessToken && refreshToken
+      ? supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+      : supabase.auth.getSession();
+    void sessionPromise.then(({ data, error: sessionError }) => {
       if (!active) return;
       const session = data.session;
       const invitationId: unknown = session?.user.user_metadata['invitacion_id'];
@@ -52,7 +58,7 @@ export function InvitationAcceptance() {
     const password = String(form.get('password') ?? '');
     const confirmPassword = String(form.get('confirmPassword') ?? '');
 
-    if (nombreCompleto.length < 3 || nombreCompleto.length > 120) {
+    if (!confirmed && (nombreCompleto.length < 3 || nombreCompleto.length > 120)) {
       setError('Ingresá un nombre completo de 3 a 120 caracteres.');
       setBusy(false);
       return;
@@ -68,12 +74,14 @@ export function InvitationAcceptance() {
       return;
     }
 
+    let invitationConfirmed = confirmed;
     try {
       if (!confirmed) {
         await fetchApi<{ success: true }>('/auth/confirmar-invitacion', {
           method: 'POST',
           body: JSON.stringify({ nombreCompleto, invitacionId: invitee.invitationId }),
         });
+        invitationConfirmed = true;
         setConfirmed(true);
       }
       const { error: passwordError } = await createClient().auth.updateUser({ password });
@@ -83,7 +91,7 @@ export function InvitationAcceptance() {
     } catch (cause) {
       setError(cause instanceof ApiError
         ? cause.message
-        : confirmed
+        : invitationConfirmed
           ? 'La invitación quedó aceptada, pero no se pudo guardar la contraseña. Volvé a intentarlo.'
           : 'No se pudo completar la invitación. Revisá el enlace e intentá de nuevo.');
     } finally {

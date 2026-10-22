@@ -6,22 +6,25 @@ import { InvitationAcceptance } from '@/components/auth/InvitationAcceptance';
 const mocks = vi.hoisted(() => ({
   fetchApi: vi.fn(),
   getSession: vi.fn(),
+  setSession: vi.fn(),
   updateUser: vi.fn(),
   role: 'propietario' as string | null,
   replace: vi.fn(),
 }));
 vi.mock('@/lib/api/client', () => ({ ApiError: class ApiError extends Error {}, fetchApi: mocks.fetchApi }));
 vi.mock('@/lib/hooks/useAuthUser', () => ({ useAuthUser: () => ({ role: mocks.role }) }));
-vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({ auth: { getSession: mocks.getSession, updateUser: mocks.updateUser } }) }));
+vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({ auth: { getSession: mocks.getSession, setSession: mocks.setSession, updateUser: mocks.updateUser } }) }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ replace: mocks.replace }) }));
 
 beforeEach(() => {
   vi.clearAllMocks();
+  window.history.replaceState(null, '', '/');
   mocks.role = 'propietario';
   mocks.getSession.mockResolvedValue({
     data: { session: { user: { id: 'qa-invitee', email: 'qa@example.test', user_metadata: { invitacion_id: '11111111-1111-4111-8111-111111111111' } } } },
     error: null,
   });
+  mocks.setSession.mockResolvedValue({ data: { session: null }, error: null });
   mocks.updateUser.mockResolvedValue({ error: null });
   mocks.fetchApi.mockImplementation((endpoint: string) => endpoint === '/auth/invitaciones'
     ? Promise.resolve([])
@@ -78,6 +81,49 @@ describe('RF-002 invitaciones', () => {
     expect(document.body.textContent).toContain('Finca: Finca QA');
     expect(document.body.textContent).toContain('Rol: peon');
     expect(mocks.updateUser).toHaveBeenCalledWith({ password: 'password-segura-qa' });
+  });
+
+  it('establece la sesión de los tokens del enlace de invitación antes de leerla', async () => {
+    window.history.replaceState(null, '', '/aceptar-invitacion#type=invite&access_token=qa-access&refresh_token=qa-refresh');
+    mocks.setSession.mockResolvedValueOnce({
+      data: { session: { user: { id: 'qa-invitee', email: 'qa@example.test', user_metadata: { invitacion_id: '11111111-1111-4111-8111-111111111111' } } } },
+      error: null,
+    });
+
+    render(<InvitationAcceptance />);
+
+    await screen.findByText(/Invitación para qa@example.test/);
+    expect(mocks.setSession).toHaveBeenCalledWith({ access_token: 'qa-access', refresh_token: 'qa-refresh' });
+    expect(mocks.getSession).not.toHaveBeenCalled();
+    expect(window.location.hash).toBe('');
+  });
+
+  it('permite reintentar la contraseña después de que la invitación ya se confirmó', async () => {
+    mocks.fetchApi
+      .mockResolvedValueOnce({ success: true, userId: 'qa-invitee', rolFinal: 'peon' })
+      .mockResolvedValueOnce({ userId: 'qa-invitee', tenantId: 'finca-a', rol: 'peon', nombreCompleto: 'QA Invitado', correo: 'qa@example.test', nombreFinca: 'Finca QA' });
+    mocks.updateUser
+      .mockResolvedValueOnce({ error: new Error('same password') })
+      .mockResolvedValueOnce({ error: null });
+    render(<InvitationAcceptance />);
+    await screen.findByText(/Invitación para qa@example.test/);
+    for (const [label, value] of [
+      ['Nombre completo', 'QA Invitado'],
+      ['Crear contraseña', 'password-segura-qa'],
+      ['Confirmar contraseña', 'password-segura-qa'],
+    ]) fireEvent.change(screen.getByLabelText(label), { target: { value } });
+    fireEvent.submit(screen.getByRole('button', { name: 'Aceptar invitación' }).closest('form')!);
+
+    expect(await screen.findByText(/La invitación quedó aceptada, pero no se pudo guardar la contraseña/)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Crear contraseña'), { target: { value: 'password-nueva-qa' } });
+    fireEvent.change(screen.getByLabelText('Confirmar contraseña'), { target: { value: 'password-nueva-qa' } });
+    fireEvent.submit(screen.getByRole('button', { name: 'Guardar contraseña' }).closest('form')!);
+
+    await screen.findByRole('heading', { name: 'Invitación aceptada' });
+    expect(mocks.fetchApi).toHaveBeenCalledTimes(2);
+    expect(mocks.updateUser).toHaveBeenNthCalledWith(2, { password: 'password-nueva-qa' });
+    expect(document.body.textContent).toContain('Finca: Finca QA');
+    expect(document.body.textContent).toContain('Rol: peon');
   });
 
   it('muestra que no se pudo usar un enlace vencido o inválido', async () => {
