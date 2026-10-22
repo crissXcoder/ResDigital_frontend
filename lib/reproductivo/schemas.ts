@@ -61,6 +61,14 @@ export const diagnosticoSchema = z.object({
 
 export type DiagnosticoFormValues = z.infer<typeof diagnosticoSchema>;
 
+export const nuevaCriaPartoSchema = z.object({
+  areteInterno: z.string().min(1, 'El arete interno de la cría es obligatorio'),
+  nombre: z.string().max(100).optional().or(z.literal('')),
+  sexo: z.enum(['Hembra', 'Macho']).optional(),
+  pesoNacimientoKg: z.number().min(0, 'El peso no puede ser negativo').optional().nullable(),
+  numeroOficialDiio: z.string().max(50).optional().or(z.literal('')),
+});
+
 export const partoSchema = z.object({
   fechaEvento: fechaEventoSchema,
   eventoServicioId: z
@@ -73,6 +81,7 @@ export const partoSchema = z.object({
     .uuid('El criaAnimalId debe ser un UUID válido')
     .optional()
     .or(z.literal('')),
+  nuevaCria: nuevaCriaPartoSchema.optional(),
   facilidadParto: z
     .enum(FACILIDADES_PARTO as [string, ...string[]], {
       message: `La facilidad del parto debe ser uno de: ${FACILIDADES_PARTO.join(', ')}`,
