@@ -2,16 +2,17 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { Loader2, Save } from 'lucide-react';
-import { getAnimales, type Animal } from '@/lib/api/animales';
-import { getEstadoSanitario } from '@/lib/api/sanitary';
+import { AlertTriangle, Check, Edit2, Loader2, Save, Upload, X } from 'lucide-react';
+import { getAnimales } from '@/lib/api/animales';
+import { getRetirosActivos } from '@/lib/api/sanitary';
 import {
   createProduccionLeche,
   getHembrasEnLactancia,
-  getProduccionByAnimal,
+  getProduccionRegistros,
   getResumenProduccion,
+  updateProduccionLeche,
   MAX_LITROS_TURNO,
   toCreateProduccionPayload,
   type ProduccionLeche,
@@ -19,6 +20,7 @@ import {
 } from '@/lib/api/produccion';
 import { formatearFecha, hoyLocal, normalizarFechaCivil, sumarDiasCivil } from '@/lib/reproductivo/fechas';
 import { RequireRole } from '@/components/auth/RequireRole';
+import ModalCargaMasivaProduccion from '@/components/modals/ModalCargaMasivaProduccion';
 
 type Turnos = { MANANA: string; TARDE: string };
 const VACIO: Turnos = { MANANA: '', TARDE: '' };
@@ -38,8 +40,14 @@ export default function ProduccionPage() {
   const [desdeManual, setDesdeManual] = useState(sumarDiasCivil(hoyLocal(), -29) ?? hoyLocal());
   const [hastaManual, setHastaManual] = useState(hoyLocal());
   const [animalHistorial, setAnimalHistorial] = useState('');
-  const [disposicionHistorial, setDisposicionHistorial] = useState('');
   const [limiteHistorial, setLimiteHistorial] = useState(25);
+  const [filtroDiario, setFiltroDiario] = useState('por-registrar');
+  const [busquedaDiaria, setBusquedaDiaria] = useState('');
+  const [paginaDiaria, setPaginaDiaria] = useState(1);
+  const [isCargaMasivaOpen, setIsCargaMasivaOpen] = useState(false);
+  const [editandoRegistroId, setEditandoRegistroId] = useState<string | null>(null);
+  const [editandoLitros, setEditandoLitros] = useState('');
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
   const hoy = hoyLocal();
   const fechaValida = /^\d{4}-\d{2}-\d{2}$/.test(fecha) && fecha <= hoy;
   const desde = periodo === 'personalizado' ? desdeManual : sumarDiasCivil(fecha, 1 - Number(periodo)) ?? fecha;
@@ -63,34 +71,47 @@ export default function ProduccionPage() {
     queryFn: () => getResumenProduccion(desde, hasta),
     enabled: rangoValido,
   });
-  const registrosQueries = useQueries({
-    queries: hembras.map((animal) => ({
-      queryKey: ['produccionLeche', animal.id],
-      queryFn: () => getProduccionByAnimal(animal.id),
-    })),
+  const produccionDiariaQuery = useQuery({
+    queryKey: ['produccionRegistros', fecha, fecha],
+    queryFn: () => getProduccionRegistros(fecha, fecha),
+    enabled: fechaValida,
   });
-  const sanitarioQueries = useQueries({
-    queries: animales.map((animal) => ({
-      queryKey: ['estadoSanitario', animal.id, fecha],
-      queryFn: () => getEstadoSanitario(animal.id, fecha),
-      enabled: fechaValida,
-    })),
+  const produccionHistoricaQuery = useQuery({
+    queryKey: ['produccionRegistros', desde, hasta],
+    queryFn: () => getProduccionRegistros(desde, hasta),
+    enabled: rangoValido,
+  });
+  const retirosQuery = useQuery({
+    queryKey: ['retirosActivos', fecha],
+    queryFn: () => getRetirosActivos(fecha),
+    enabled: fechaValida,
   });
   const cargando = animalesQuery.isLoading || lactanciaQuery.isLoading ||
-    registrosQueries.some((q) => q.isLoading) || sanitarioQueries.some((q) => q.isLoading);
+    produccionDiariaQuery.isLoading || retirosQuery.isLoading;
   const fallo = animalesQuery.isError || lactanciaQuery.isError ||
-    registrosQueries.some((q) => q.isError) || sanitarioQueries.some((q) => q.isError);
+    produccionDiariaQuery.isError || retirosQuery.isError;
   const lactantes = new Set((lactanciaQuery.data ?? []).map((a) => a.animalId));
-  const registrosPorAnimal = new Map(hembras.map((animal, index) =>
-    [animal.id, registrosQueries[index]?.data ?? []] as const));
-  const filas = animales.map((animal, index) => {
-    const registros = (registrosPorAnimal.get(animal.id) ?? []).filter((r) => r.fecha === fecha && !r.revertido);
-    const sanitario = sanitarioQueries[index]?.data;
-    const retiro = !!sanitario?.liberacionLeche &&
-      sanitario.liberacionLeche >= fecha &&
+  const retirosPorAnimal = new Map((retirosQuery.data ?? []).map((retiro) => [retiro.animalId, retiro] as const));
+  const registrosPorAnimal = new Map<string, ProduccionLeche[]>();
+  for (const registro of produccionDiariaQuery.data ?? []) {
+    const lista = registrosPorAnimal.get(registro.animalId) ?? [];
+    lista.push(registro);
+    registrosPorAnimal.set(registro.animalId, lista);
+  }
+  const filas = animales.map((animal) => {
+    const registros = registrosPorAnimal.get(animal.id) ?? [];
+    const sanitario = retirosPorAnimal.get(animal.id);
+    const retiro = !!sanitario?.fechaLiberacionLeche &&
+      sanitario.fechaLiberacionLeche > fecha &&
       (!sanitario.tratamientoReferencia?.fechaAplicacion ||
         sanitario.tratamientoReferencia.fechaAplicacion <= fecha);
-    return { animal, registros, retiro, lactante: lactantes.has(animal.id) };
+    return {
+      animal,
+      registros,
+      retiro,
+      fechaLiberacion: sanitario?.fechaLiberacionLeche ?? null,
+      lactante: lactantes.has(animal.id),
+    };
   });
   const guardados = filas.flatMap((fila) => fila.registros);
   const bloqueadas = filas.filter((fila) => fila.retiro).length;
@@ -105,23 +126,44 @@ export default function ProduccionPage() {
     pendientes.filter((p) => p.turno === turno).reduce((n, p) => n + (Number(p.texto) || 0), 0);
   const manana = SUMAR(guardados, 'MANANA') + pendientePorTurno('MANANA');
   const tarde = SUMAR(guardados, 'TARDE') + pendientePorTurno('TARDE');
+  const registrosHistoricosPorAnimal = new Map<string, ProduccionLeche[]>();
+  for (const registro of produccionHistoricaQuery.data ?? []) {
+    const lista = registrosHistoricosPorAnimal.get(registro.animalId) ?? [];
+    lista.push(registro);
+    registrosHistoricosPorAnimal.set(registro.animalId, lista);
+  }
   const ranking = hembras.map((animal) => ({
     animal,
-    litros: SUMAR((registrosPorAnimal.get(animal.id) ?? []).filter((r) => r.fecha >= desde && r.fecha <= hasta)),
+    litros: SUMAR(registrosHistoricosPorAnimal.get(animal.id) ?? []),
   })).sort((a, b) => b.litros - a.litros).slice(0, 4);
   const grafica = rangoValido ? resumenQuery.data?.porFecha ?? [] : [];
   const historial = rangoValido ? hembras.flatMap((animal) =>
-    (registrosPorAnimal.get(animal.id) ?? [])
+    (registrosHistoricosPorAnimal.get(animal.id) ?? [])
       .filter((registro) => !registro.revertido && registro.fecha >= desde && registro.fecha <= hasta)
       .filter((registro) => !animalHistorial || animal.id === animalHistorial)
-      .filter((registro) => !disposicionHistorial || registro.disposicion === disposicionHistorial)
       .map((registro) => ({ animal, registro })),
   ).sort((a, b) => b.registro.fecha.localeCompare(a.registro.fecha) ||
     a.animal.areteInterno.localeCompare(b.animal.areteInterno)) : [];
+  const filasFiltradas = filas.filter(({ animal, registros, retiro, lactante }) => {
+    const busca = busquedaDiaria.trim().toLowerCase().replace(/^#/, '');
+    const coincide = !busca || animal.areteInterno.toLowerCase().includes(busca) ||
+      (animal.nombre ?? '').toLowerCase().includes(busca);
+    if (!coincide) return false;
+    const porRegistrar = lactante && !retiro && registros.length < 2;
+    if (filtroDiario === 'por-registrar') return porRegistrar;
+    if (filtroDiario === 'aptas') return lactante && !retiro;
+    if (filtroDiario === 'bloqueadas') return retiro;
+    if (filtroDiario === 'sin-lactancia') return !retiro && !lactante;
+    return true;
+  });
+  const totalPaginas = Math.max(1, Math.ceil(filasFiltradas.length / 10));
+  const paginaActual = Math.min(paginaDiaria, totalPaginas);
+  const filasPagina = filasFiltradas.slice((paginaActual - 1) * 10, paginaActual * 10);
 
   const cambiarFecha = (nueva: string) => {
     setFecha(nueva);
     setValores({});
+    setPaginaDiaria(1);
     setError('');
     setMensaje('');
   };
@@ -132,6 +174,44 @@ export default function ProduccionPage() {
     }));
     setError('');
     setMensaje('');
+  };
+
+  const iniciarEdicion = (registro: ProduccionLeche) => {
+    setEditandoRegistroId(registro.id);
+    setEditandoLitros(String(registro.litros));
+    setError('');
+    setMensaje('');
+  };
+
+  const cancelarEdicion = () => {
+    setEditandoRegistroId(null);
+    setEditandoLitros('');
+  };
+
+  const guardarEdicion = async (registroId: string, animalId: string) => {
+    const texto = editandoLitros.trim();
+    if (!Number.isFinite(Number(texto)) || Number(texto) <= 0 ||
+      Number(texto) > MAX_LITROS_TURNO || !/^\d+(\.\d)?$/.test(texto)) {
+      setError(`Los litros deben estar entre 0.1 y ${MAX_LITROS_TURNO}, con un decimal como máximo.`);
+      return;
+    }
+    setGuardandoEdicion(true);
+    setError('');
+    try {
+      await updateProduccionLeche(registroId, {
+        litros: Math.round(Number(texto) * 10) / 10,
+      });
+      setEditandoRegistroId(null);
+      setEditandoLitros('');
+      setMensaje('Registro de producción actualizado correctamente.');
+      await queryClient.invalidateQueries({ queryKey: ['produccionRegistros'] });
+      await queryClient.invalidateQueries({ queryKey: ['produccionResumen'] });
+      await queryClient.invalidateQueries({ queryKey: ['produccionLeche', animalId] });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'No se pudo actualizar el registro.');
+    } finally {
+      setGuardandoEdicion(false);
+    }
   };
   const guardar = async () => {
     setError('');
@@ -164,6 +244,7 @@ export default function ProduccionPage() {
     } catch (cause) {
       setError(`Se guardaron ${guardadosAhora} ordeño(s). ${cause instanceof Error ? cause.message : 'No se pudo completar el registro.'}`);
     } finally {
+      await queryClient.invalidateQueries({ queryKey: ['produccionRegistros'] });
       await queryClient.invalidateQueries({ queryKey: ['produccionResumen'] });
       setGuardando(false);
     }
@@ -172,9 +253,21 @@ export default function ProduccionPage() {
   return (
     <main className="min-h-screen bg-slate-100 p-5 md:p-7">
       <div className="mx-auto max-w-7xl space-y-5">
-        <header>
-          <h1 className="text-2xl font-extrabold text-navy">Producción Lechera</h1>
-          <p className="mt-1 text-sm text-slate-500">Registro diario de litros por vaca. Las hembras en retiro sanitario se muestran bloqueadas.</p>
+        <header className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-extrabold text-navy">Producción Lechera</h1>
+            <p className="mt-1 text-sm text-slate-500">Registro diario de litros por vaca. Las hembras en retiro sanitario se muestran bloqueadas.</p>
+          </div>
+          <RequireRole roles={['propietario', 'administrador', 'peon']}>
+            <button
+              type="button"
+              onClick={() => setIsCargaMasivaOpen(true)}
+              className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-navy shadow-sm transition hover:bg-slate-50 hover:border-slate-300"
+            >
+              <Upload className="h-4 w-4 text-slate-500" />
+              Carga masiva (CSV)
+            </button>
+          </RequireRole>
         </header>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[
@@ -196,12 +289,23 @@ export default function ProduccionPage() {
               <div><h2 className="font-bold text-navy">Registro Diario</h2><p className="text-xs text-slate-500">Litros por vaca para la fecha seleccionada</p></div>
               <input aria-label="Fecha de producción" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" type="date" max={hoy} value={fecha} onChange={(event) => cambiarFecha(event.target.value)} />
             </div>
+            <div className="flex flex-wrap gap-3 border-b border-slate-100 p-4">
+              <input aria-label="Buscar vaca para registro" type="search" value={busquedaDiaria} onChange={(event) => { setBusquedaDiaria(event.target.value); setPaginaDiaria(1); }} placeholder="Buscar por arete o nombre" className="min-w-[190px] flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+              <select aria-label="Filtrar vacas para registro" value={filtroDiario} onChange={(event) => { setFiltroDiario(event.target.value); setPaginaDiaria(1); }} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-navy">
+                <option value="por-registrar">Para registrar</option>
+                <option value="aptas">Todas las aptas</option>
+                <option value="todas">Todas las vacas</option>
+                <option value="bloqueadas">En retiro de leche</option>
+                <option value="sin-lactancia">Sin lactancia</option>
+              </select>
+            </div>
             {error && <p role="alert" className="m-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
             {mensaje && <p role="status" className="m-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">{mensaje}</p>}
             {!fechaValida ? <p className="p-8 text-center text-red-600">Seleccione una fecha válida que no sea futura.</p> :
               cargando ? <p className="flex items-center justify-center gap-2 p-10 text-slate-500"><Loader2 size={18} className="animate-spin" /> Cargando producción…</p> :
               fallo ? <p className="p-10 text-center text-red-600">No se pudieron cargar todos los datos de producción y sanidad.</p> :
               filas.length === 0 ? <p className="p-10 text-center text-slate-500">No hay hembras activas.</p> :
+              filasFiltradas.length === 0 ? <p className="p-10 text-center text-slate-500">No hay vacas que coincidan con el filtro y la fecha seleccionada.</p> :
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[700px] text-sm">
                   <thead className="bg-slate-50 text-xs uppercase text-slate-400"><tr>
@@ -209,28 +313,119 @@ export default function ProduccionPage() {
                     <th className="p-3 text-center">Mañana (L)</th><th className="p-3 text-center">Tarde (L)</th>
                     <th className="p-3 text-center">Total (L)</th><th className="p-3 text-center">Estado</th>
                   </tr></thead>
-                  <tbody>{filas.map(({ animal, registros, retiro, lactante }) => {
+                  <tbody>{filasPagina.map(({ animal, registros, retiro, fechaLiberacion, lactante }) => {
                     const total = SUMAR(registros) +
                       (retiro || !lactante ? 0 : (Number(valores[animal.id]?.MANANA) || 0) + (Number(valores[animal.id]?.TARDE) || 0));
-                    return <tr key={animal.id} className={`border-t border-slate-100 ${retiro ? 'bg-red-50/70' : ''}`}>
+                    return <tr key={animal.id} className={`border-t border-slate-100 ${retiro ? 'bg-amber-50/40' : ''}`}>
                       <td className="p-3"><Link href={`/hato/${animal.id}?tab=produccion`} className="font-bold text-navy hover:text-sky-700">#{animal.areteInterno}</Link><span className="block text-xs text-slate-500">{animal.nombre || 'Sin nombre'}</span></td>
                       <td className="p-3 text-xs text-slate-500">{animal.raza?.nombre || animal.razaOtra || 'Sin raza'}</td>
                       {(['MANANA', 'TARDE'] as const).map((turno) => {
                         const registro = registros.find((r) => r.turno === turno);
-                        return <td key={turno} className="p-2 text-center">{registro ?
-                          <span className="font-semibold text-navy">{LITROS(Number(registro.litros))}{registro.disposicion === 'DESCARTE' && <small className="block text-red-600">Descarte</small>}</span> :
-                          retiro || !lactante ? <span className="text-red-500">—</span> :
+                        const enEdicion = registro && editandoRegistroId === registro.id;
+                        return <td key={turno} className="p-2 text-center">{registro ? (
+                          enEdicion ? (
+                            <div className="inline-flex items-center gap-1">
+                              <input
+                                aria-label={`Editar ${turno === 'MANANA' ? 'Mañana' : 'Tarde'} ${animal.areteInterno}`}
+                                className="w-20 rounded border border-sky-400 px-1.5 py-1 text-center text-sm font-semibold text-navy focus:outline-none focus:ring-1 focus:ring-sky-500"
+                                type="number"
+                                min="0.1"
+                                max={MAX_LITROS_TURNO}
+                                step="0.1"
+                                value={editandoLitros}
+                                disabled={guardandoEdicion}
+                                onChange={(e) => setEditandoLitros(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') void guardarEdicion(registro.id, animal.id);
+                                  if (e.key === 'Escape') cancelarEdicion();
+                                }}
+                                autoFocus
+                              />
+                              <button
+                                type="button"
+                                title="Guardar cambios"
+                                aria-label="Confirmar edición"
+                                onClick={() => void guardarEdicion(registro.id, animal.id)}
+                                disabled={guardandoEdicion}
+                                className="rounded p-1 text-emerald-600 hover:bg-emerald-50 disabled:opacity-50"
+                              >
+                                {guardandoEdicion ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                              </button>
+                              <button
+                                type="button"
+                                title="Cancelar"
+                                aria-label="Cancelar edición"
+                                onClick={cancelarEdicion}
+                                disabled={guardandoEdicion}
+                                className="rounded p-1 text-slate-400 hover:bg-slate-100 disabled:opacity-50"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="group inline-flex items-center justify-center gap-1.5">
+                              <div>
+                                <span className="font-semibold text-navy">{LITROS(Number(registro.litros))}</span>
+                              </div>
+                              <RequireRole roles={['propietario', 'administrador', 'peon']}>
+                                <button
+                                  type="button"
+                                  onClick={() => iniciarEdicion(registro)}
+                                  title={`Modificar litros de ${turno === 'MANANA' ? 'mañana' : 'tarde'}`}
+                                  aria-label={`Modificar ${turno === 'MANANA' ? 'Mañana' : 'Tarde'} ${animal.areteInterno}`}
+                                  className="opacity-0 group-hover:opacity-100 focus:opacity-100 rounded p-1 text-slate-400 hover:text-navy hover:bg-slate-100 transition"
+                                >
+                                  <Edit2 size={13} />
+                                </button>
+                              </RequireRole>
+                            </div>
+                          )
+                        ) : retiro ? (
+                            <span
+                              title={`En retiro sanitario hasta el ${fechaLiberacion ? formatearFecha(fechaLiberacion) : 'próximos días'}. No comercializar.`}
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-100/70 border border-amber-200/80 rounded-md px-2 py-1 cursor-help"
+                            >
+                              <AlertTriangle className="w-3 h-3 text-amber-600" />
+                              Retiro
+                            </span>
+                          ) : !lactante ? <span className="text-slate-400">—</span> :
                           <input aria-label={`${turno === 'MANANA' ? 'Mañana' : 'Tarde'} ${animal.areteInterno}`} className="w-24 rounded-lg border border-slate-200 px-2 py-2 text-center" type="number" min="0.1" max={MAX_LITROS_TURNO} step="0.1" placeholder="0.0" value={valores[animal.id]?.[turno] ?? ''} onChange={(event) => cambiarLitros(animal.id, turno, event.target.value)} />}</td>;
                       })}
                       <td className="p-3 text-center font-bold text-navy">{total ? LITROS(total) : '—'}</td>
-                      <td className="p-3 text-center"><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${retiro ? 'bg-red-100 text-red-700' : lactante ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{retiro ? 'BLOQUEADA' : lactante ? 'APTA' : 'SIN LACTANCIA'}</span></td>
+                      <td className="p-3 text-center">
+                        {retiro ? (
+                          <span
+                            title={`Retiro activo hasta el ${fechaLiberacion ? formatearFecha(fechaLiberacion) : 'próximos días'}`}
+                            className="inline-flex flex-col items-center rounded-lg px-2.5 py-1 text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300"
+                          >
+                            <span>BLOQUEADA</span>
+                            {fechaLiberacion && (
+                              <span className="text-[10px] font-normal text-amber-700">
+                                Hasta {formatearFecha(fechaLiberacion)}
+                              </span>
+                            )}
+                          </span>
+                        ) : lactante ? (
+                          <span className="rounded-full px-2 py-1 text-[10px] font-bold bg-emerald-100 text-emerald-700">
+                            APTA
+                          </span>
+                        ) : (
+                          <span className="rounded-full px-2 py-1 text-[10px] font-bold bg-slate-100 text-slate-600">
+                            SIN LACTANCIA
+                          </span>
+                        )}
+                      </td>
                     </tr>;
                   })}</tbody>
-                  <tfoot><tr className="border-t-2 border-slate-100 font-bold"><td colSpan={2} className="p-4">TOTAL DEL DÍA</td><td className="text-center text-emerald-600">{LITROS(manana)}</td><td className="text-center text-amber-600">{LITROS(tarde)}</td><td className="text-center text-navy">{LITROS(manana + tarde)}</td><td /></tr></tfoot>
+                  <tfoot><tr className="border-t-2 border-slate-100 font-bold"><td colSpan={2} className="p-4">TOTAL DEL DÍA · TODAS LAS VACAS</td><td className="text-center text-emerald-600">{LITROS(manana)}</td><td className="text-center text-amber-600">{LITROS(tarde)}</td><td className="text-center text-navy">{LITROS(manana + tarde)}</td><td /></tr></tfoot>
                 </table>
               </div>}
+            {!cargando && !fallo && fechaValida && filasFiltradas.length > 0 && <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 text-sm text-slate-500">
+              <span>Mostrando {(paginaActual - 1) * 10 + 1}–{Math.min(paginaActual * 10, filasFiltradas.length)} de {filasFiltradas.length} vacas</span>
+              <div className="flex items-center gap-3"><button type="button" onClick={() => setPaginaDiaria(Math.max(1, paginaActual - 1))} disabled={paginaActual === 1} className="rounded-lg border border-slate-200 px-3 py-1.5 text-navy disabled:opacity-40">Anterior</button><span>Página {paginaActual} de {totalPaginas}</span><button type="button" onClick={() => setPaginaDiaria(Math.min(totalPaginas, paginaActual + 1))} disabled={paginaActual === totalPaginas} className="rounded-lg border border-slate-200 px-3 py-1.5 text-navy disabled:opacity-40">Siguiente</button></div>
+            </div>}
             <RequireRole roles={['propietario', 'administrador', 'peon']}>
-              <div className="flex justify-end border-t border-slate-100 p-4"><button type="button" onClick={guardar} disabled={guardando || cargando || fallo || !fechaValida || pendientes.length === 0} className="flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">{guardando ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Guardar producción del día</button></div>
+              <div className="flex justify-end border-t border-slate-100 p-4"><button type="button" onClick={guardar} disabled={guardando || cargando || fallo || !fechaValida || pendientes.length === 0} className="flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">{guardando ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Guardar {pendientes.length} ordeño(s) pendiente(s)</button></div>
             </RequireRole>
           </section>
           <aside className="rounded-2xl bg-white p-5 shadow-sm">
@@ -251,8 +446,8 @@ export default function ProduccionPage() {
               {!rangoValido && <p role="alert" className="text-xs text-red-600">Elija un rango válido, en orden y sin fechas futuras.</p>}
             </div>
             <div className="mt-5 h-48">{rangoValido && resumenQuery.isLoading ? <p className="flex h-full items-center justify-center text-xs text-slate-400">Cargando histórico…</p> : resumenQuery.isError ? <p className="flex h-full items-center justify-center text-xs text-red-600">No se pudo cargar el histórico.</p> : grafica.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={grafica}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="fecha" tickFormatter={formatearFecha} minTickGap={20} tick={{ fontSize: 10 }} /><YAxis tick={{ fontSize: 10 }} /><Tooltip labelFormatter={(value) => formatearFecha(String(value))} formatter={(value) => [LITROS(Number(value)), 'Producido']} /><Bar dataKey="litrosProducidos" fill="#1e3a5f" radius={[3, 3, 0, 0]} /></BarChart></ResponsiveContainer> : <p className="flex h-full items-center justify-center text-xs text-slate-400">Sin registros en el período seleccionado</p>}</div>
-            {rangoValido && resumenQuery.data && <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-500"><span>Total: <strong className="text-navy">{LITROS(Number(resumenQuery.data.litrosProducidos))}</strong></span><span>Comercializable: <strong className="text-emerald-700">{LITROS(Number(resumenQuery.data.litrosComercializables))}</strong></span><span>Descarte: <strong className="text-red-600">{LITROS(Number(resumenQuery.data.litrosDescarte))}</strong></span></div>}
-            <div className="mt-5 border-t border-slate-100 pt-4"><h3 className="text-xs font-bold uppercase text-slate-400">Top productoras · {rangoValido ? `${formatearFecha(desde)}–${formatearFecha(hasta)}` : 'sin período'}</h3>{rangoValido && !registrosQueries.some((q) => q.isLoading || q.isError) && ranking.map(({ animal, litros }, index) => <div key={animal.id} className="mt-3 flex justify-between gap-2 text-xs"><Link href={`/hato/${animal.id}?tab=produccion`} className="font-semibold text-navy hover:text-sky-700">{index + 1}. #{animal.areteInterno} {animal.nombre}</Link><span>{LITROS(litros)}</span></div>)}</div>
+            {rangoValido && resumenQuery.data && <div className="mt-3 text-xs text-slate-500"><span>Total producido en el período: <strong className="text-navy">{LITROS(Number(resumenQuery.data.litrosProducidos))}</strong></span></div>}
+            <div className="mt-5 border-t border-slate-100 pt-4"><h3 className="text-xs font-bold uppercase text-slate-400">Top productoras · {rangoValido ? `${formatearFecha(desde)}–${formatearFecha(hasta)}` : 'sin período'}</h3>{rangoValido && !produccionHistoricaQuery.isLoading && !produccionHistoricaQuery.isError && ranking.map(({ animal, litros }, index) => <div key={animal.id} className="mt-3 flex justify-between gap-2 text-xs"><Link href={`/hato/${animal.id}?tab=produccion`} className="font-semibold text-navy hover:text-sky-700">{index + 1}. #{animal.areteInterno} {animal.nombre}</Link><span>{LITROS(litros)}</span></div>)}</div>
           </aside>
         </div>
         <section className="overflow-hidden rounded-2xl bg-white shadow-sm">
@@ -263,17 +458,19 @@ export default function ProduccionPage() {
                 <option value="">Todas las vacas</option>
                 {hembras.map((animal) => <option key={animal.id} value={animal.id}>#{animal.areteInterno} {animal.nombre}</option>)}
               </select>
-              <select aria-label="Filtrar historial por disposición" value={disposicionHistorial} onChange={(event) => { setDisposicionHistorial(event.target.value); setLimiteHistorial(25); }} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-navy">
-                <option value="">Toda la leche</option><option value="COMERCIALIZABLE">Comercializable</option><option value="DESCARTE">Descarte</option>
-              </select>
             </div>
           </div>
-          {rangoValido && !registrosQueries.some((q) => q.isLoading || q.isError) && historial.length > 0 ? <>
-            <div className="overflow-x-auto"><table aria-label="Historial de producción" className="w-full min-w-[580px] text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-400"><tr><th className="p-3 text-left">Fecha</th><th className="p-3 text-left">Animal</th><th className="p-3 text-left">Turno</th><th className="p-3 text-right">Litros</th><th className="p-3 text-left">Disposición</th></tr></thead><tbody>{historial.slice(0, limiteHistorial).map(({ animal, registro }) => <tr key={registro.id} className="border-t border-slate-100"><td className="p-3">{formatearFecha(registro.fecha)}</td><td className="p-3"><Link className="font-semibold text-navy hover:text-sky-700" href={`/hato/${animal.id}?tab=produccion`}>#{animal.areteInterno} {animal.nombre}</Link></td><td className="p-3">{registro.turno === 'MANANA' ? 'Mañana' : 'Tarde'}</td><td className="p-3 text-right font-semibold">{LITROS(Number(registro.litros))}</td><td className="p-3">{registro.disposicion === 'DESCARTE' ? 'Descarte' : 'Comercializable'}</td></tr>)}</tbody></table></div>
+          {rangoValido && !produccionHistoricaQuery.isLoading && !produccionHistoricaQuery.isError && historial.length > 0 ? <>
+            <div className="overflow-x-auto"><table aria-label="Historial de producción" className="w-full min-w-[580px] text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-400"><tr><th className="p-3 text-left">Fecha</th><th className="p-3 text-left">Animal</th><th className="p-3 text-left">Turno</th><th className="p-3 text-right">Litros</th></tr></thead><tbody>{historial.slice(0, limiteHistorial).map(({ animal, registro }) => <tr key={registro.id} className="border-t border-slate-100"><td className="p-3">{formatearFecha(registro.fecha)}</td><td className="p-3"><Link className="font-semibold text-navy hover:text-sky-700" href={`/hato/${animal.id}?tab=produccion`}>#{animal.areteInterno} {animal.nombre}</Link></td><td className="p-3">{registro.turno === 'MANANA' ? 'Mañana' : 'Tarde'}</td><td className="p-3 text-right font-semibold">{LITROS(Number(registro.litros))}</td></tr>)}</tbody></table></div>
             {historial.length > limiteHistorial && <div className="border-t border-slate-100 p-4 text-center"><button type="button" onClick={() => setLimiteHistorial((n) => n + 25)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-navy">Mostrar más ({historial.length - limiteHistorial} restantes)</button></div>}
-          </> : <p className="p-8 text-center text-sm text-slate-500">{registrosQueries.some((q) => q.isLoading) ? 'Cargando historial…' : registrosQueries.some((q) => q.isError) ? 'No se pudo cargar el historial.' : 'No hay registros para estos filtros.'}</p>}
+          </> : <p className="p-8 text-center text-sm text-slate-500">{produccionHistoricaQuery.isLoading ? 'Cargando historial…' : produccionHistoricaQuery.isError ? 'No se pudo cargar el historial.' : 'No hay registros para estos filtros.'}</p>}
         </section>
       </div>
+
+      <ModalCargaMasivaProduccion
+        isOpen={isCargaMasivaOpen}
+        onClose={() => setIsCargaMasivaOpen(false)}
+      />
     </main>
   );
 }

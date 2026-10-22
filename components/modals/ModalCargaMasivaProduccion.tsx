@@ -45,6 +45,8 @@ export default function ModalCargaMasivaProduccion({
     mutationFn: (datos: { filas: FilaImportarProduccionLeche[] }) => importarProduccionLote(datos),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['produccionLeche'] });
+      queryClient.invalidateQueries({ queryKey: ['produccionRegistros'] });
+      queryClient.invalidateQueries({ queryKey: ['produccionResumen'] });
       queryClient.invalidateQueries({ queryKey: ['resumenProduccion'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       setResultadoExitoso(data);
