@@ -17,7 +17,9 @@ vi.mock('@/lib/api/reproductivo', async () => {
 
 describe('useRegistrarParto — invalidación', () => {
   it('invalida estado, historial, feed y la lista de animales tras un parto', async () => {
-    vi.mocked(registrarPartoReproductivo).mockResolvedValue({} as never);
+    vi.mocked(registrarPartoReproductivo).mockResolvedValue({
+      parto: { criaAnimalId: null, criaAnteriorId: 'cria-anterior' },
+    } as never);
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
@@ -37,5 +39,8 @@ describe('useRegistrarParto — invalidación', () => {
     expect(keys).toContainEqual(['historialReproductivo', 'madre-1']);
     expect(keys).toContainEqual(['dashboard', 'proximos-eventos-reproductivos']);
     expect(keys).toContainEqual(['animales']);
+    expect(keys).toContainEqual(['criasAnimal', 'madre-1']);
+    expect(keys).toContainEqual(['descendenciaAnimal', 'madre-1']);
+    expect(keys).toContainEqual(['animal', 'cria-anterior']);
   });
 });

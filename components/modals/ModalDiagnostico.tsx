@@ -68,7 +68,7 @@ export default function ModalDiagnostico({ isOpen, onClose, onSubmit, eventoServ
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/40 backdrop-blur-sm p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between p-5 border-b border-slate-100">
-          <h2 className="text-lg font-bold text-navy">Confirmar Preñez (Diagnóstico)</h2>
+          <h2 className="text-lg font-bold text-navy">Confirmar preñez (diagnóstico)</h2>
           <button onClick={onClose} disabled={isSubmitting} className="text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50">
             <X className="w-5 h-5" />
           </button>

@@ -49,7 +49,7 @@ export default function DiagnosticoForm({
   });
 
   return (
-    <ModalFormulario titulo="Registrar diagnóstico de preñez" onClose={onClose}>
+    <ModalFormulario titulo="Registrar diagnóstico de preñez" onClose={onClose} pendiente={mutation.isPending}>
       {errorServidor && (
         <div
           role="alert"

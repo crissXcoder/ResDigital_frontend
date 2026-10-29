@@ -326,7 +326,7 @@ export default function ModalTratamiento({
         <div className="flex shrink-0 items-center justify-between p-5 border-b border-slate-100 bg-surface">
           <div>
             <h2 className="text-lg font-bold text-navy">
-              {isEditing ? 'Corregir Tratamiento Veterinario' : 'Registrar Tratamiento Veterinario'}
+              {isEditing ? 'Corregir tratamiento veterinario' : 'Registrar tratamiento veterinario'}
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
               {isEditing
@@ -485,7 +485,7 @@ export default function ModalTratamiento({
 
             {/* Última administración */}
             <div className="space-y-1.5">
-              <label className="block text-sm font-semibold text-navy">Última Administración *</label>
+              <label className="block text-sm font-semibold text-navy">Última administración *</label>
               <input
                 type="date"
                 required
@@ -504,7 +504,7 @@ export default function ModalTratamiento({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* Veterinario */}
             <div className="space-y-1.5">
-              <label className="block text-sm font-semibold text-navy">Médico Veterinario</label>
+              <label className="block text-sm font-semibold text-navy">Médico veterinario</label>
               <input
                 type="text"
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700"
@@ -649,7 +649,7 @@ export default function ModalTratamiento({
               ) : isEditing ? (
                 'Guardar Corrección'
               ) : (
-                'Aplicar Tratamiento'
+                'Registrar tratamiento'
               )}
             </button>
           </div>

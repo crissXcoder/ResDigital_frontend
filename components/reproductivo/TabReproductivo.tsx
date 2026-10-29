@@ -9,6 +9,7 @@ import PartoForm from './forms/PartoForm';
 import SecadoForm from './forms/SecadoForm';
 import { useEstadoReproductivo, useHistorialReproductivo } from '@/lib/hooks/use-reproductivo';
 import { useAuthUser } from '@/lib/hooks/useAuthUser';
+import type { EventoHistorial, DetalleParto } from '@/lib/reproductivo/tipos';
 
 /**
  * Contenedor de la pestaña "Ciclo Reproductivo" del Expediente 360°.
@@ -27,6 +28,7 @@ type ModalActivo = 'servicio' | 'diagnostico' | 'parto' | 'secado' | null;
 
 export default function TabReproductivo({ animalId, sexo }: TabReproductivoProps) {
   const [modalActivo, setModalActivo] = useState<ModalActivo>(null);
+  const [partoACorregir, setPartoACorregir] = useState<(EventoHistorial & { detalle: DetalleParto }) | undefined>();
   const { role } = useAuthUser();
 
   const habilitado = sexo !== 'Macho';
@@ -77,7 +79,7 @@ export default function TabReproductivo({ animalId, sexo }: TabReproductivoProps
         onRegistrarParto={() => setModalActivo('parto')}
       />
 
-      <HistorialReproductivo eventos={historial ?? []} />
+      <HistorialReproductivo eventos={historial ?? []} onCorregirParto={['propietario', 'administrador', 'peon', 'veterinario'].includes(role ?? '') ? (evento) => { setPartoACorregir(evento); setModalActivo('parto'); } : undefined} />
 
       {modalActivo === 'servicio' && (
         <ServicioForm animalId={animalId} onClose={() => setModalActivo(null)} />
@@ -92,8 +94,9 @@ export default function TabReproductivo({ animalId, sexo }: TabReproductivoProps
       {modalActivo === 'parto' && (
         <PartoForm
           animalId={animalId}
+          correccion={partoACorregir}
           eventoServicioId={estado.servicioActivo?.eventoId}
-          onClose={() => setModalActivo(null)}
+          onClose={() => { setModalActivo(null); setPartoACorregir(undefined); }}
         />
       )}
       {modalActivo === 'secado' && (

@@ -6,7 +6,7 @@ import { CLASES_HITO } from '@/lib/reproductivo/estado-colores';
 import type { EstadoReproductivoResponse } from '@/lib/reproductivo/tipos';
 
 /**
- * Reemplaza la "Línea de Tiempo Gestación" que hato/[id]/page.tsx:662-737
+ * Reemplaza la "Línea de tiempo de gestación" que hato/[id]/page.tsx:662-737
  * pintaba con 4 fechas escritas a mano (15/01/2026, 24/02/2026, 01/09/2026,
  * 30/09/2026), visibles en toda hembra aunque nunca hubiera tenido un
  * servicio. Misma estructura visual (timeline alternada), pero los 6 pasos
@@ -33,7 +33,7 @@ export default function LineaTiempoGestacion({ estado }: LineaTiempoGestacionPro
   if (!estado) {
     return (
       <div className="bg-white border border-slate-200 rounded-xl p-6 sm:p-8 shadow-sm">
-        <h3 className="text-lg font-bold text-navy mb-4">Línea de Tiempo Gestación</h3>
+        <h3 className="text-lg font-bold text-navy mb-4">Línea de tiempo de gestación</h3>
         <div className="h-24 rounded-lg bg-slate-100 animate-pulse" aria-hidden />
         <p className="sr-only">Cargando línea de gestación…</p>
       </div>
@@ -45,7 +45,7 @@ export default function LineaTiempoGestacion({ estado }: LineaTiempoGestacionPro
   if (!servicioActivo) {
     return (
       <div className="bg-white border border-slate-200 rounded-xl p-6 sm:p-8 shadow-sm">
-        <h3 className="text-lg font-bold text-navy mb-4">Línea de Tiempo Gestación</h3>
+        <h3 className="text-lg font-bold text-navy mb-4">Línea de tiempo de gestación</h3>
         <p className="text-sm text-slate-400">Sin ciclo reproductivo activo.</p>
       </div>
     );
@@ -95,7 +95,7 @@ export default function LineaTiempoGestacion({ estado }: LineaTiempoGestacionPro
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-6 sm:p-8 shadow-sm">
-      <h3 className="text-lg font-bold text-navy mb-8">Línea de Tiempo Gestación</h3>
+      <h3 className="text-lg font-bold text-navy mb-8">Línea de tiempo de gestación</h3>
 
       <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-slate-200">
         {pasos.map((paso, indice) => (

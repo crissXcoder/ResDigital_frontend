@@ -1,3 +1,5 @@
+import { getHistorialReproductivo } from "@/lib/api/reproductivo";
+import type { EventoHistorial } from "@/lib/reproductivo/tipos";
 import jsPDF from "jspdf";
 import autoTable, { type Table } from "jspdf-autotable";
 import type { Animal, Pesaje } from "@/lib/api/animales";
@@ -27,6 +29,7 @@ export interface ExpedientePdfData {
   estadoReproductivo?: EstadoReproductivoResponse | null;
   estadoSanitario?: EstadoSanitario | null;
   tratamientos?: TratamientoSanitario[];
+  historialReproductivo?: EventoHistorial[];
   nombreFinca?: string;
 }
 
@@ -42,6 +45,7 @@ export function exportarExpedientePdf(data: ExpedientePdfData): void {
     estadoReproductivo,
     estadoSanitario,
     tratamientos = [],
+    historialReproductivo = [],
     nombreFinca,
   } = data;
 
@@ -63,7 +67,7 @@ export function exportarExpedientePdf(data: ExpedientePdfData): void {
   // 2. Finca y Fecha de emisión con zona horaria de Costa Rica
   doc.setFontSize(10);
   doc.setTextColor(100, 116, 139);
-  const fincaTexto = nombreFinca ? `Finca: ${nombreFinca}` : "Finca Activa";
+  const fincaTexto = nombreFinca ? `Finca: ${nombreFinca}` : "Finca activa";
   const fechaEmision = `Fecha de emisión: ${hoyLocal()} (Costa Rica)`;
   doc.text(`${fincaTexto}  |  ${fechaEmision}`, 14, yPos);
   yPos += 10;
@@ -76,7 +80,7 @@ export function exportarExpedientePdf(data: ExpedientePdfData): void {
   doc.text(`Sexo: ${animal.sexo || "N/A"}`, 150, yPos);
   yPos += 7;
 
-  doc.text(`Peso Actual: ${animal.pesoActualKg || 0} kg`, 14, yPos);
+  doc.text(`Peso actual: ${animal.pesoActualKg || 0} kg`, 14, yPos);
   doc.text(`Potrero: ${animal.potrero?.nombre || "N/A"}`, 80, yPos);
   if (animal.fechaNacimiento) {
     doc.text(`Fecha Nac.: ${formatearFechaCivil(animal.fechaNacimiento)}`, 150, yPos);
@@ -90,7 +94,7 @@ export function exportarExpedientePdf(data: ExpedientePdfData): void {
     : "Sin retiros sanitarios activos";
   const estadoReproTexto =
     !isMacho && estadoReproductivo?.estadoActual
-      ? `Estado Reproductivo: ${estadoReproductivo.estadoActual}`
+      ? `Estado reproductivo: ${estadoReproductivo.estadoActual}`
       : null;
 
   doc.setFontSize(9);
@@ -99,7 +103,7 @@ export function exportarExpedientePdf(data: ExpedientePdfData): void {
   } else {
     doc.setTextColor(22, 101, 52);
   }
-  doc.text(`Estado Sanitario: ${estadoSanitarioTexto}`, 14, yPos);
+  doc.text(`Estado sanitario: ${estadoSanitarioTexto}`, 14, yPos);
 
   if (estadoReproTexto) {
     doc.setTextColor(71, 85, 105);
@@ -137,7 +141,7 @@ export function exportarExpedientePdf(data: ExpedientePdfData): void {
 
   // Historial de pesajes
   seccionTabla(
-    "Historial de Pesajes",
+    "Historial de pesajes",
     ["Fecha", "Peso (kg)"],
     pesajes.map((p) => [
       formatearFechaCivil(p.fecha),
@@ -148,7 +152,7 @@ export function exportarExpedientePdf(data: ExpedientePdfData): void {
   // Historial de producción de leche (solo hembras)
   if (!isMacho) {
     seccionTabla(
-      "Historial de Producción de Leche",
+      "Historial de producción de leche",
       ["Fecha", "Turno", "Litros", "Disposición"],
       produccion.map((r) => [
         formatearFechaCivil(r.fecha),
@@ -169,7 +173,7 @@ export function exportarExpedientePdf(data: ExpedientePdfData): void {
     }
     doc.setFontSize(14);
     doc.setTextColor(15, 23, 42);
-    doc.text("Historial Sanitario", 14, yPos);
+    doc.text("Historial sanitario", 14, yPos);
     yPos += 5;
 
     const tableData = tratamientos.map((t) => [
@@ -196,7 +200,7 @@ export function exportarExpedientePdf(data: ExpedientePdfData): void {
     }
     doc.setFontSize(14);
     doc.setTextColor(15, 23, 42);
-    doc.text("Historial Sanitario", 14, yPos);
+    doc.text("Historial sanitario", 14, yPos);
     yPos += 8;
     doc.setFontSize(10);
     doc.setTextColor(100, 116, 139);
@@ -204,49 +208,18 @@ export function exportarExpedientePdf(data: ExpedientePdfData): void {
     yPos += 15;
   }
 
-  // Historial reproductivo (solo si aplica)
-  const serviciosActivos = estadoReproductivo?.servicioActivo
-    ? [estadoReproductivo.servicioActivo]
-    : [];
-  if (serviciosActivos.length > 0) {
-    if (yPos > 240) {
-      doc.addPage();
-      yPos = 20;
-    }
-    doc.setFontSize(14);
-    doc.setTextColor(15, 23, 42);
-    doc.text("Historial Reproductivo", 14, yPos);
-    yPos += 5;
-
-    const tableData = serviciosActivos.map((s) => [
-      s.fechaServicio ? formatearFechaCivil(s.fechaServicio) : "-",
-      s.tipoServicio || "-",
-      s.toroOPajilla || "-",
-      estadoReproductivo?.ultimoDiagnostico?.resultado || "Pendiente",
-    ]);
-
-    autoTable(doc, {
-      startY: yPos,
-      head: [["Fecha", "Tipo", "Toro/Semen", "Estado"]],
-      body: tableData,
-      theme: "striped",
-      styles: { fontSize: 9 },
-      headStyles: { fillColor: [15, 23, 42] },
-    });
-    yPos = ((doc as jsPDF & { lastAutoTable: Table }).lastAutoTable.finalY ?? yPos) + 15;
-  } else {
-    if (yPos > 240) {
-      doc.addPage();
-      yPos = 20;
-    }
-    doc.setFontSize(14);
-    doc.setTextColor(15, 23, 42);
-    doc.text("Historial Reproductivo", 14, yPos);
-    yPos += 8;
-    doc.setFontSize(10);
-    doc.setTextColor(100, 116, 139);
-    doc.text("Sin registros", 14, yPos);
-    yPos += 15;
+  if (!isMacho && estadoReproductivo?.servicioActivo) {
+    const s = estadoReproductivo.servicioActivo;
+    seccionTabla('Servicio activo', ['Fecha', 'Tipo', 'Toro/Semen', 'Estado'], [[
+      formatearFechaCivil(s.fechaServicio), s.tipoServicio, s.toroOPajilla,
+      estadoReproductivo.ultimoDiagnostico?.resultado ?? 'Pendiente',
+    ]]);
+  }
+  if (!isMacho) {
+    seccionTabla("Historial reproductivo", ["Fecha", "Evento", "Vigencia", "Corrección de"],
+      historialReproductivo.map((e) => [formatearFechaCivil(e.fechaEvento),
+        ({ SERVICIO: 'Servicio', DIAGNOSTICO: 'Diagnóstico', PARTO: 'Parto', SECADO: 'Secado' } as Record<string, string>)[e.tipo] ?? e.tipo,
+        e.revertido ? 'Corregido / anulado' : 'Vigente', e.eventoCorrigeId ?? '-']));
   }
 
   // Pie de página legal obligatorio (LEG-T001 / REPORT-T001)
@@ -270,7 +243,7 @@ export function exportarExpedientePdf(data: ExpedientePdfData): void {
   );
 
   // Descarga del archivo
-  doc.save(`Expediente_${animal.areteInterno}_${hoyLocal()}.pdf`);
+  doc.save(`Expediente_${animal.areteInterno}_${animal.id.slice(0, 8)}_${hoyLocal()}.pdf`);
 }
 
 /**
@@ -284,13 +257,14 @@ export async function descargarExpedientePdfPorId(
   const animal = await getAnimal(animalId);
   const isHembra = animal.sexo === "Hembra";
 
-  const [pesajes, produccion, estadoReproductivo, tratamientos, estadoSanitario] =
+  const [pesajes, produccion, estadoReproductivo, tratamientos, estadoSanitario, historialReproductivo] =
     await Promise.all([
-      getPesajesByAnimal(animalId).catch(() => []),
-      isHembra ? getProduccionByAnimal(animalId).catch(() => []) : Promise.resolve([]),
-      isHembra ? getEstadoReproductivo(animalId).catch(() => null) : Promise.resolve(null),
-      getTratamientosByAnimal(animalId).catch(() => []),
-      getEstadoSanitario(animalId).catch(() => null),
+      getPesajesByAnimal(animalId),
+      isHembra ? getProduccionByAnimal(animalId) : Promise.resolve([]),
+      isHembra ? getEstadoReproductivo(animalId) : Promise.resolve(null),
+      getTratamientosByAnimal(animalId),
+      getEstadoSanitario(animalId),
+      isHembra ? getHistorialReproductivo(animalId) : Promise.resolve([]),
     ]);
 
   exportarExpedientePdf({
@@ -301,5 +275,6 @@ export async function descargarExpedientePdfPorId(
     estadoSanitario,
     tratamientos,
     nombreFinca,
+    historialReproductivo,
   });
 }

@@ -39,7 +39,7 @@ describe('RF-001 formularios de acceso', () => {
     render(<LoginForm />);
     fireEvent.change(screen.getByLabelText('Correo electrónico'), { target: { value: 'rf001@example.com' } });
     fireEvent.change(screen.getByLabelText('Contraseña'), { target: { value: randomUUID() } });
-    fireEvent.submit(screen.getByRole('button', { name: 'Iniciar Sesión' }).closest('form')!);
+    fireEvent.submit(screen.getByRole('button', { name: 'Iniciar sesión' }).closest('form')!);
     await waitFor(() => expect(navigation.navigate).toHaveBeenCalledWith('/dashboard'));
   });
 
@@ -47,7 +47,7 @@ describe('RF-001 formularios de acceso', () => {
     render(<LoginForm />);
     fireEvent.change(screen.getByLabelText('Correo electrónico'), { target: { value: 'rf001@example.com' } });
     fireEvent.change(screen.getByLabelText('Contraseña'), { target: { value: randomUUID() } });
-    fireEvent.submit(screen.getByRole('button', { name: 'Iniciar Sesión' }).closest('form')!);
+    fireEvent.submit(screen.getByRole('button', { name: 'Iniciar sesión' }).closest('form')!);
     await waitFor(() => expect(navigation.navigate).toHaveBeenCalledWith('/hato'));
   });
 

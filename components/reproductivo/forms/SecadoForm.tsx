@@ -37,7 +37,7 @@ export default function SecadoForm({ animalId, onClose }: SecadoFormProps) {
   });
 
   return (
-    <ModalFormulario titulo="Registrar secado" onClose={onClose}>
+    <ModalFormulario titulo="Registrar secado" onClose={onClose} pendiente={mutation.isPending}>
       {errorServidor && (
         <div
           role="alert"

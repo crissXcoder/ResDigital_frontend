@@ -21,7 +21,7 @@ function diasRestantesMayor(animal: AnimalEnRetiro): number {
 }
 
 /**
- * Genera el documento PDF del Reporte Ejecutivo de Retiros Sanitarios Activos (REPORT-T001 / REPORT-T002).
+ * Genera el documento PDF del Reporte ejecutivo de retiros sanitarios activos (REPORT-T001 / REPORT-T002).
  * Respeta todas las reglas de la bóveda:
  * - Fecha local civil de Costa Rica
  * - Nombre de finca del usuario autenticado
@@ -35,13 +35,13 @@ export function exportarRetirosPdf(data: AnimalEnRetiro[], nombreFinca?: string)
   // Encabezado
   doc.setFontSize(18);
   doc.setTextColor(15, 23, 42);
-  doc.text('Reporte Ejecutivo de Retiros Sanitarios Activos', 14, yPos);
+  doc.text('Reporte ejecutivo de retiros sanitarios activos', 14, yPos);
   yPos += 8;
 
   // Finca y Fecha de Emisión (Auditoría de vigencia)
   doc.setFontSize(10);
   doc.setTextColor(100, 116, 139);
-  const fincaNombre = nombreFinca ? `Finca: ${nombreFinca}` : 'Finca Activa';
+  const fincaNombre = nombreFinca ? `Finca: ${nombreFinca}` : 'Finca activa';
   const fechaEmision = `Fecha de emisión: ${hoyLocal()} (Costa Rica)`;
   doc.text(`${fincaNombre}  |  ${fechaEmision}`, 14, yPos);
   yPos += 12;

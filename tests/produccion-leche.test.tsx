@@ -57,6 +57,7 @@ const SIN_RETIRO: EstadoSanitario = {
 function registro(parcial: Partial<ProduccionLeche>): ProduccionLeche {
   return {
     id: 'p-1',
+    eventoCorrigeId: null,
     animalId: ANIMAL,
     fecha: '2026-10-01',
     turno: 'MANANA',

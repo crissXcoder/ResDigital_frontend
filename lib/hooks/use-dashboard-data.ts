@@ -122,10 +122,9 @@ export function useKpisDashboard() {
   return useQuery<KpisDashboard>({
     queryKey: dashboardKeys.kpis,
     queryFn: async () => {
-      const [animales, retiros, eventos365, eventosVentana, lactanciasActivas] = await Promise.all([
+      const [animales, retiros, eventosVentana, lactanciasActivas] = await Promise.all([
         getAnimales(),
         getRetirosActivos(),
-        getProximosEventos(365),
         getProximosEventos(),
         getHembrasEnLactancia(),
       ]);
@@ -138,18 +137,7 @@ export function useKpisDashboard() {
       // que puede quedar desactualizada), excluyendo retiro de leche vigente.
       const vacasEnOrdeno = calcularVacasEnOrdeno(lactanciasActivas, activosIds, retiros);
 
-      // B4: Gestantes Confirmadas (solo con diagnóstico positivo vigente)
-      // En la máquina de estados reproductivos, toda hembra 'Preñada' o 'En Secado'
-      // tiene hitos de Parto/Secado/Avisos programados dentro de su gestación (365 días).
-      // Hembras sólo 'Servidas' únicamente emiten 'Palpación'.
-      const gestantesIds = new Set(
-        eventos365
-          .filter((e) =>
-            ["Parto", "Secado", "Aviso Parto", "Aviso Parto Urgente"].includes(e.tipo),
-          )
-          .map((e) => e.animalId),
-      );
-      const gestantesConfirmadas = gestantesIds.size;
+      const gestantesConfirmadas = activos.filter((animal) => animal.estadoReproductivo === 'Preñada' || animal.estadoReproductivo === 'En Secado').length;
 
       // Alertas Activas en ventana: debe contar lo mismo que muestra la campana
       // de notificaciones (construirAlertas) — un animal en retiro de leche Y

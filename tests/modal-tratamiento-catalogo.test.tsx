@@ -56,7 +56,7 @@ async function registrar() {
   fireEvent.change(selectDiagnostico, { target: { value: catalogo.padecimientos[0].id } });
   fireEvent.change(selectFarmaco, { target: { value: catalogo.medicamentos[0].id } });
   fireEvent.change(screen.getByPlaceholderText('ej. 20 ml, 1 jeringa'), { target: { value: '5 ml' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Aplicar Tratamiento' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Registrar tratamiento' }));
 
   await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
   return onSubmit.mock.calls[0][0];

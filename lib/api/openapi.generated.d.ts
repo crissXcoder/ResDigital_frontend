@@ -173,6 +173,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/animales/{id}/historial-bajas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Consultar episodios de baja y retorno sin perder historia */
+        get: operations["AnimalesController_getHistorialBajas"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/animales/{id}/reactivar": {
         parameters: {
             query?: never;
@@ -855,6 +872,17 @@ export interface components {
         CreateAnimalDto: Record<string, never>;
         UpdateAnimalDto: Record<string, never>;
         BajaAnimalDto: Record<string, never>;
+        ReactivarAnimalDto: {
+            /** @enum {string} */
+            modalidad: "RETORNO" | "CORRECCION";
+            /** Format: uuid */
+            eventoBajaId: string;
+            /** @example 2026-10-22 */
+            fechaEvento: string;
+            motivo: string;
+            /** @description Nuevo arete interno si el original ya está asignado. */
+            areteInterno?: string;
+        };
         DocumentoAnimalResponseDto: {
             /** Format: uuid */
             id: string;
@@ -978,6 +1006,10 @@ export interface components {
             eventoServicioId: string;
         };
         DetallePartoDto: {
+            /** Format: uuid */
+            criaAnteriorId?: string | null;
+            /** @enum {string|null} */
+            accionFiliacionAnterior?: "CONSERVAR" | "DESVINCULAR" | null;
             /** Format: uuid */
             eventoServicioId: string | null;
             /** Format: uuid */
@@ -1133,11 +1165,11 @@ export interface components {
              */
             nombre?: string;
             /**
-             * @description Sexo de la cría recién nacida ('Hembra' o 'Macho'). Por defecto: 'Hembra'.
+             * @description Sexo obligatorio de la cría recién nacida ('Hembra' o 'Macho').
              * @example Hembra
              * @enum {string}
              */
-            sexo?: "Hembra" | "Macho";
+            sexo: "Hembra" | "Macho";
             /**
              * @description ID de la raza en catálogo. Si se omite, hereda automáticamente la raza de la madre.
              * @example b1a2c3d4-0000-0000-0000-000000000001
@@ -1206,6 +1238,8 @@ export interface components {
              * @example e1d67412-21d9-482f-870d-f55da282b810
              */
             criaAnimalId?: string;
+            /** @description Confirma que una ficha sin fecha de nacimiento corresponde a esta cría; se registrará la fecha del parto. */
+            confirmarFechaNacimiento?: boolean;
             /** @description Datos para dar de alta la cría en la misma transacción del parto. Mutuamente excluyente con criaAnimalId. */
             nuevaCria?: components["schemas"]["DatosNuevaCriaPartoDto"];
             /**
@@ -1221,8 +1255,14 @@ export interface components {
             observaciones?: string;
             /** @description ID de evento anterior si este registro es una corrección */
             eventoCorrigeId?: string;
+            /** @enum {string} */
+            accionFiliacionAnterior?: "CONSERVAR" | "DESVINCULAR";
         };
         EventoPartoWriteResponseDto: {
+            /** Format: uuid */
+            criaAnteriorId: string | null;
+            /** @enum {string|null} */
+            accionFiliacionAnterior: "CONSERVAR" | "DESVINCULAR" | null;
             /** Format: uuid */
             eventoId: string;
             /** Format: uuid */
@@ -1447,6 +1487,8 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** Format: uuid */
+            eventoCorrigeId: string | null;
+            /** Format: uuid */
             animalId: string;
             /** @example 2026-10-06 */
             fecha: string;
@@ -1518,6 +1560,7 @@ export interface components {
             /** @example 14.5 */
             litros: number;
             notas?: string;
+            motivo?: string;
         };
         AnularProduccionDto: {
             motivo: string;
@@ -1866,7 +1909,7 @@ export interface operations {
             };
         };
     };
-    AnimalesController_reactivar: {
+    AnimalesController_getHistorialBajas: {
         parameters: {
             query?: never;
             header?: never;
@@ -1876,6 +1919,29 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AnimalesController_reactivar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReactivarAnimalDto"];
+            };
+        };
         responses: {
             /** @description Animal reactivado exitosamente en el hato */
             200: {

@@ -97,9 +97,17 @@ export function useRegistrarParto(animalId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: PartoInput) => registrarPartoReproductivo(animalId, data),
-    onSuccess: () => {
+    onSuccess: (result) => {
       invalidar();
       queryClient.invalidateQueries({ queryKey: ['animales'] });
+      queryClient.invalidateQueries({ queryKey: ['descendenciaAnimal', animalId] });
+      queryClient.invalidateQueries({ queryKey: ['criasAnimal', animalId] });
+      if (result.parto.criaAnimalId) {
+        queryClient.invalidateQueries({ queryKey: ['animal', result.parto.criaAnimalId] });
+      }
+      if (result.parto.criaAnteriorId) {
+        queryClient.invalidateQueries({ queryKey: ['animal', result.parto.criaAnteriorId] });
+      }
     },
   });
 }

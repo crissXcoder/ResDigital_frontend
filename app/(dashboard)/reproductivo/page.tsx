@@ -73,7 +73,7 @@ export default function ReproductivoPage() {
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-navy text-white text-sm font-bold rounded-xl hover:bg-navy-light transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer self-start sm:self-auto"
           >
             <Download className="w-4 h-4" />
-            Descargar Reporte PDF
+            Descargar reporte PDF
           </button>
         </div>
 

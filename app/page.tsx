@@ -23,7 +23,7 @@ export default function Home() {
             href="/login"
             className="py-2.5 px-6 rounded-md bg-primary text-primary-foreground font-medium text-sm hover:bg-navy-light transition-colors shadow-sm"
           >
-            Iniciar Sesión
+            Iniciar sesión
           </Link>
           <Link
             href="/registro"

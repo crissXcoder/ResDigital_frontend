@@ -208,6 +208,18 @@ describe('QR Scanner Page (QR-T002)', () => {
     expect(screen.getByText(/seguridad y aislamiento por finca/i)).toBeDefined();
   });
 
+  it('no elige el primer animal cuando un arete exacto tiene historia reutilizada', async () => {
+    Object.defineProperty(navigator, 'mediaDevices', { value: undefined, configurable: true });
+    vi.mocked(animalesApi.getAnimales).mockResolvedValueOnce([
+      { id: '11111111-1111-4111-8111-111111111111', areteInterno: '104', activo: false },
+      { id: '22222222-2222-4222-8222-222222222222', areteInterno: '104', activo: true },
+    ] as animalesApi.Animal[]);
+    render(<QrScannerPage />);
+    fireEvent.change(screen.getByPlaceholderText(/ej\. #104 o diio/i), { target: { value: '104' } });
+    fireEvent.click(screen.getByRole('button', { name: /buscar/i }));
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/hato?buscar=104'));
+  });
+
   it('permite subir un archivo de imagen para escanear', () => {
     Object.defineProperty(navigator, 'mediaDevices', {
       value: { getUserMedia: vi.fn().mockReturnValue(new Promise(() => {})) },

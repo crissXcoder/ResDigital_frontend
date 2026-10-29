@@ -21,6 +21,7 @@ export interface Animal {
   fechaNacimiento?: string;
   categoria: string;
   activo: boolean;
+  estadoReproductivo?: EstadoReproductivoResponse['estadoActual'] | null;
   madreId?: string;
   padreId?: string;
   padreExternoDescripcion?: string | null;
@@ -168,6 +169,17 @@ export const darDeBajaAnimal = async (id: string, data: BajaAnimalInput): Promis
 export const getBajaAnimal = async (id: string): Promise<EventoBajaResponse> => {
   return fetchApi<EventoBajaResponse>(`/animales/${id}/baja`);
 };
+
+export type ReactivarAnimalInput = {
+  modalidad: 'RETORNO' | 'CORRECCION';
+  eventoBajaId: string;
+  fechaEvento: string;
+  motivo: string;
+  areteInterno?: string;
+};
+
+export const reactivarAnimal = async (id: string, data: ReactivarAnimalInput): Promise<Animal> =>
+  fetchApi<Animal>(`/animales/${id}/reactivar`, { method: 'POST', body: JSON.stringify(data) });
 
 export const createPesaje = async (pesaje: CreatePesajeInput): Promise<Pesaje> => {
   return fetchApi<Pesaje>('/pesajes', {

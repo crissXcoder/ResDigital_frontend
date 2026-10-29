@@ -39,7 +39,7 @@ vi.mock('recharts', () => ({
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
-it('carga registros reales, bloquea retiro y guarda el turno nuevo', async () => {
+it('carga registros reales, permite captura en retiro y guarda el turno nuevo', async () => {
   const fecha = '2026-10-21';
   api.getAnimales.mockResolvedValue([
     { id: 'vaca-1', areteInterno: '101', nombre: 'Luna', sexo: 'Hembra', activo: true },
@@ -78,8 +78,8 @@ it('carga registros reales, bloquea retiro y guarda el turno nuevo', async () =>
   expect(screen.getByText('Historial del período')).toBeDefined();
   expect(within(screen.getByRole('table', { name: 'Historial de producción' })).getByText('5.0 L')).toBeDefined();
   fireEvent.change(screen.getByLabelText('Filtrar vacas para registro'), { target: { value: 'todas' } });
-  expect(screen.queryByLabelText('Mañana 102')).toBeNull();
-  expect(screen.getByText('BLOQUEADA')).toBeDefined();
+  expect(screen.getByText('Descarte por retiro')).toBeDefined();
+  expect(screen.getByLabelText('Mañana 102')).toBeDefined();
   fireEvent.change(screen.getByLabelText('Mañana 101'), { target: { value: '12' } });
   fireEvent.click(screen.getByRole('button', { name: /guardar 1 ordeño/i }));
 
@@ -159,11 +159,12 @@ it('permite editar directamente los litros de un registro ya guardado', async ()
   const inputEdicion = screen.getByLabelText('Editar Mañana 101') as HTMLInputElement;
   expect(inputEdicion.value).toBe('6.8');
   fireEvent.change(inputEdicion, { target: { value: '8.5' } });
+  fireEvent.change(screen.getByLabelText('Motivo de corrección'), { target: { value: 'Error de digitación' } });
 
   const botonConfirmar = screen.getByRole('button', { name: 'Confirmar edición' });
   fireEvent.click(botonConfirmar);
 
   await waitFor(() => {
-    expect(api.updateProduccionLeche).toHaveBeenCalledWith('p-1', { litros: 8.5 });
+    expect(api.updateProduccionLeche).toHaveBeenCalledWith('p-1', { litros: 8.5, motivo: 'Error de digitación' });
   });
 });

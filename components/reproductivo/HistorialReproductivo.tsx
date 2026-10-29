@@ -17,9 +17,10 @@ import {
  */
 interface HistorialReproductivoProps {
   eventos: EventoHistorial[];
+  onCorregirParto?: (evento: EventoHistorial & { detalle: import('@/lib/reproductivo/tipos').DetalleParto }) => void;
 }
 
-export default function HistorialReproductivo({ eventos }: HistorialReproductivoProps) {
+export default function HistorialReproductivo({ eventos, onCorregirParto }: HistorialReproductivoProps) {
   if (eventos.length === 0) {
     return (
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-8 text-center text-slate-400">
@@ -64,6 +65,7 @@ export default function HistorialReproductivo({ eventos }: HistorialReproductivo
                 </td>
                 <td className="p-4 pr-6 sm:pr-8">
                   {evento.revertido && <ChipRevertido />}
+                  {!evento.revertido && esDetalleParto(evento) && onCorregirParto && <button type="button" className="rounded border px-3 py-2 text-navy focus-visible:ring-2" onClick={() => onCorregirParto(evento)}>Corregir parto</button>}
                 </td>
               </tr>
             ))}
@@ -98,6 +100,7 @@ function DetalleEvento({ evento }: { evento: EventoHistorial }) {
       <span>
         {desenlace}
         {cria ? ` · cría ${cria}` : ''}
+        {evento.detalle.accionFiliacionAnterior ? ` · Filiación anterior: ${evento.detalle.accionFiliacionAnterior === 'CONSERVAR' ? 'conservada' : 'desvinculada'}` : ''}
       </span>
     );
   }

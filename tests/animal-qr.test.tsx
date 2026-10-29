@@ -38,17 +38,20 @@ describe('Generación de QR Interno Real (QR-T001 / FL-09)', () => {
 
     it('parseAnimalQrPayload valida y extrae el ID de animal de rutas relativas y absolutas', () => {
       // Ruta relativa
-      const relResult = parseAnimalQrPayload('/hato/anim-uuid-456');
+      const relResult = parseAnimalQrPayload('/hato/11111111-1111-4111-8111-111111111111');
       expect(relResult.isValid).toBe(true);
-      expect(relResult.animalId).toBe('anim-uuid-456');
+      expect(relResult.animalId).toBe('11111111-1111-4111-8111-111111111111');
 
       // URL absoluta
-      const absResult = parseAnimalQrPayload('https://resdigital.cr/hato/anim-uuid-456');
+      const absResult = parseAnimalQrPayload('https://resdigital.cr/hato/11111111-1111-4111-8111-111111111111', 'https://resdigital.cr');
       expect(absResult.isValid).toBe(true);
-      expect(absResult.animalId).toBe('anim-uuid-456');
+      expect(absResult.animalId).toBe('11111111-1111-4111-8111-111111111111');
     });
 
     it('parseAnimalQrPayload rechaza payloads inválidos, externos o maliciosos', () => {
+      for (const payload of ['/hato/no-uuid', 'https://phishing.com/hato/11111111-1111-4111-8111-111111111111', 'ftp://localhost/hato/11111111-1111-4111-8111-111111111111', 'http://user:pass@localhost/hato/11111111-1111-4111-8111-111111111111']) {
+        expect(parseAnimalQrPayload(payload).isValid).toBe(false);
+      }
       // URL externa no relacionada
       const extResult = parseAnimalQrPayload('https://phishing.com/animal/123');
       expect(extResult.isValid).toBe(false);

@@ -95,7 +95,7 @@ it('REPORT-T002 / SAN-T004: genera el PDF del reporte ejecutivo de retiros con d
   expect(save).toHaveBeenCalledWith(expect.stringMatching(/^Reporte_Retiros_Sanitarios_.*\.pdf$/));
 
   expect(text).toHaveBeenCalledWith(
-    expect.stringMatching(/Reporte Ejecutivo de Retiros Sanitarios Activos/i),
+    expect.stringMatching(/Reporte ejecutivo de retiros sanitarios activos/i),
     expect.any(Number),
     expect.any(Number),
   );
