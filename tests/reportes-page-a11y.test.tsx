@@ -87,7 +87,7 @@ describe('ReportesPage — accesibilidad de controles del reporte reproductivo (
     expect(screen.getByLabelText('Filtro por Hito')).toBeDefined();
   });
 
-  it('RF-031: doble clic en "Descargar Reporte PDF" (retiros) genera un solo PDF, no dos', () => {
+  it('RF-031: doble clic en "Descargar reporte PDF" (retiros) genera un solo PDF, no dos', () => {
     vi.mocked(dashboardDataModule.useAnimalesEnRetiro).mockReturnValue({
       data: [
         {
@@ -106,7 +106,7 @@ describe('ReportesPage — accesibilidad de controles del reporte reproductivo (
 
     renderWithQueryClient(<ReportesPage />);
 
-    const boton = screen.getByRole('button', { name: 'Descargar Reporte PDF Retiros' });
+    const boton = screen.getByRole('button', { name: 'Descargar reporte PDF Retiros' });
     fireEvent.click(boton);
     fireEvent.click(boton);
     fireEvent.click(boton);

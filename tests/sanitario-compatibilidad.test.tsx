@@ -1,6 +1,6 @@
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ModalTratamiento from '@/components/modals/ModalTratamiento';
 import { medicamentoAplica, padecimientoAplica } from '@/lib/sanitario/compatibilidad';
@@ -38,7 +38,8 @@ vi.mock('@/lib/api/client', () => ({
   ),
 }));
 
-afterEach(cleanup);
+const clients: QueryClient[] = [];
+afterEach(() => { cleanup(); for (const client of clients.splice(0)) client.clear(); });
 
 describe('reglas de compatibilidad por sexo', () => {
   it('oculta a los machos los padecimientos de ubre y reproductivos', () => {
@@ -63,18 +64,19 @@ describe('reglas de compatibilidad por sexo', () => {
   });
 });
 
-function abrirModal(animalSexo: string) {
+async function abrirModal(animalSexo: string) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
+  clients.push(client);
+  await act(async () => { render(
     <QueryClientProvider client={client}>
       <ModalTratamiento isOpen onClose={vi.fn()} onSubmit={vi.fn()} animalSexo={animalSexo} />
     </QueryClientProvider>,
-  );
+  ); });
 }
 
 describe('ModalTratamiento filtra opciones según el sexo del animal', () => {
   it('para un toro no ofrece mastitis, metritis ni productos intramamarios', async () => {
-    abrirModal('Macho');
+    await abrirModal('Macho');
     await screen.findByRole('option', { name: /Parasitosis interna/ });
 
     expect(screen.queryByRole('option', { name: /Mastitis/ })).toBeNull();
@@ -84,7 +86,7 @@ describe('ModalTratamiento filtra opciones según el sexo del animal', () => {
   });
 
   it('para una vaca ofrece todo el catálogo', async () => {
-    abrirModal('Hembra');
+    await abrirModal('Hembra');
     await screen.findByRole('option', { name: /Parasitosis interna/ });
 
     expect(screen.getByRole('option', { name: /Mastitis clínica/ })).toBeDefined();

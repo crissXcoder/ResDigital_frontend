@@ -10,6 +10,7 @@ import { Search, Plus, MoreVertical, Edit2, ArchiveX, SlidersHorizontal, RotateC
 import Link from 'next/link';
 import { ModalEditarAnimal } from '@/components/modals/ModalEditarAnimal';
 import { ModalDarBaja } from '@/components/modals/ModalDarBaja';
+import { ModalReactivarAnimal } from '@/components/modals/ModalReactivarAnimal';
 import { formatearFecha, hoyLocal, normalizarFechaCivil } from '@/lib/reproductivo/fechas';
 import { RequireRole } from '@/components/auth/RequireRole';
 import { ESTADOS_HATO, SEXOS, CATEGORIAS_ANIMAL } from '@/lib/api/catalogos';
@@ -49,7 +50,7 @@ function HatoContent() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (typeof parsed === 'object' && parsed !== null) {
-          return { ...DEFAULT_COLUMNAS, ...parsed };
+          return Object.fromEntries(Object.entries(DEFAULT_COLUMNAS).map(([key, fallback]) => [key, typeof parsed[key] === 'boolean' ? parsed[key] : fallback])) as unknown as ColumnasConfig;
         }
       }
     } catch {
@@ -62,6 +63,7 @@ function HatoContent() {
   const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
   const [editingAnimal, setEditingAnimal] = useState<Animal | null>(null);
   const [bajaAnimal, setBajaAnimal] = useState<Animal | null>(null);
+  const [reactivarAnimalSeleccionado, setReactivarAnimalSeleccionado] = useState<Animal | null>(null);
 
   const actualizarColumna = (key: keyof ColumnasConfig, valor: boolean) => {
     setColumnas((prev) => {
@@ -115,7 +117,7 @@ function HatoContent() {
   );
 
   const limpiarFiltros = () => {
-    setSearchInput({ query: '', value: '' });
+    setSearchInput({ query: queryParam, value: '' });
     setFilterRaza('');
     setFilterEstadoHato('');
     setFilterSexo('');
@@ -189,7 +191,7 @@ function HatoContent() {
         <div className="space-y-3">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" size={18} />
               <input
                 type="text"
                 placeholder="Buscar por arete (#104), nombre o raza..."
@@ -208,7 +210,7 @@ function HatoContent() {
                 aria-expanded={columnMenuOpen}
                 className="w-full sm:w-auto flex items-center justify-center gap-2 px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm bg-white text-slate-700 hover:bg-slate-50 transition-colors font-medium shadow-sm"
               >
-                <SlidersHorizontal size={16} className="text-slate-500" />
+                <SlidersHorizontal size={16} className="text-slate-600" />
                 <span>Columnas</span>
               </button>
 
@@ -218,7 +220,7 @@ function HatoContent() {
                   <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-slate-200 p-3 z-30 animate-in fade-in slide-in-from-top-2 text-xs">
                     <div className="font-bold text-navy pb-2 border-b border-slate-100 flex items-center justify-between">
                       <span>Columnas visibles</span>
-                      <span className="text-[10px] text-slate-400 font-normal">Básicas fijas</span>
+                      <span className="text-[10px] text-slate-600 font-normal">Básicas fijas</span>
                     </div>
                     <div className="py-2 flex gap-2">
                       <button
@@ -354,7 +356,7 @@ function HatoContent() {
           </div>
 
           {/* Indicator & Reset bar */}
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 pt-1">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600 pt-1">
             <span data-testid="contador-animales" className="font-medium text-slate-600">
               Mostrando <span className="font-bold text-navy">{filteredAnimales.length}</span> de <span className="font-bold text-navy">{animales.length}</span> {animales.length === 1 ? 'animal' : 'animales'}
               {hayFiltrosActivos && ' (filtrado)'}
@@ -376,7 +378,7 @@ function HatoContent() {
         <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <div className={`overflow-x-auto ${activeDropdownId ? 'pb-24' : ''}`}>
             <table className="w-full text-left text-sm text-slate-700 whitespace-nowrap">
-              <thead className="bg-white border-b border-slate-200 uppercase text-[10px] tracking-wider text-slate-400 font-bold">
+              <thead className="bg-white border-b border-slate-200 uppercase text-[10px] tracking-wider text-slate-600 font-bold">
                 <tr>
                   <th className="px-6 py-4">Foto</th>
                   <th className="px-6 py-4">Arete #</th>
@@ -393,7 +395,7 @@ function HatoContent() {
               <tbody className="divide-y divide-slate-100">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={visibleColumnCount} className="text-center py-12 text-slate-500 font-medium">Cargando inventario...</td>
+                    <td colSpan={visibleColumnCount} className="text-center py-12 text-slate-600 font-medium">Cargando inventario...</td>
                   </tr>
                 ) : error ? (
                   <tr>
@@ -401,7 +403,7 @@ function HatoContent() {
                   </tr>
                 ) : filteredAnimales.length === 0 ? (
                   <tr>
-                    <td colSpan={visibleColumnCount} className="text-center py-12 text-slate-500 font-medium">
+                    <td colSpan={visibleColumnCount} className="text-center py-12 text-slate-600 font-medium">
                       <div className="space-y-2">
                         <p>No se encontraron animales con los filtros seleccionados.</p>
                         {hayFiltrosActivos && (
@@ -424,7 +426,7 @@ function HatoContent() {
                         {animal.fotoUrl ? (
                           <img src={animal.fotoUrl} alt="Foto" className="w-12 h-12 rounded-xl object-cover border border-slate-200" />
                         ) : (
-                          <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center border border-slate-200 text-slate-400 text-xl">
+                          <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center border border-slate-200 text-slate-600 text-xl">
                             🐄
                           </div>
                         )}
@@ -439,7 +441,7 @@ function HatoContent() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="font-bold text-navy">{animal.nombre || 'Sin nombre'}</div>
-                        <div className="text-slate-400 text-xs mt-0.5">{animal.sexo || 'Hembra'}</div>
+                        <div className="text-slate-600 text-xs mt-0.5">{animal.sexo || 'Hembra'}</div>
                       </td>
                       {columnas.raza && (
                         <td className="px-6 py-4 text-slate-600 text-xs max-w-[150px] truncate">
@@ -449,7 +451,7 @@ function HatoContent() {
                       {columnas.edad && (
                         <td className="px-6 py-4">
                           <div className="text-slate-600 text-xs">{animal.fechaNacimiento ? formatearFecha(animal.fechaNacimiento) : 'N/A'}</div>
-                          <div className="text-blue-500 text-xs font-semibold mt-0.5">
+                          <div className="text-blue-700 text-xs font-semibold mt-0.5">
                             {(() => {
                               if (!animal.fechaNacimiento) return '-';
                               const fechaNacimiento = normalizarFechaCivil(animal.fechaNacimiento);
@@ -486,9 +488,9 @@ function HatoContent() {
                       {columnas.estadoReproductivo && (
                         <td className="px-6 py-4 text-slate-600 text-xs">
                           {animal.sexo === 'Hembra' ? (
-                            <StatusBadge status="Sin Diagnóstico" />
+                            <StatusBadge status={animal.estadoReproductivo ?? 'Sin diagnóstico'} />
                           ) : (
-                            <span className="text-slate-400 font-medium">N/A</span>
+                            <span className="text-slate-600 font-medium">N/A</span>
                           )}
                         </td>
                       )}
@@ -497,7 +499,7 @@ function HatoContent() {
                       </td>
                       {columnas.potrero && (
                         <td className="px-6 py-4 text-slate-600 text-xs">
-                          {animal.potrero?.nombre || 'Potrero #1'}
+                          {animal.potrero?.nombre || 'Sin potrero asignado'}
                         </td>
                       )}
                       <td className="px-6 py-4">
@@ -509,7 +511,7 @@ function HatoContent() {
                           <RequireRole roles={['propietario', 'administrador']}><div className="relative">
                             <button
                               onClick={() => setActiveDropdownId(activeDropdownId === animal.id ? null : animal.id)}
-                              className="p-1.5 text-slate-400 hover:text-navy border border-slate-200 rounded-full hover:bg-slate-50 transition-colors"
+                              className="p-1.5 text-slate-600 hover:text-navy border border-slate-200 rounded-full hover:bg-slate-50 transition-colors"
                             >
                               <MoreVertical size={16} />
                             </button>
@@ -525,15 +527,15 @@ function HatoContent() {
                                 >
                                   <Edit2 size={16} /> Editar datos
                                 </button>
-                                <button
-                                  onClick={() => {
-                                    setBajaAnimal(animal);
-                                    closeDropdown();
-                                  }}
-                                  className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                                >
-                                  <ArchiveX size={16} /> Dar de baja
-                                </button>
+                                {animal.activo ? (
+                                  <button onClick={() => { setBajaAnimal(animal); closeDropdown(); }} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                                    <ArchiveX size={16} /> Dar de baja
+                                  </button>
+                                ) : (
+                                  <button onClick={() => { setReactivarAnimalSeleccionado(animal); closeDropdown(); }} className="w-full px-4 py-2 text-left text-sm text-emerald-700 hover:bg-emerald-50">
+                                    Reactivar con trazabilidad
+                                  </button>
+                                )}
                               </div>
                             )}
                           </div></RequireRole>
@@ -563,6 +565,7 @@ function HatoContent() {
         onClose={() => setBajaAnimal(null)}
         animal={bajaAnimal}
       />
+      <ModalReactivarAnimal animal={reactivarAnimalSeleccionado} onClose={() => setReactivarAnimalSeleccionado(null)} />
     </main>
   );
 }
@@ -572,7 +575,7 @@ export default function HatoPage() {
     <Suspense
       fallback={
         <main className="p-6 md:p-8">
-          <div className="max-w-[1400px] mx-auto text-slate-500 font-medium">
+          <div className="max-w-[1400px] mx-auto text-slate-600 font-medium">
             Cargando inventario del hato...
           </div>
         </main>

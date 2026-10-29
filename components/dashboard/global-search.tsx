@@ -159,6 +159,7 @@ export function GlobalSearch() {
                           </span>
                         </div>
                         <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
+                          <span>{animal.activo ? 'Activo' : 'Baja'} · {animal.id.slice(0, 8)}</span>
                           {animal.numeroOficialDiio && (
                             <span className="text-[11px] text-slate-600 font-mono">
                               DIIO: {animal.numeroOficialDiio}

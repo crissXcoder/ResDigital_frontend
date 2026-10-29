@@ -30,6 +30,7 @@ function valores(parcial: Partial<PartoFormValues> = {}): PartoFormValues {
     eventoServicioId: '',
     modalidadCria: 'ninguna',
     criaAnimalId: '',
+    confirmarFechaNacimiento: false,
     areteInterno: '',
     sexo: '',
     pesoNacimientoKg: '',
@@ -71,7 +72,7 @@ describe('partoSchema y payload de modalidades', () => {
 
   it('el payload de cría nueva incluye nuevaCria.areteInterno y no criaAnimalId', () => {
     const payload = partoAPayload(
-      valores({ modalidadCria: 'nueva', areteInterno: 'CR-2026-001' }),
+      valores({ modalidadCria: 'nueva', areteInterno: 'CR-2026-001', sexo: 'Hembra' }),
     );
     expect(payload.nuevaCria?.areteInterno).toBe('CR-2026-001');
     expect(payload.criaAnimalId).toBeUndefined();

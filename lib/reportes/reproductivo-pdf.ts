@@ -5,7 +5,7 @@ import type { ProximoEvento } from "@/lib/api/reproductivo";
 import type { TipoEventoFeed } from "@/lib/reproductivo/tipos";
 
 /**
- * Genera el documento PDF de Programación Reproductiva y Partos Proyectados (REPORT-T001 / REPORT-T002).
+ * Genera el documento PDF de Programación reproductiva y partos proyectados (REPORT-T001 / REPORT-T002).
  */
 export function exportarReproductivoPdf(params: {
   eventos: ProximoEvento[];
@@ -22,13 +22,13 @@ export function exportarReproductivoPdf(params: {
   // Encabezado
   doc.setFontSize(18);
   doc.setTextColor(15, 23, 42);
-  doc.text('Programación Reproductiva y Partos Proyectados', 14, yPos);
+  doc.text('Programación reproductiva y partos proyectados', 14, yPos);
   yPos += 8;
 
   // Finca y Fecha de Emisión
   doc.setFontSize(10);
   doc.setTextColor(100, 116, 139);
-  const fincaNombre = nombreFinca ? `Finca: ${nombreFinca}` : 'Finca Activa';
+  const fincaNombre = nombreFinca ? `Finca: ${nombreFinca}` : 'Finca activa';
   const fechaEmision = `Fecha de emisión: ${hoyLocal()} (Costa Rica)`;
   doc.text(`${fincaNombre}  |  ${fechaEmision}`, 14, yPos);
   yPos += 6;

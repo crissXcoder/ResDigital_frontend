@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
+import { Dialog } from 'radix-ui';
 import { X, Upload, Download, FileText, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -24,14 +25,19 @@ export default function ModalCargaMasivaProduccion({
 }: ModalCargaMasivaProduccionProps) {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const opener = useRef<HTMLElement | null>(null);
 
   const [archivo, setArchivo] = useState<File | null>(null);
   const [filas, setFilas] = useState<FilaImportarProduccionLeche[]>([]);
   const [errores, setErrores] = useState<string[]>([]);
   const [resultadoExitoso, setResultadoExitoso] = useState<ImportarLoteResponse | null>(null);
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
+  const [leyendoArchivo, setLeyendoArchivo] = useState(false);
+  const lecturaActual = useRef(0);
 
   const resetState = () => {
+    lecturaActual.current++;
+    setLeyendoArchivo(false);
     setArchivo(null);
     setFilas([]);
     setErrores([]);
@@ -41,6 +47,7 @@ export default function ModalCargaMasivaProduccion({
   };
 
   const handleCerrar = () => {
+    if (ocupado) return;
     resetState();
     onClose();
   };
@@ -61,6 +68,8 @@ export default function ModalCargaMasivaProduccion({
     },
   });
 
+  const ocupado = leyendoArchivo || importMutation.isPending;
+
   if (!isOpen) return null;
 
   const descargarPlantilla = () => {
@@ -77,23 +86,31 @@ export default function ModalCargaMasivaProduccion({
   };
 
   const procesarArchivo = (file: File) => {
+    const idLectura = ++lecturaActual.current;
     setArchivo(file);
+    setFilas([]);
+    setErrores([]);
     setErrorServidor(null);
     setResultadoExitoso(null);
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result;
-      if (typeof text === 'string') {
-        const { filas: parsedFilas, errores: parsedErrores } = parsearCsvProduccion(text);
-        setFilas(parsedFilas);
-        setErrores(parsedErrores);
+    setLeyendoArchivo(false);
+    if (file.size > 4 * 1024 * 1024) {
+      setErrores(['El archivo supera el tamaño máximo de 4 MiB.']);
+      return;
+    }
+    setLeyendoArchivo(true);
+    void file.arrayBuffer().then((buffer) => {
+      if (lecturaActual.current !== idLectura) return;
+      const text = new TextDecoder('utf-8', { fatal: true }).decode(buffer);
+      const { filas: parsedFilas, errores: parsedErrores } = parsearCsvProduccion(text);
+      setFilas(parsedFilas);
+      setErrores(parsedErrores);
+    }).catch(() => {
+      if (lecturaActual.current === idLectura) {
+        setErrores(['No se pudo leer el archivo como texto UTF-8 válido.']);
       }
-    };
-    reader.onerror = () => {
-      setErrores(['Error al leer el archivo. Asegúrese de que sea un archivo de texto CSV válido.']);
-    };
-    reader.readAsText(file, 'UTF-8');
+    }).finally(() => {
+      if (lecturaActual.current === idLectura) setLeyendoArchivo(false);
+    });
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -115,14 +132,14 @@ export default function ModalCargaMasivaProduccion({
   const litrosTotalesEstimados = Math.round(filas.reduce((acc, f) => acc + f.litros, 0) * 10) / 10;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={handleCerrar} />
+    <Dialog.Root open onOpenChange={(open) => { if (!open) handleCerrar(); }}><Dialog.Portal>
+      <Dialog.Overlay className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm" />
 
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
+      <Dialog.Content onOpenAutoFocus={() => { opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; }} onCloseAutoFocus={(event) => { event.preventDefault(); if (opener.current?.isConnected) opener.current.focus(); }} aria-describedby={undefined} aria-busy={ocupado} onEscapeKeyDown={(event) => { if (ocupado) event.preventDefault(); }} onPointerDownOutside={(event) => { if (ocupado) event.preventDefault(); }} className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-white rounded-2xl shadow-xl w-[calc(100%-2rem)] max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-100">
           <div>
-            <h2 className="text-xl font-bold text-navy">Carga masiva de producción lechera</h2>
+            <Dialog.Title className="text-xl font-bold text-navy">Carga masiva de producción lechera</Dialog.Title>
             <p className="text-xs text-slate-500 mt-0.5">
               Importe los ordeños de múltiples animales de una sola jornada mediante archivo CSV
             </p>
@@ -130,6 +147,7 @@ export default function ModalCargaMasivaProduccion({
           <button
             type="button"
             onClick={handleCerrar}
+            disabled={ocupado}
             aria-label="Cerrar modal"
             className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
           >
@@ -169,7 +187,7 @@ export default function ModalCargaMasivaProduccion({
               <div className="pt-4">
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={handleCerrar}
                   className="px-6 py-2.5 bg-navy text-white text-sm font-semibold rounded-lg hover:bg-navy-light transition-colors"
                 >
                   Entendido y cerrar
@@ -201,7 +219,8 @@ export default function ModalCargaMasivaProduccion({
               <div
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
+                role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); fileInputRef.current?.click(); } }}
+                onClick={(event) => { if (event.target !== fileInputRef.current) fileInputRef.current?.click(); }}
                 className="border-2 border-dashed border-slate-300 hover:border-navy-light rounded-xl p-6 text-center cursor-pointer transition-colors bg-slate-50/50 hover:bg-slate-50"
               >
                 <input
@@ -209,7 +228,8 @@ export default function ModalCargaMasivaProduccion({
                   type="file"
                   accept=".csv,text/csv"
                   onChange={handleFileChange}
-                  className="hidden"
+                  aria-label="Archivo CSV de producción"
+                  className="sr-only"
                 />
                 <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center text-slate-400 mx-auto mb-2 border border-slate-200">
                   <Upload className="w-6 h-6 text-navy" />
@@ -218,7 +238,10 @@ export default function ModalCargaMasivaProduccion({
                   {archivo ? archivo.name : 'Haz clic o arrastra aquí tu archivo CSV'}
                 </p>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Archivos delimitados por comas (.csv), codificación UTF-8 (máximo 200 filas)
+                  CSV UTF-8 (máximo 200 filas y 4 MiB)
+                </p>
+                <p aria-live="polite" className="text-xs text-slate-500 mt-1">
+                  {leyendoArchivo ? 'Leyendo archivo…' : ''}
                 </p>
               </div>
 
@@ -274,7 +297,7 @@ export default function ModalCargaMasivaProduccion({
                             <td className="px-3 py-2 text-slate-400 font-mono">{idx + 1}</td>
                             <td className="px-3 py-2 font-medium text-slate-800">{f.fecha}</td>
                             <td className="px-3 py-2">{f.turno === 'MANANA' ? 'Mañana' : 'Tarde'}</td>
-                            <td className="px-3 py-2 font-bold text-navy">#{f.areteInterno}</td>
+                            <td className="px-3 py-2 font-bold text-navy">{f.areteInterno}</td>
                             <td className="px-3 py-2 text-right font-semibold text-slate-800">{f.litros} L</td>
                             <td className="px-3 py-2 text-slate-500 max-w-[160px] truncate">{f.notas || '-'}</td>
                           </tr>
@@ -294,7 +317,7 @@ export default function ModalCargaMasivaProduccion({
             <button
               type="button"
               onClick={handleCerrar}
-              disabled={importMutation.isPending}
+              disabled={ocupado}
               className="flex-1 py-2.5 px-4 bg-white border border-slate-200 text-slate-700 text-sm font-semibold rounded-lg hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 disabled:opacity-50"
             >
               Cancelar
@@ -302,7 +325,7 @@ export default function ModalCargaMasivaProduccion({
             <button
               type="button"
               onClick={handleConfirmar}
-              disabled={filas.length === 0 || errores.length > 0 || importMutation.isPending}
+              disabled={filas.length === 0 || errores.length > 0 || ocupado}
               className="flex-1 py-2.5 px-4 bg-navy text-white text-sm font-semibold rounded-lg hover:bg-navy-light transition-colors shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy-light disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {importMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -310,7 +333,7 @@ export default function ModalCargaMasivaProduccion({
             </button>
           </div>
         )}
-      </div>
-    </div>
+      </Dialog.Content>
+    </Dialog.Portal></Dialog.Root>
   );
 }

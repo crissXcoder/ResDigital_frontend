@@ -37,7 +37,7 @@ const tratamiento = {
   fechaRegistro: '2026-10-01T10:00:00Z',
 } satisfies TratamientoSanitario;
 const produccion: ProduccionLeche[] = [{
-  id: 'p-1', animalId: 'animal-1', fecha: '2026-10-02', turno: 'TARDE', litros: 7, disposicion: 'DESCARTE',
+  id: 'p-1', eventoCorrigeId: null, animalId: 'animal-1', fecha: '2026-10-02', turno: 'TARDE', litros: 7, disposicion: 'DESCARTE',
   tratamientoEventoId: 't-1', fechaLiberacionLeche: '2099-01-01', revertido: false, usuarioId: 'u-1', notas: null,
   fechaRegistro: '2026-10-02T18:00:00Z',
 }];

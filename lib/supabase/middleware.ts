@@ -11,7 +11,7 @@ export async function updateSession(request: NextRequest) {
   });
   const pathname = request.nextUrl.pathname;
   const isProtectedRoute = ['/dashboard', '/hato', '/sanitario', '/reproductivo',
-    '/potreros', '/leche', '/reportes', '/qr'].some((route) => pathname === route || pathname.startsWith(`${route}/`));
+    '/potreros', '/leche', '/produccion', '/equipo', '/reportes', '/qr'].some((route) => pathname === route || pathname.startsWith(`${route}/`));
   const loginUrl = request.nextUrl.clone();
   loginUrl.pathname = '/login';
   loginUrl.search = '';
@@ -52,13 +52,8 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Soporte para pruebas automatizadas E2E (Playwright) en desarrollo/test
-  const isE2EBypass =
-    process.env.NODE_ENV !== 'production' &&
-    request.cookies.get('playwright_test_session')?.value === 'true';
-
   let redirectUrl;
-  if (isProtectedRoute && !user && !isE2EBypass) {
+  if (isProtectedRoute && !user) {
     redirectUrl = loginUrl;
   }
 

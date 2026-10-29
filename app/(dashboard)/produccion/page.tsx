@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { AlertTriangle, Check, Edit2, Loader2, Save, Upload, X } from 'lucide-react';
+import { Check, Edit2, Loader2, Save, Upload, X } from 'lucide-react';
 import { getAnimales } from '@/lib/api/animales';
 import { getRetirosActivos } from '@/lib/api/sanitary';
 import {
@@ -47,6 +47,7 @@ export default function ProduccionPage() {
   const [isCargaMasivaOpen, setIsCargaMasivaOpen] = useState(false);
   const [editandoRegistroId, setEditandoRegistroId] = useState<string | null>(null);
   const [editandoLitros, setEditandoLitros] = useState('');
+  const [motivoEdicion, setMotivoEdicion] = useState('');
   const [guardandoEdicion, setGuardandoEdicion] = useState(false);
   const hoy = hoyLocal();
   const fechaValida = /^\d{4}-\d{2}-\d{2}$/.test(fecha) && fecha <= hoy;
@@ -118,7 +119,7 @@ export default function ProduccionPage() {
   const pendientes = filas.flatMap(({ animal, registros, retiro, lactante }) =>
     (['MANANA', 'TARDE'] as const).flatMap((turno) => {
       const texto = valores[animal.id]?.[turno] ?? '';
-      return !retiro && lactante && !registros.some((r) => r.turno === turno) && texto !== ''
+      return lactante && !registros.some((r) => r.turno === turno) && texto !== ''
         ? [{ animal, turno, texto }] : [];
     }),
   );
@@ -149,7 +150,7 @@ export default function ProduccionPage() {
     const coincide = !busca || animal.areteInterno.toLowerCase().includes(busca) ||
       (animal.nombre ?? '').toLowerCase().includes(busca);
     if (!coincide) return false;
-    const porRegistrar = lactante && !retiro && registros.length < 2;
+    const porRegistrar = lactante && registros.length < 2;
     if (filtroDiario === 'por-registrar') return porRegistrar;
     if (filtroDiario === 'aptas') return lactante && !retiro;
     if (filtroDiario === 'bloqueadas') return retiro;
@@ -179,6 +180,7 @@ export default function ProduccionPage() {
   const iniciarEdicion = (registro: ProduccionLeche) => {
     setEditandoRegistroId(registro.id);
     setEditandoLitros(String(registro.litros));
+    setMotivoEdicion('');
     setError('');
     setMensaje('');
   };
@@ -186,10 +188,15 @@ export default function ProduccionPage() {
   const cancelarEdicion = () => {
     setEditandoRegistroId(null);
     setEditandoLitros('');
+    setMotivoEdicion('');
   };
 
   const guardarEdicion = async (registroId: string, animalId: string) => {
     const texto = editandoLitros.trim();
+    if (motivoEdicion.trim().length < 3) {
+      setError('Indicá el motivo de la corrección (mínimo 3 caracteres).');
+      return;
+    }
     if (!Number.isFinite(Number(texto)) || Number(texto) <= 0 ||
       Number(texto) > MAX_LITROS_TURNO || !/^\d+(\.\d)?$/.test(texto)) {
       setError(`Los litros deben estar entre 0.1 y ${MAX_LITROS_TURNO}, con un decimal como máximo.`);
@@ -200,9 +207,11 @@ export default function ProduccionPage() {
     try {
       await updateProduccionLeche(registroId, {
         litros: Math.round(Number(texto) * 10) / 10,
+        motivo: motivoEdicion.trim(),
       });
       setEditandoRegistroId(null);
       setEditandoLitros('');
+      setMotivoEdicion('');
       setMensaje('Registro de producción actualizado correctamente.');
       await queryClient.invalidateQueries({ queryKey: ['produccionRegistros'] });
       await queryClient.invalidateQueries({ queryKey: ['produccionResumen'] });
@@ -255,8 +264,8 @@ export default function ProduccionPage() {
       <div className="mx-auto max-w-7xl space-y-5">
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-extrabold text-navy">Producción Lechera</h1>
-            <p className="mt-1 text-sm text-slate-500">Registro diario de litros por vaca. Las hembras en retiro sanitario se muestran bloqueadas.</p>
+            <h1 className="text-2xl font-extrabold text-navy">Producción lechera</h1>
+            <p className="mt-1 text-sm text-slate-600">Registro diario de litros por vaca. La producción en retiro sanitario se registra como descarte; no se comercializa.</p>
           </div>
           <RequireRole roles={['propietario', 'administrador', 'peon']}>
             <button
@@ -264,7 +273,7 @@ export default function ProduccionPage() {
               onClick={() => setIsCargaMasivaOpen(true)}
               className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-navy shadow-sm transition hover:bg-slate-50 hover:border-slate-300"
             >
-              <Upload className="h-4 w-4 text-slate-500" />
+              <Upload className="h-4 w-4 text-slate-600" />
               Carga masiva (CSV)
             </button>
           </RequireRole>
@@ -272,21 +281,21 @@ export default function ProduccionPage() {
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[
             ['PRODUCCIÓN TOTAL', LITROS(manana + tarde), 'text-navy', 'Mañana + Tarde'],
-            ['ORDEÑO MAÑANA', LITROS(manana), 'text-emerald-600', 'Turno AM'],
-            ['ORDEÑO TARDE', LITROS(tarde), 'text-amber-600', 'Turno PM'],
-            ['VACAS BLOQUEADAS', String(bloqueadas), 'text-red-600', 'En retiro de leche'],
+            ['ORDEÑO MAÑANA', LITROS(manana), 'text-emerald-700', 'Turno AM'],
+            ['ORDEÑO TARDE', LITROS(tarde), 'text-amber-800', 'Turno PM'],
+            ['VACAS EN RETIRO', String(bloqueadas), 'text-red-600', 'En retiro de leche'],
           ].map(([titulo, valor, color, pie]) => (
             <div key={titulo} className="rounded-2xl bg-white p-5 shadow-sm">
-              <p className="text-xs font-bold tracking-wide text-slate-500">{titulo}</p>
+              <p className="text-xs font-bold tracking-wide text-slate-600">{titulo}</p>
               <p className={`mt-2 text-3xl font-extrabold ${color}`}>{cargando ? '…' : valor}</p>
-              <p className="text-xs text-slate-400">{pie}</p>
+              <p className="text-xs text-slate-600">{pie}</p>
             </div>
           ))}
         </div>
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
           <section className="overflow-hidden rounded-2xl bg-white shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-5">
-              <div><h2 className="font-bold text-navy">Registro Diario</h2><p className="text-xs text-slate-500">Litros por vaca para la fecha seleccionada</p></div>
+              <div><h2 className="font-bold text-navy">Registro diario</h2><p className="text-xs text-slate-600">Litros por vaca para la fecha seleccionada</p></div>
               <input aria-label="Fecha de producción" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" type="date" max={hoy} value={fecha} onChange={(event) => cambiarFecha(event.target.value)} />
             </div>
             <div className="flex flex-wrap gap-3 border-b border-slate-100 p-4">
@@ -302,23 +311,23 @@ export default function ProduccionPage() {
             {error && <p role="alert" className="m-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
             {mensaje && <p role="status" className="m-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">{mensaje}</p>}
             {!fechaValida ? <p className="p-8 text-center text-red-600">Seleccione una fecha válida que no sea futura.</p> :
-              cargando ? <p className="flex items-center justify-center gap-2 p-10 text-slate-500"><Loader2 size={18} className="animate-spin" /> Cargando producción…</p> :
+              cargando ? <p className="flex items-center justify-center gap-2 p-10 text-slate-600"><Loader2 size={18} className="animate-spin" /> Cargando producción…</p> :
               fallo ? <p className="p-10 text-center text-red-600">No se pudieron cargar todos los datos de producción y sanidad.</p> :
-              filas.length === 0 ? <p className="p-10 text-center text-slate-500">No hay hembras activas.</p> :
-              filasFiltradas.length === 0 ? <p className="p-10 text-center text-slate-500">No hay vacas que coincidan con el filtro y la fecha seleccionada.</p> :
+              filas.length === 0 ? <p className="p-10 text-center text-slate-600">No hay hembras activas.</p> :
+              filasFiltradas.length === 0 ? <p className="p-10 text-center text-slate-600">No hay vacas que coincidan con el filtro y la fecha seleccionada.</p> :
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[700px] text-sm">
-                  <thead className="bg-slate-50 text-xs uppercase text-slate-400"><tr>
+                  <thead className="bg-slate-50 text-xs uppercase text-slate-600"><tr>
                     <th className="p-3 text-left">Animal</th><th className="p-3 text-left">Raza</th>
                     <th className="p-3 text-center">Mañana (L)</th><th className="p-3 text-center">Tarde (L)</th>
                     <th className="p-3 text-center">Total (L)</th><th className="p-3 text-center">Estado</th>
                   </tr></thead>
                   <tbody>{filasPagina.map(({ animal, registros, retiro, fechaLiberacion, lactante }) => {
                     const total = SUMAR(registros) +
-                      (retiro || !lactante ? 0 : (Number(valores[animal.id]?.MANANA) || 0) + (Number(valores[animal.id]?.TARDE) || 0));
+                      (!lactante ? 0 : (Number(valores[animal.id]?.MANANA) || 0) + (Number(valores[animal.id]?.TARDE) || 0));
                     return <tr key={animal.id} className={`border-t border-slate-100 ${retiro ? 'bg-amber-50/40' : ''}`}>
-                      <td className="p-3"><Link href={`/hato/${animal.id}?tab=produccion`} className="font-bold text-navy hover:text-sky-700">#{animal.areteInterno}</Link><span className="block text-xs text-slate-500">{animal.nombre || 'Sin nombre'}</span></td>
-                      <td className="p-3 text-xs text-slate-500">{animal.raza?.nombre || animal.razaOtra || 'Sin raza'}</td>
+                      <td className="p-3"><Link href={`/hato/${animal.id}?tab=produccion`} className="font-bold text-navy hover:text-sky-700">#{animal.areteInterno}</Link><span className="block text-xs text-slate-600">{animal.nombre || 'Sin nombre'}</span></td>
+                      <td className="p-3 text-xs text-slate-600">{animal.raza?.nombre || animal.razaOtra || 'Sin raza'}</td>
                       {(['MANANA', 'TARDE'] as const).map((turno) => {
                         const registro = registros.find((r) => r.turno === turno);
                         const enEdicion = registro && editandoRegistroId === registro.id;
@@ -341,13 +350,14 @@ export default function ProduccionPage() {
                                 }}
                                 autoFocus
                               />
+                              <input aria-label="Motivo de corrección" className="w-36 rounded border px-1.5 py-1 text-xs" value={motivoEdicion} onChange={(e) => setMotivoEdicion(e.target.value)} placeholder="Motivo requerido" disabled={guardandoEdicion} />
                               <button
                                 type="button"
                                 title="Guardar cambios"
                                 aria-label="Confirmar edición"
                                 onClick={() => void guardarEdicion(registro.id, animal.id)}
-                                disabled={guardandoEdicion}
-                                className="rounded p-1 text-emerald-600 hover:bg-emerald-50 disabled:opacity-50"
+                                disabled={guardandoEdicion || motivoEdicion.trim().length < 3}
+                                className="rounded p-1 text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
                               >
                                 {guardandoEdicion ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
                               </button>
@@ -357,7 +367,7 @@ export default function ProduccionPage() {
                                 aria-label="Cancelar edición"
                                 onClick={cancelarEdicion}
                                 disabled={guardandoEdicion}
-                                className="rounded p-1 text-slate-400 hover:bg-slate-100 disabled:opacity-50"
+                                className="rounded p-1 text-slate-600 hover:bg-slate-100 disabled:opacity-50"
                               >
                                 <X size={14} />
                               </button>
@@ -373,22 +383,14 @@ export default function ProduccionPage() {
                                   onClick={() => iniciarEdicion(registro)}
                                   title={`Modificar litros de ${turno === 'MANANA' ? 'mañana' : 'tarde'}`}
                                   aria-label={`Modificar ${turno === 'MANANA' ? 'Mañana' : 'Tarde'} ${animal.areteInterno}`}
-                                  className="opacity-0 group-hover:opacity-100 focus:opacity-100 rounded p-1 text-slate-400 hover:text-navy hover:bg-slate-100 transition"
+                                  className="opacity-0 group-hover:opacity-100 focus:opacity-100 rounded p-1 text-slate-600 hover:text-navy hover:bg-slate-100 transition"
                                 >
                                   <Edit2 size={13} />
                                 </button>
                               </RequireRole>
                             </div>
                           )
-                        ) : retiro ? (
-                            <span
-                              title={`En retiro sanitario hasta el ${fechaLiberacion ? formatearFecha(fechaLiberacion) : 'próximos días'}. No comercializar.`}
-                              className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-100/70 border border-amber-200/80 rounded-md px-2 py-1 cursor-help"
-                            >
-                              <AlertTriangle className="w-3 h-3 text-amber-600" />
-                              Retiro
-                            </span>
-                          ) : !lactante ? <span className="text-slate-400">—</span> :
+                        ) : !lactante ? <span className="text-slate-600">—</span> :
                           <input aria-label={`${turno === 'MANANA' ? 'Mañana' : 'Tarde'} ${animal.areteInterno}`} className="w-24 rounded-lg border border-slate-200 px-2 py-2 text-center" type="number" min="0.1" max={MAX_LITROS_TURNO} step="0.1" placeholder="0.0" value={valores[animal.id]?.[turno] ?? ''} onChange={(event) => cambiarLitros(animal.id, turno, event.target.value)} />}</td>;
                       })}
                       <td className="p-3 text-center font-bold text-navy">{total ? LITROS(total) : '—'}</td>
@@ -398,7 +400,7 @@ export default function ProduccionPage() {
                             title={`Retiro activo hasta el ${fechaLiberacion ? formatearFecha(fechaLiberacion) : 'próximos días'}`}
                             className="inline-flex flex-col items-center rounded-lg px-2.5 py-1 text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300"
                           >
-                            <span>BLOQUEADA</span>
+                            <span>Descarte por retiro</span>
                             {fechaLiberacion && (
                               <span className="text-[10px] font-normal text-amber-700">
                                 Hasta {formatearFecha(fechaLiberacion)}
@@ -417,10 +419,10 @@ export default function ProduccionPage() {
                       </td>
                     </tr>;
                   })}</tbody>
-                  <tfoot><tr className="border-t-2 border-slate-100 font-bold"><td colSpan={2} className="p-4">TOTAL DEL DÍA · TODAS LAS VACAS</td><td className="text-center text-emerald-600">{LITROS(manana)}</td><td className="text-center text-amber-600">{LITROS(tarde)}</td><td className="text-center text-navy">{LITROS(manana + tarde)}</td><td /></tr></tfoot>
+                  <tfoot><tr className="border-t-2 border-slate-100 font-bold"><td colSpan={2} className="p-4">TOTAL DEL DÍA · TODAS LAS VACAS</td><td className="text-center text-emerald-700">{LITROS(manana)}</td><td className="text-center text-amber-800">{LITROS(tarde)}</td><td className="text-center text-navy">{LITROS(manana + tarde)}</td><td /></tr></tfoot>
                 </table>
               </div>}
-            {!cargando && !fallo && fechaValida && filasFiltradas.length > 0 && <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 text-sm text-slate-500">
+            {!cargando && !fallo && fechaValida && filasFiltradas.length > 0 && <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 text-sm text-slate-600">
               <span>Mostrando {(paginaActual - 1) * 10 + 1}–{Math.min(paginaActual * 10, filasFiltradas.length)} de {filasFiltradas.length} vacas</span>
               <div className="flex items-center gap-3"><button type="button" onClick={() => setPaginaDiaria(Math.max(1, paginaActual - 1))} disabled={paginaActual === 1} className="rounded-lg border border-slate-200 px-3 py-1.5 text-navy disabled:opacity-40">Anterior</button><span>Página {paginaActual} de {totalPaginas}</span><button type="button" onClick={() => setPaginaDiaria(Math.min(totalPaginas, paginaActual + 1))} disabled={paginaActual === totalPaginas} className="rounded-lg border border-slate-200 px-3 py-1.5 text-navy disabled:opacity-40">Siguiente</button></div>
             </div>}
@@ -431,7 +433,7 @@ export default function ProduccionPage() {
           <aside className="rounded-2xl bg-white p-5 shadow-sm">
             <h2 className="font-bold text-navy">Producción General (L/día)</h2>
             <div className="mt-4 space-y-2">
-              <label htmlFor="periodo-produccion" className="block text-xs font-semibold text-slate-500">Período del gráfico, ranking e historial</label>
+              <label htmlFor="periodo-produccion" className="block text-xs font-semibold text-slate-600">Período del gráfico, ranking e historial</label>
               <select id="periodo-produccion" value={periodo} onChange={(event) => setPeriodo(event.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-navy">
                 <option value="7">Últimos 7 días</option>
                 <option value="30">Últimos 30 días</option>
@@ -439,20 +441,20 @@ export default function ProduccionPage() {
                 <option value="personalizado">Rango personalizado</option>
               </select>
               {periodo === 'personalizado' && <div className="grid grid-cols-2 gap-2">
-                <label className="text-xs text-slate-500">Desde<input aria-label="Histórico desde" type="date" max={hoy} value={desdeManual} onChange={(event) => setDesdeManual(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-2 text-xs" /></label>
-                <label className="text-xs text-slate-500">Hasta<input aria-label="Histórico hasta" type="date" max={hoy} value={hastaManual} onChange={(event) => setHastaManual(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-2 text-xs" /></label>
+                <label className="text-xs text-slate-600">Desde<input aria-label="Histórico desde" type="date" max={hoy} value={desdeManual} onChange={(event) => setDesdeManual(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-2 text-xs" /></label>
+                <label className="text-xs text-slate-600">Hasta<input aria-label="Histórico hasta" type="date" max={hoy} value={hastaManual} onChange={(event) => setHastaManual(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-2 text-xs" /></label>
               </div>}
-              {periodo !== 'personalizado' && <p className="text-xs text-slate-400">Hasta el {formatearFecha(fecha)} seleccionado en Registro Diario</p>}
+              {periodo !== 'personalizado' && <p className="text-xs text-slate-600">Hasta el {formatearFecha(fecha)} seleccionado en Registro diario</p>}
               {!rangoValido && <p role="alert" className="text-xs text-red-600">Elija un rango válido, en orden y sin fechas futuras.</p>}
             </div>
-            <div className="mt-5 h-48">{rangoValido && resumenQuery.isLoading ? <p className="flex h-full items-center justify-center text-xs text-slate-400">Cargando histórico…</p> : resumenQuery.isError ? <p className="flex h-full items-center justify-center text-xs text-red-600">No se pudo cargar el histórico.</p> : grafica.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={grafica}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="fecha" tickFormatter={formatearFecha} minTickGap={20} tick={{ fontSize: 10 }} /><YAxis tick={{ fontSize: 10 }} /><Tooltip labelFormatter={(value) => formatearFecha(String(value))} formatter={(value) => [LITROS(Number(value)), 'Producido']} /><Bar dataKey="litrosProducidos" fill="#1e3a5f" radius={[3, 3, 0, 0]} /></BarChart></ResponsiveContainer> : <p className="flex h-full items-center justify-center text-xs text-slate-400">Sin registros en el período seleccionado</p>}</div>
-            {rangoValido && resumenQuery.data && <div className="mt-3 text-xs text-slate-500"><span>Total producido en el período: <strong className="text-navy">{LITROS(Number(resumenQuery.data.litrosProducidos))}</strong></span></div>}
-            <div className="mt-5 border-t border-slate-100 pt-4"><h3 className="text-xs font-bold uppercase text-slate-400">Top productoras · {rangoValido ? `${formatearFecha(desde)}–${formatearFecha(hasta)}` : 'sin período'}</h3>{rangoValido && !produccionHistoricaQuery.isLoading && !produccionHistoricaQuery.isError && ranking.map(({ animal, litros }, index) => <div key={animal.id} className="mt-3 flex justify-between gap-2 text-xs"><Link href={`/hato/${animal.id}?tab=produccion`} className="font-semibold text-navy hover:text-sky-700">{index + 1}. #{animal.areteInterno} {animal.nombre}</Link><span>{LITROS(litros)}</span></div>)}</div>
+            <div className="mt-5 h-48">{rangoValido && resumenQuery.isLoading ? <p className="flex h-full items-center justify-center text-xs text-slate-600">Cargando histórico…</p> : resumenQuery.isError ? <p className="flex h-full items-center justify-center text-xs text-red-600">No se pudo cargar el histórico.</p> : grafica.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={grafica}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="fecha" tickFormatter={formatearFecha} minTickGap={20} tick={{ fontSize: 10 }} /><YAxis tick={{ fontSize: 10 }} /><Tooltip labelFormatter={(value) => formatearFecha(String(value))} formatter={(value) => [LITROS(Number(value)), 'Producido']} /><Bar dataKey="litrosProducidos" fill="#1e3a5f" radius={[3, 3, 0, 0]} /></BarChart></ResponsiveContainer> : <p className="flex h-full items-center justify-center text-xs text-slate-600">Sin registros en el período seleccionado</p>}</div>
+            {rangoValido && resumenQuery.data && <div className="mt-3 text-xs text-slate-600"><span>Total producido en el período: <strong className="text-navy">{LITROS(Number(resumenQuery.data.litrosProducidos))}</strong></span></div>}
+            <div className="mt-5 border-t border-slate-100 pt-4"><h3 className="text-xs font-bold uppercase text-slate-600">Top productoras · {rangoValido ? `${formatearFecha(desde)}–${formatearFecha(hasta)}` : 'sin período'}</h3>{rangoValido && !produccionHistoricaQuery.isLoading && !produccionHistoricaQuery.isError && ranking.map(({ animal, litros }, index) => <div key={animal.id} className="mt-3 flex justify-between gap-2 text-xs"><Link href={`/hato/${animal.id}?tab=produccion`} className="font-semibold text-navy hover:text-sky-700">{index + 1}. #{animal.areteInterno} {animal.nombre}</Link><span>{LITROS(litros)}</span></div>)}</div>
           </aside>
         </div>
         <section className="overflow-hidden rounded-2xl bg-white shadow-sm">
           <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-100 p-5">
-            <div><h2 className="font-bold text-navy">Historial del período</h2><p className="text-xs text-slate-500">{rangoValido ? `${formatearFecha(desde)} al ${formatearFecha(hasta)}` : 'Seleccione un rango válido en Producción General'}</p></div>
+            <div><h2 className="font-bold text-navy">Historial del período</h2><p className="text-xs text-slate-600">{rangoValido ? `${formatearFecha(desde)} al ${formatearFecha(hasta)}` : 'Seleccione un rango válido en Producción General'}</p></div>
             <div className="flex flex-wrap gap-2">
               <select aria-label="Filtrar historial por vaca" value={animalHistorial} onChange={(event) => { setAnimalHistorial(event.target.value); setLimiteHistorial(25); }} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-navy">
                 <option value="">Todas las vacas</option>
@@ -461,9 +463,9 @@ export default function ProduccionPage() {
             </div>
           </div>
           {rangoValido && !produccionHistoricaQuery.isLoading && !produccionHistoricaQuery.isError && historial.length > 0 ? <>
-            <div className="overflow-x-auto"><table aria-label="Historial de producción" className="w-full min-w-[580px] text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-400"><tr><th className="p-3 text-left">Fecha</th><th className="p-3 text-left">Animal</th><th className="p-3 text-left">Turno</th><th className="p-3 text-right">Litros</th></tr></thead><tbody>{historial.slice(0, limiteHistorial).map(({ animal, registro }) => <tr key={registro.id} className="border-t border-slate-100"><td className="p-3">{formatearFecha(registro.fecha)}</td><td className="p-3"><Link className="font-semibold text-navy hover:text-sky-700" href={`/hato/${animal.id}?tab=produccion`}>#{animal.areteInterno} {animal.nombre}</Link></td><td className="p-3">{registro.turno === 'MANANA' ? 'Mañana' : 'Tarde'}</td><td className="p-3 text-right font-semibold">{LITROS(Number(registro.litros))}</td></tr>)}</tbody></table></div>
+            <div className="overflow-x-auto"><table aria-label="Historial de producción" className="w-full min-w-[580px] text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-600"><tr><th className="p-3 text-left">Fecha</th><th className="p-3 text-left">Animal</th><th className="p-3 text-left">Turno</th><th className="p-3 text-right">Litros</th></tr></thead><tbody>{historial.slice(0, limiteHistorial).map(({ animal, registro }) => <tr key={registro.id} className="border-t border-slate-100"><td className="p-3">{formatearFecha(registro.fecha)}</td><td className="p-3"><Link className="font-semibold text-navy hover:text-sky-700" href={`/hato/${animal.id}?tab=produccion`}>#{animal.areteInterno} {animal.nombre}</Link></td><td className="p-3">{registro.turno === 'MANANA' ? 'Mañana' : 'Tarde'}</td><td className="p-3 text-right font-semibold">{LITROS(Number(registro.litros))}</td></tr>)}</tbody></table></div>
             {historial.length > limiteHistorial && <div className="border-t border-slate-100 p-4 text-center"><button type="button" onClick={() => setLimiteHistorial((n) => n + 25)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-navy">Mostrar más ({historial.length - limiteHistorial} restantes)</button></div>}
-          </> : <p className="p-8 text-center text-sm text-slate-500">{produccionHistoricaQuery.isLoading ? 'Cargando historial…' : produccionHistoricaQuery.isError ? 'No se pudo cargar el historial.' : 'No hay registros para estos filtros.'}</p>}
+          </> : <p className="p-8 text-center text-sm text-slate-600">{produccionHistoricaQuery.isLoading ? 'Cargando historial…' : produccionHistoricaQuery.isError ? 'No se pudo cargar el historial.' : 'No hay registros para estos filtros.'}</p>}
         </section>
       </div>
 

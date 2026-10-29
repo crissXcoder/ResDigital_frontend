@@ -15,12 +15,14 @@ import {
 } from '@/lib/reproductivo/schemas';
 import { FACILIDADES_PARTO } from '@/lib/reproductivo/tipos';
 import ModalFormulario from './ModalFormulario';
+import type { EventoHistorial, DetalleParto } from '@/lib/reproductivo/tipos';
 
 interface PartoFormProps {
   animalId: string;
   /** Precargado desde estado.servicioActivo?.eventoId — no se escribe a mano. */
   eventoServicioId?: string;
   onClose: () => void;
+  correccion?: EventoHistorial & { detalle: DetalleParto };
 }
 
 const ETIQUETA_MODALIDAD: Record<ModalidadCria, string> = {
@@ -33,8 +35,10 @@ export default function PartoForm({
   animalId,
   eventoServicioId,
   onClose,
+  correccion,
 }: PartoFormProps) {
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
+  const [accionFiliacion, setAccionFiliacion] = useState<'' | 'CONSERVAR' | 'DESVINCULAR'>('');
   const mutation = useRegistrarParto(animalId);
   const listado = useQuery({
     queryKey: ['animales'],
@@ -43,15 +47,16 @@ export default function PartoForm({
 
   const form = useForm({
     defaultValues: {
-      fechaEvento: '',
-      eventoServicioId: eventoServicioId ?? '',
-      modalidadCria: 'ninguna' as ModalidadCria,
-      criaAnimalId: '',
+      fechaEvento: correccion?.fechaEvento ?? '',
+      eventoServicioId: correccion?.detalle.eventoServicioId ?? eventoServicioId ?? '',
+      modalidadCria: (correccion?.detalle.criaAnimalId ? 'existente' : 'ninguna') as ModalidadCria,
+      criaAnimalId: correccion?.detalle.criaAnimalId ?? '',
+      confirmarFechaNacimiento: false,
       areteInterno: '',
       sexo: '' as '' | (typeof SEXOS)[number],
       pesoNacimientoKg: '',
-      facilidadParto: 'Normal',
-      observaciones: '',
+      facilidadParto: (correccion?.detalle.facilidadParto ?? 'Normal') as string,
+      observaciones: correccion?.detalle.observaciones ?? '',
     },
     onSubmit: async ({ value }) => {
       const parsed = partoSchema.safeParse(value);
@@ -61,9 +66,18 @@ export default function PartoForm({
         );
         return;
       }
+      const criaElegida = candidatos.find((animal) => animal.id === parsed.data.criaAnimalId);
+      if (parsed.data.modalidadCria === 'existente' && criaElegida && !criaElegida.fechaNacimiento && !parsed.data.confirmarFechaNacimiento) {
+        setErrorServidor('Confirmá que la ficha corresponde a esta cría para registrar la fecha del parto.');
+        return;
+      }
       setErrorServidor(null);
       try {
-        await mutation.mutateAsync(partoAPayload(parsed.data));
+        if (correccion?.detalle.criaAnimalId && !accionFiliacion) {
+          setErrorServidor('Seleccioná cómo reconciliar la filiación anterior.');
+          return;
+        }
+        await mutation.mutateAsync({ ...partoAPayload(parsed.data), eventoCorrigeId: correccion?.eventoId, accionFiliacionAnterior: accionFiliacion || undefined });
         onClose();
       } catch (error) {
         setErrorServidor(
@@ -77,7 +91,13 @@ export default function PartoForm({
     listado.data?.filter((animal) => animal.id !== animalId) ?? [];
 
   return (
-    <ModalFormulario titulo="Registrar parto" onClose={onClose}>
+    <ModalFormulario titulo={correccion ? 'Corregir parto' : 'Registrar parto'} onClose={onClose} pendiente={mutation.isPending}>
+      {correccion && <p className="mb-4 text-sm text-slate-700">La corrección conserva el evento original y la ficha de la cría. Elegí los datos que tendrá el nuevo evento.</p>}
+      {correccion?.detalle.criaAnimalId && <label className="mb-4 block text-sm font-medium">Filiación de la cría anterior
+        <select aria-label="Filiación de la cría anterior" className="mt-1 w-full rounded border p-2" value={accionFiliacion} onChange={(event) => setAccionFiliacion(event.target.value as typeof accionFiliacion)}>
+          <option value="">Seleccionar decisión explícita</option><option value="CONSERVAR">Conservar filiación con esta madre</option><option value="DESVINCULAR">Desvincular de esta madre conservando su ficha</option>
+        </select>
+      </label>}
       {errorServidor && (
         <div
           role="alert"
@@ -179,6 +199,7 @@ export default function PartoForm({
                         name={field.name}
                         value={modalidad}
                         checked={field.state.value === modalidad}
+                        disabled={form.state.values.facilidadParto === 'Aborto' && modalidad !== 'ninguna'}
                         onChange={() => field.handleChange(modalidad)}
                       />
                       {ETIQUETA_MODALIDAD[modalidad]}
@@ -235,7 +256,7 @@ export default function PartoForm({
                     {(field) => (
                       <div className="space-y-1.5">
                         <label htmlFor={field.name} className="block text-sm font-semibold text-navy">
-                          Sexo
+                          Sexo *
                         </label>
                         <select
                           id={field.name}
@@ -246,7 +267,7 @@ export default function PartoForm({
                             field.handleChange(e.target.value as '' | (typeof SEXOS)[number])
                           }
                         >
-                          <option value="">Hembra (por defecto)</option>
+                          <option value="">Seleccionar sexo</option>
                           {SEXOS.map((sexo) => (
                             <option key={sexo} value={sexo}>
                               {sexo}
@@ -291,9 +312,10 @@ export default function PartoForm({
                       No hay otros animales activos en la finca para vincular como cría.
                     </p>
                   ) : (
-                    <form.Field name="criaAnimalId">
-                      {(field) => (
-                        <div className="space-y-1.5">
+                    <div className="space-y-3">
+                      <form.Field name="criaAnimalId">
+                        {(field) => (
+                          <div className="space-y-1.5">
                           <label htmlFor={field.name} className="block text-sm font-semibold text-navy">
                             Animal de la finca
                           </label>
@@ -305,6 +327,7 @@ export default function PartoForm({
                             onChange={(e) => field.handleChange(e.target.value)}
                           >
                             <option value="">Seleccionar por arete</option>
+                            {correccion?.detalle.criaAnimalId && !candidatos.some((animal) => animal.id === correccion.detalle.criaAnimalId) && <option value={correccion.detalle.criaAnimalId}>{correccion.detalle.criaAreteInterno || correccion.detalle.criaAnimalId} · Cría del evento original</option>}
                             {candidatos.map((animal) => (
                               <option key={animal.id} value={animal.id}>
                                 {animal.areteInterno}
@@ -312,9 +335,25 @@ export default function PartoForm({
                               </option>
                             ))}
                           </select>
-                        </div>
-                      )}
-                    </form.Field>
+                          </div>
+                        )}
+                      </form.Field>
+                      <form.Subscribe selector={(state) => state.values.criaAnimalId}>
+                        {(criaAnimalId) => {
+                          const cria = candidatos.find((animal) => animal.id === criaAnimalId);
+                          return cria && !cria.fechaNacimiento ? (
+                      <form.Field name="confirmarFechaNacimiento">
+                        {(field) => (
+                          <label className="flex items-start gap-2 text-sm text-slate-700">
+                            <input type="checkbox" checked={field.state.value} onChange={(e) => field.handleChange(e.target.checked)} />
+                            Confirmo que la ficha corresponde a esta cría; si no tiene fecha de nacimiento, se registrará la fecha del parto.
+                          </label>
+                        )}
+                      </form.Field>
+                          ) : null;
+                        }}
+                      </form.Subscribe>
+                    </div>
                   )}
                 </div>
               ) : null
@@ -355,7 +394,7 @@ export default function PartoForm({
             disabled={mutation.isPending}
             className="px-5 py-2 bg-navy text-white rounded-lg text-sm font-semibold hover:bg-navy-light transition-colors disabled:opacity-50"
           >
-            {mutation.isPending ? 'Registrando...' : 'Registrar parto'}
+            {mutation.isPending ? 'Guardando...' : correccion ? 'Guardar corrección' : 'Registrar parto'}
           </button>
         </div>
       </form>

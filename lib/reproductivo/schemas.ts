@@ -82,6 +82,7 @@ const partoCamposSchema = z.object({
     })
     .optional()
     .or(z.literal('')),
+  confirmarFechaNacimiento: z.boolean(),
   pesoNacimientoKg: z.string(),
   facilidadParto: z
     .enum(FACILIDADES_PARTO as [string, ...string[]], {
@@ -103,6 +104,9 @@ export const partoSchema = partoCamposSchema.superRefine((valor, ctx) => {
       path: ['areteInterno'],
       message: 'El arete interno de la cría es obligatorio.',
     });
+  }
+  if (valor.modalidadCria === 'nueva' && !valor.sexo) {
+    ctx.addIssue({ code: 'custom', path: ['sexo'], message: 'Seleccioná el sexo de la cría.' });
   }
   if (valor.modalidadCria === 'existente') {
     const uuid = z.string().uuid('El criaAnimalId debe ser un UUID válido');
@@ -139,12 +143,13 @@ export function partoAPayload(value: PartoFormValues): PartoInput {
   };
 
   if (value.modalidadCria === 'nueva') {
+    if (value.sexo !== 'Hembra' && value.sexo !== 'Macho') throw new Error('El formulario de parto no validó el sexo de la cría.');
     const peso = value.pesoNacimientoKg.trim()
       ? Number(value.pesoNacimientoKg)
       : undefined;
     payload.nuevaCria = {
       areteInterno: value.areteInterno.trim(),
-      sexo: value.sexo || undefined,
+      sexo: value.sexo,
       pesoNacimientoKg: peso,
     };
     return payload;
@@ -152,6 +157,7 @@ export function partoAPayload(value: PartoFormValues): PartoInput {
 
   if (value.modalidadCria === 'existente') {
     payload.criaAnimalId = value.criaAnimalId;
+    payload.confirmarFechaNacimiento = value.confirmarFechaNacimiento;
   }
 
   return payload;

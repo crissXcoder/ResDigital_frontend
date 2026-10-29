@@ -84,7 +84,7 @@ export function ForgotPasswordForm() {
             href="/login"
             className="block w-full py-2.5 px-4 rounded-md bg-primary text-primary-foreground font-medium text-sm text-center hover:bg-navy-light transition-colors"
           >
-            Volver a Iniciar Sesión
+            Volver a Iniciar sesión
           </Link>
         </div>
       ) : (
@@ -147,7 +147,7 @@ export function ForgotPasswordForm() {
               href="/login"
               className="text-secondary hover:underline font-semibold"
             >
-              Volver a Iniciar Sesión
+              Volver a Iniciar sesión
             </Link>
           </div>
         </form>

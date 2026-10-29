@@ -90,7 +90,7 @@ it('REPORT-T002: genera el PDF de programación reproductiva con datos reales, h
   expect(save).toHaveBeenCalledWith(expect.stringMatching(/^Programacion_Reproductiva_365d_.*\.pdf$/));
 
   expect(text).toHaveBeenCalledWith(
-    expect.stringMatching(/Programación Reproductiva y Partos Proyectados/i),
+    expect.stringMatching(/Programación reproductiva y partos proyectados/i),
     expect.any(Number),
     expect.any(Number),
   );

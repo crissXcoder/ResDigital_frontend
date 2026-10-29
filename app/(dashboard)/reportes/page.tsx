@@ -76,7 +76,7 @@ export default function ReportesPage() {
   const { user } = useAuthUser();
 
   // ─── 1. Estado y Datos para Reporte Sanitario (Retiros Activos) ─────────────
-  const { data: retiros, isLoading: loadingRetiros } = useAnimalesEnRetiro();
+  const { data: retiros, isLoading: loadingRetiros, isError: errorRetiros } = useAnimalesEnRetiro();
   const listaRetiros = retiros ?? [];
   const retirosLeche = listaRetiros.filter(
     (r) => r.diasRestantesLeche !== null && (r.diasRestantesLeche ?? 0) > 0,
@@ -92,7 +92,7 @@ export default function ReportesPage() {
   // ─── 2. Estado y Datos para Reporte Reproductivo ──────────────────────────
   const [diasVentanaRepro, setDiasVentanaRepro] = useState<number>(60);
   const [filtroHitoRepro, setFiltroHitoRepro] = useState<TipoEventoFeed | "Todos">("Todos");
-  const { data: eventosRepro, isLoading: loadingRepro } = useProximosEventosFinca(diasVentanaRepro);
+  const { data: eventosRepro, isLoading: loadingRepro, isError: errorRepro } = useProximosEventosFinca(diasVentanaRepro);
 
   const listaRepro = eventosRepro ?? [];
   const reproFiltrados =
@@ -128,13 +128,13 @@ export default function ReportesPage() {
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">
             Centro de Reportes y Exportaciones
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-slate-600 mt-1">
             Informes técnicos de gestión, auditoría interna y control biológico de la finca.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline" className="text-xs bg-white text-slate-700 py-1 px-3">
-            Finca: <span className="font-semibold ml-1">{user?.nombreFinca || "Finca Activa"}</span>
+            Finca: <span className="font-semibold ml-1">{user?.nombreFinca || "Finca activa"}</span>
           </Badge>
           <Badge variant="outline" className="text-xs bg-white text-slate-700 py-1 px-3">
             Emisión: <span className="font-mono ml-1">{hoyLocal()}</span> (Costa Rica)
@@ -164,7 +164,7 @@ export default function ReportesPage() {
           </CardHeader>
           <CardContent className="flex flex-col flex-1 justify-between gap-6 pt-0">
             <div className="space-y-4">
-              {loadingRetiros ? (
+              {errorRetiros ? <p role="alert">No se pudo consultar el retiro sanitario. Reintentá antes de descargar.</p> : loadingRetiros ? (
                 <div className="h-16 animate-pulse bg-slate-100 rounded-lg" />
               ) : listaRetiros.length === 0 ? (
                 <div className="flex items-center gap-3 p-3.5 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-800 text-xs">
@@ -177,15 +177,15 @@ export default function ReportesPage() {
                 <div className="space-y-2">
                   <div className="grid grid-cols-3 gap-2.5 p-3 bg-slate-50 border border-slate-100 rounded-xl text-center">
                     <div>
-                      <span className="text-[11px] text-slate-500 block">Total Animales</span>
+                      <span className="text-[11px] text-slate-600 block">Total Animales</span>
                       <span className="text-base font-bold text-slate-900">{listaRetiros.length}</span>
                     </div>
                     <div>
-                      <span className="text-[11px] text-slate-500 block">Bloqueo Leche</span>
+                      <span className="text-[11px] text-slate-600 block">Bloqueo Leche</span>
                       <span className="text-base font-bold text-amber-700">{retirosLeche}</span>
                     </div>
                     <div>
-                      <span className="text-[11px] text-slate-500 block">Bloqueo Carne</span>
+                      <span className="text-[11px] text-slate-600 block">Bloqueo Carne</span>
                       <span className="text-base font-bold text-red-700">{retirosCarne}</span>
                     </div>
                   </div>
@@ -204,16 +204,16 @@ export default function ReportesPage() {
             </div>
 
             <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-              <span className="text-[11px] text-slate-400">Formato: PDF Ejecutivo</span>
+              <span className="text-[11px] text-slate-600">Formato: PDF Ejecutivo</span>
               <button
                 type="button"
                 onClick={handleDescargarRetiros}
-                disabled={loadingRetiros || generandoRetiros}
-                aria-label="Descargar Reporte PDF Retiros"
+                disabled={loadingRetiros || errorRetiros || generandoRetiros}
+                aria-label="Descargar reporte PDF Retiros"
                 className="inline-flex items-center gap-2 px-4 py-2 bg-navy text-white text-xs font-semibold rounded-lg hover:bg-navy-light transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
               >
                 <Download className="size-3.5" />
-                {generandoRetiros ? "Generando..." : "Descargar Reporte PDF"}
+                {generandoRetiros ? "Generando..." : "Descargar reporte PDF"}
               </button>
             </div>
           </CardContent>
@@ -279,7 +279,7 @@ export default function ReportesPage() {
                 </div>
               </div>
 
-              {loadingRepro ? (
+              {errorRepro ? <p role="alert">No se pudo consultar el calendario reproductivo. Reintentá antes de descargar.</p> : loadingRepro ? (
                 <div className="h-10 animate-pulse bg-slate-100 rounded-lg" />
               ) : (
                 <div className="flex items-center justify-between text-xs text-slate-600 px-1">
@@ -297,16 +297,16 @@ export default function ReportesPage() {
             </div>
 
             <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-              <span className="text-[11px] text-slate-400">Formato: PDF Cronológico</span>
+              <span className="text-[11px] text-slate-600">Formato: PDF Cronológico</span>
               <button
                 type="button"
                 onClick={handleDescargarReproductivo}
-                disabled={loadingRepro || reproFiltrados.length === 0 || generandoRepro}
-                aria-label="Descargar Reporte PDF Reproductivo"
+                disabled={loadingRepro || errorRepro || reproFiltrados.length === 0 || generandoRepro}
+                aria-label="Descargar reporte PDF Reproductivo"
                 className="inline-flex items-center gap-2 px-4 py-2 bg-navy text-white text-xs font-semibold rounded-lg hover:bg-navy-light transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
               >
                 <Download className="size-3.5" />
-                {generandoRepro ? "Generando..." : "Descargar Reporte PDF"}
+                {generandoRepro ? "Generando..." : "Descargar reporte PDF"}
               </button>
             </div>
           </CardContent>
@@ -339,8 +339,8 @@ export default function ReportesPage() {
               onSelectAnimal={(a) => setSelectedAnimalId(a?.id || "")}
             />
 
-            <div className="text-[11px] text-slate-500 flex items-center gap-2">
-              <Info className="size-3.5 text-slate-400 shrink-0" />
+            <div className="text-[11px] text-slate-600 flex items-center gap-2">
+              <Info className="size-3.5 text-slate-600 shrink-0" />
               <span>
                 Selecciona cualquier ejemplar para descargar de forma inmediata su expediente clínico e histórico en PDF. También puedes pulsar en <strong>&quot;Ver en Hato&quot;</strong> si requieres consultar gráficos o registrar eventos clínicos en vivo.
               </span>
@@ -350,8 +350,8 @@ export default function ReportesPage() {
       </div>
 
       {/* Banner Informativo y Marco Legal (LEG-T001 / REPORT-T001) */}
-      <footer className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs text-xs text-slate-500 flex items-start gap-3">
-        <AlertTriangle className="size-4 text-slate-400 shrink-0 mt-0.5" />
+      <footer className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs text-xs text-slate-600 flex items-start gap-3">
+        <AlertTriangle className="size-4 text-slate-600 shrink-0 mt-0.5" />
         <div className="space-y-1">
           <p className="font-semibold text-slate-700">Marco Legal y Alcance Regulatorio</p>
           <p className="leading-relaxed">

@@ -7,7 +7,7 @@ import {
 import type { Animal } from '@/lib/api/animales';
 
 /**
- * Pruebas unitarias — Filtros Biológicos de Acciones Rápidas (MOD-04 Karla)
+ * Pruebas unitarias — Filtros Biológicos de Acciones rápidas (MOD-04 Karla)
  *
  * Reglas de negocio críticas:
  * 1. Los animales inactivos (dados de baja o fallecidos) NUNCA deben poder ser

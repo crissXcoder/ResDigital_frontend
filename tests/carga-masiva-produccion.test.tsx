@@ -38,12 +38,12 @@ describe('OBS-004 — Importación masiva de producción lechera mediante CSV', 
     it('genera un CSV con los encabezados exactos requeridos y filas de ejemplo', () => {
       const csv = generarPlantillaCsvProduccion();
       expect(csv).toContain('fecha,turno,arete_interno,litros,notas');
-      expect(csv).toContain('2026-10-21,Mañana,101,15.5');
+      expect(csv).toMatch(/\d{4}-\d{2}-\d{2},Mañana,101,15\.5/);
     });
   });
 
   describe('parsearCsvProduccion', () => {
-    it('parsea un CSV válido normalizando turnos y aretes', () => {
+    it('parsea un CSV válido preservando aretes y normalizando el turno', () => {
       const csv = `fecha,turno,arete_interno,litros,notas\n2026-10-21,Mañana,#101,15.5,Ordeño matutino\n2026-10-21,Tarde,102,12.0,`;
       const { filas, errores } = parsearCsvProduccion(csv);
 
@@ -52,7 +52,7 @@ describe('OBS-004 — Importación masiva de producción lechera mediante CSV', 
       expect(filas[0]).toEqual({
         fecha: '2026-10-21',
         turno: 'MANANA',
-        areteInterno: '101',
+        areteInterno: '#101',
         litros: 15.5,
         notas: 'Ordeño matutino',
       });
@@ -65,13 +65,31 @@ describe('OBS-004 — Importación masiva de producción lechera mediante CSV', 
       });
     });
 
-    it('neutraliza intentos de inyección de fórmulas CSV en el campo de notas', () => {
-      const csv = `fecha,turno,arete_interno,litros,notas\n2026-10-21,Mañana,101,10.0,=SUM(A1:A10)\n2026-10-21,Mañana,102,12.0,@HYPERLINK("http://evil.com")`;
+    it('conserva texto de notas citado sin evaluarlo ni modificarlo', () => {
+      const csv = `fecha,turno,arete_interno,litros,notas\n2026-10-21,Mañana,101,10.0,=SUM(A1:A10)\n2026-10-21,Mañana,102,12.0,"@HYPERLINK(""http://evil.com"")"`;
       const { filas, errores } = parsearCsvProduccion(csv);
 
       expect(errores).toHaveLength(0);
-      expect(filas[0].notas).toBe("'=SUM(A1:A10)");
-      expect(filas[1].notas).toBe("'@HYPERLINK(\"http://evil.com\")");
+      expect(filas[0].notas).toBe('=SUM(A1:A10)');
+      expect(filas[1].notas).toBe('@HYPERLINK("http://evil.com")');
+    });
+
+    it('respeta comas, comillas y saltos de línea dentro de notas; rechaza precisión que la BD redondearía', () => {
+      const csv = 'fecha,turno,arete_interno,litros,notas\r\n2026-10-21,MANANA,0007,12.5,"Ordeño, revisión"\r\n2026-10-21,TARDE,0008,12.55,"Dijo ""bien""\ny siguió"';
+      const { errores } = parsearCsvProduccion(csv);
+
+      expect(errores).toHaveLength(1);
+      expect(errores[0]).toContain('Fila 2: Litros');
+      const texto = parsearCsvProduccion('fecha,turno,arete_interno,litros,notas\n2026-10-21,MANANA,0007,12.5,"Ordeño, revisión"\n2026-10-21,TARDE,0008,12.0,"Dijo ""bien""\ny siguió"');
+      expect(texto.errores).toHaveLength(0);
+      expect(texto.filas[1].notas).toBe('Dijo "bien"\ny siguió');
+    });
+
+    it('rechaza comillas sin cerrar, columnas duplicadas y encabezados desconocidos', () => {
+      const csv = 'fecha,turno,arete_interno,litros,litros\n2026-10-21,MANANA,A,10.0,10.0';
+      expect(parsearCsvProduccion(csv).errores[0]).toContain('duplicada');
+      expect(parsearCsvProduccion('fecha,turno,arete_interno,litros,extra\n2026-10-21,MANANA,A,10.0,x').errores[0]).toContain('desconocida');
+      expect(parsearCsvProduccion('fecha,turno,arete_interno,litros,notas\n2026-10-21,MANANA,A,10.0,"sin cerrar').errores[0]).toContain('sin cerrar');
     });
 
     it('rechaza CSV vacío o que solo tiene cabecera', () => {
@@ -92,10 +110,10 @@ describe('OBS-004 — Importación masiva de producción lechera mediante CSV', 
 
       expect(filas).toHaveLength(0);
       expect(errores).toHaveLength(4);
-      expect(errores[0]).toContain('Fila 2: Fecha');
-      expect(errores[1]).toContain('Fila 3: Turno');
-      expect(errores[2]).toContain('Fila 4: El arete interno es requerido');
-      expect(errores[3]).toContain('Fila 5: Litros');
+      expect(errores[0]).toContain('Fila 1: Fecha');
+      expect(errores[1]).toContain('Fila 2: Turno');
+      expect(errores[2]).toContain('Fila 3: El arete interno es requerido');
+      expect(errores[3]).toContain('Fila 4: Litros');
     });
 
     it('rechaza lotes de más de 200 filas', () => {
@@ -110,6 +128,23 @@ describe('OBS-004 — Importación masiva de producción lechera mediante CSV', 
   });
 
   describe('ModalCargaMasivaProduccion UI', () => {
+    it('permite cerrar tras reemplazar una lectura pendiente por un archivo demasiado grande', async () => {
+      const onClose = vi.fn();
+      renderConQuery(<ModalCargaMasivaProduccion isOpen onClose={onClose} />);
+      const lento = new File(['pendiente'], 'lento.csv');
+      let completar!: (value: ArrayBuffer) => void;
+      Object.defineProperty(lento, 'arrayBuffer', { value: () => new Promise<ArrayBuffer>((resolve) => { completar = resolve; }) });
+      const input = screen.getByLabelText('Archivo CSV de producción');
+      fireEvent.change(input, { target: { files: [lento] } });
+      const grande = new File(['x'], 'grande.csv');
+      Object.defineProperty(grande, 'size', { value: 4 * 1024 * 1024 + 1 });
+      fireEvent.change(input, { target: { files: [grande] } });
+      expect(screen.getByText(/supera el tamaño máximo/)).toBeDefined();
+      completar(new ArrayBuffer(0));
+      fireEvent.click(screen.getByRole('button', { name: /cerrar/i }));
+      await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+    });
+
     it('permite cargar archivo CSV, previsualizar filas y confirmar importación exitosa', async () => {
       const mockRespuesta: ImportarLoteResponse = {
         totalImportados: 2,
@@ -123,7 +158,7 @@ describe('OBS-004 — Importación masiva de producción lechera mediante CSV', 
       const onClose = vi.fn();
       const onSuccess = vi.fn();
 
-      const { container } = renderConQuery(
+      renderConQuery(
         <ModalCargaMasivaProduccion isOpen={true} onClose={onClose} onSuccess={onSuccess} />,
       );
 
@@ -137,15 +172,15 @@ describe('OBS-004 — Importación masiva de producción lechera mediante CSV', 
         { type: 'text/csv' },
       );
 
-      const input = container.querySelector('input[type="file"]');
+      const input = screen.getByLabelText('Archivo CSV de producción');
       expect(input).toBeDefined();
       fireEvent.change(input!, { target: { files: [file] } });
 
       // Esperar previsualización
       await waitFor(() => {
         expect(screen.getByText(/previsualización/i)).toBeDefined();
-        expect(screen.getByText('#101')).toBeDefined();
-        expect(screen.getByText('#102')).toBeDefined();
+        expect(screen.getByText('101')).toBeDefined();
+        expect(screen.getByText('102')).toBeDefined();
         expect(screen.getByText('15.5 L')).toBeDefined();
         expect(screen.getByText('12 L')).toBeDefined();
       });
@@ -172,7 +207,7 @@ describe('OBS-004 — Importación masiva de producción lechera mediante CSV', 
         new Error('Fila 2: El animal con arete 102 no está en lactancia.'),
       );
 
-      const { container } = renderConQuery(
+      renderConQuery(
         <ModalCargaMasivaProduccion isOpen={true} onClose={vi.fn()} />,
       );
 
@@ -182,7 +217,7 @@ describe('OBS-004 — Importación masiva de producción lechera mediante CSV', 
         { type: 'text/csv' },
       );
 
-      const input = container.querySelector('input[type="file"]');
+      const input = screen.getByLabelText('Archivo CSV de producción');
       fireEvent.change(input!, { target: { files: [file] } });
 
       await waitFor(() => {

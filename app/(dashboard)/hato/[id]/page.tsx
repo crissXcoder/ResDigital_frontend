@@ -1,4 +1,6 @@
 'use client';
+import { useHistorialReproductivo } from '@/lib/hooks/use-reproductivo';
+
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -97,8 +99,8 @@ function DocumentLink({
     return () => { active = false; };
   }, [objectPath]);
 
-  if (failed) return <span className="text-xs text-slate-500">No se pudo cargar el documento.</span>;
-  if (!url) return <span className="text-xs text-slate-500">Preparando documento…</span>;
+  if (failed) return <span className="text-xs text-slate-600">No se pudo cargar el documento.</span>;
+  if (!url) return <span className="text-xs text-slate-600">Preparando documento…</span>;
   return (
     <a href={url} {...props}>
       {previewImage && <Image src={url} alt={imageAlt ?? 'Imagen del expediente'} width={640} height={320} unoptimized className={previewImageClassName ?? 'mb-4 h-40 w-full rounded-lg bg-slate-50 object-contain'} />}
@@ -110,6 +112,7 @@ import { ModalEditarAnimal } from '@/components/modals/ModalEditarAnimal';
 import { ModalDarBaja } from '@/components/modals/ModalDarBaja';
 import DescendenciaRegistrada from '../components/DescendenciaRegistrada';
 import TabReproductivo from '@/components/reproductivo/TabReproductivo';
+import { HistorialBajas } from '@/components/HistorialBajas';
 import LineaTiempoGestacion from '@/components/reproductivo/LineaTiempoGestacion';
 
 export default function ExpedienteAnimal() {
@@ -136,11 +139,14 @@ export default function ExpedienteAnimal() {
   // Documentos state
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
   const queryClient = useQueryClient();
+  const [pdfError, setPdfError] = useState('');
 
   const { data: animal, isLoading, isError } = useQuery({
     queryKey: ['animal', animalId],
     queryFn: () => getAnimal(animalId),
   });
+
+  const { data: historialReproductivo } = useHistorialReproductivo(animalId, animal?.sexo === 'Hembra');
 
   const { data: pesajes } = useQuery({
     queryKey: ['pesajes', animalId],
@@ -237,6 +243,9 @@ export default function ExpedienteAnimal() {
     queryClient.invalidateQueries({ queryKey: ['estadoSanitario', animalId] });
     queryClient.invalidateQueries({ queryKey: ['dashboard', 'animales-en-retiro'] });
     queryClient.invalidateQueries({ queryKey: ['dashboard', 'kpis'] });
+    queryClient.invalidateQueries({ queryKey: ['produccionRegistros'] });
+    queryClient.invalidateQueries({ queryKey: ['produccionResumen'] });
+    queryClient.invalidateQueries({ queryKey: ['produccionLeche', animalId] });
   };
 
   const tratamientoMutation = useMutation({
@@ -312,10 +321,18 @@ export default function ExpedienteAnimal() {
   };
   const handleDownloadPDF = () => {
     if (!animal) return;
+    const requeridas = ['pesajes', 'tratamientos', 'estadoSanitario', ...(animal.sexo === 'Hembra' ? ['produccionLeche', 'estadoReproductivo', 'historialReproductivo'] : [])];
+    const incompleta = requeridas.find((key) => queryClient.getQueryState([key, animalId])?.status !== 'success');
+    if (incompleta) {
+      setPdfError(`No se puede generar un expediente completo: falta cargar ${{ pesajes: 'los pesajes', tratamientos: 'los tratamientos', estadoSanitario: 'el estado sanitario', produccionLeche: 'la producción de leche', estadoReproductivo: 'el estado reproductivo', historialReproductivo: 'el historial reproductivo' }[incompleta] ?? 'una fuente requerida'}. Reintentá cuando la consulta se complete.`);
+      return;
+    }
+    setPdfError('');
     exportarExpedientePdf({
       animal,
       pesajes,
       produccion,
+      historialReproductivo,
       estadoReproductivo,
       estadoSanitario,
       tratamientos,
@@ -344,7 +361,7 @@ export default function ExpedienteAnimal() {
   if (isError || !animal) {
     return (
       <div className="min-h-screen bg-slate-50 p-6 flex flex-col items-center justify-center gap-4">
-        <div className="text-slate-500 font-semibold">Error al cargar el expediente del animal.</div>
+        <div className="text-slate-600 font-semibold">Error al cargar el expediente del animal.</div>
         <Link href="/hato" className="px-4 py-2 bg-navy text-white rounded-lg text-sm font-bold shadow-sm hover:bg-navy-light transition-colors">Volver al hato</Link>
       </div>
     );
@@ -385,7 +402,7 @@ export default function ExpedienteAnimal() {
 
         {/* Top Navigation */}
         <div className="flex items-center justify-between">
-          <Link href="/hato" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-navy transition-colors">
+          <Link href="/hato" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-navy transition-colors">
             <ChevronLeft className="w-4 h-4" />
             Volver al hato
           </Link>
@@ -466,7 +483,7 @@ export default function ExpedienteAnimal() {
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                   />
                 ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 text-slate-400 gap-2">
+                  <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 text-slate-600 gap-2">
                     <Camera size={32} />
                     <span className="text-sm font-bold">Sin foto</span>
                   </div>
@@ -502,7 +519,7 @@ export default function ExpedienteAnimal() {
                 </p>
 
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-slate-600">
-                  <p><span className="font-bold text-navy">{animal.pesoActualKg || 0} kg</span> <span className="text-slate-400">— Peso actual</span></p>
+                  <p><span className="font-bold text-navy">{animal.pesoActualKg || 0} kg</span> <span className="text-slate-600">— Peso actual</span></p>
                   <p className="font-semibold">{animal.categoria || 'Sin categoría'}</p>
                   <p className="font-semibold">{animal.activo ? (animal.potrero?.nombre || 'Sin potrero') : 'Sin potrero (dado de baja)'}</p>
                   {animal.fechaNacimiento && (
@@ -518,6 +535,7 @@ export default function ExpedienteAnimal() {
 
             {/* Action Buttons */}
             <div className="flex flex-col gap-2 shrink-0">
+              {pdfError && <p role="alert" className="max-w-sm text-sm text-danger">{pdfError}</p>}
               <button
                 onClick={handleDownloadPDF}
                 className="w-full sm:w-auto px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-50 transition-colors"
@@ -539,7 +557,7 @@ export default function ExpedienteAnimal() {
           <div className="bg-slate-50 border-t border-slate-200 p-3 sm:px-8 flex flex-wrap items-center gap-6 text-[13px]">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-orange-500"></div>
-              <span className="text-slate-600">Próxima Palpación: <span className="font-bold text-orange-500">24/02/2026</span> <span className="font-bold text-slate-400">· -179 días</span></span>
+              <span className="text-slate-600">Próxima Palpación: <span className="font-bold text-orange-500">24/02/2026</span> <span className="font-bold text-slate-600">· -179 días</span></span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-purple-500"></div>
@@ -547,16 +565,17 @@ export default function ExpedienteAnimal() {
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-green-500"></div>
-              <span className="text-slate-600">FPP: <span className="font-bold text-green-600">15/10/2026</span> <span className="text-slate-400">· 54 días</span></span>
+              <span className="text-slate-600">FPP: <span className="font-bold text-green-600">15/10/2026</span> <span className="text-slate-600">· 54 días</span></span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-red-500"></div>
-              <span className="text-slate-600">Retiro hasta: <span className="font-bold text-red-600">24/08/2026</span> <span className="text-slate-400">· 2 días</span></span>
+              <span className="text-slate-600">Retiro hasta: <span className="font-bold text-red-600">24/08/2026</span> <span className="text-slate-600">· 2 días</span></span>
             </div>
           </div>
           */}
         </div>
 
+        <HistorialBajas animalId={animalId} />
         {/* Tabs */}
         <div className="flex overflow-x-auto border-b border-slate-200 hide-scrollbar">
           {tabs.map(tab => (
@@ -565,7 +584,7 @@ export default function ExpedienteAnimal() {
               onClick={() => setActiveTab(tab.id)}
               className={`px-6 py-4 text-sm font-bold whitespace-nowrap border-b-2 transition-colors ${activeTab === tab.id
                   ? 'border-navy text-navy'
-                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                  : 'border-transparent text-slate-600 hover:text-slate-700 hover:border-slate-300'
                 }`}
             >
               {tab.label}
@@ -612,7 +631,7 @@ export default function ExpedienteAnimal() {
                 <div className="flex justify-between items-start mb-10">
                   <div>
                     <h3 className="text-lg font-bold text-navy">Pedigrí y genealogía</h3>
-                    <p className="text-sm text-slate-500">Origen: <span className="font-semibold text-slate-700">{animal.origen}</span></p>
+                    <p className="text-sm text-slate-600">Origen: <span className="font-semibold text-slate-700">{animal.origen}</span></p>
                   </div>
                   <button
                     onClick={() => setIsOrigenOpen(true)}
@@ -645,7 +664,7 @@ export default function ExpedienteAnimal() {
 
                     {/* Padre */}
                     <div className="bg-white border border-slate-200 rounded-xl p-4 w-[45%] shadow-sm hover:border-slate-300 transition-colors">
-                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Padre (Semental / Pajilla)</div>
+                      <div className="text-[10px] font-bold text-slate-600 uppercase tracking-wide mb-1">Padre (Semental / Pajilla)</div>
                       <div className="font-bold text-navy text-base">
                         {animal.padre ? (
                           `Semental #${animal.padre.areteInterno} ${animal.padre.nombre || ''}`
@@ -734,7 +753,7 @@ export default function ExpedienteAnimal() {
                       </div>
                     </div>
                   ) : (
-                    <p className="text-xs text-slate-400">Sin datos de composición racial para este animal.</p>
+                    <p className="text-xs text-slate-600">Sin datos de composición racial para este animal.</p>
                   )}
                 </div>
               </div>
@@ -748,7 +767,7 @@ export default function ExpedienteAnimal() {
                     {crias?.length ?? 0}
                   </span>
                 </div>
-                <p className="text-sm text-slate-500 mb-6">Crías registradas en el sistema donde este animal figura como padre o madre.</p>
+                <p className="text-sm text-slate-600 mb-6">Crías registradas en el sistema donde este animal figura como padre o madre.</p>
 
                 {crias && crias.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -766,7 +785,7 @@ export default function ExpedienteAnimal() {
                             {cria.sexo}
                           </span>
                         </div>
-                        <div className="text-xs text-slate-500 flex flex-wrap gap-x-3 gap-y-1 mt-2">
+                        <div className="text-xs text-slate-600 flex flex-wrap gap-x-3 gap-y-1 mt-2">
                           <span>{cria.categoria}</span>
                           {cria.raza && <span>{cria.raza.nombre}</span>}
                           {cria.fechaNacimiento && <span>Nac: {formatearFechaCivil(cria.fechaNacimiento)}</span>}
@@ -779,12 +798,12 @@ export default function ExpedienteAnimal() {
                     <div className="w-12 h-12 rounded-full border-2 border-slate-200 flex items-center justify-center text-slate-300 mb-4">
                       <Plus className="w-6 h-6" />
                     </div>
-                    <p className="text-sm font-semibold text-slate-400">No se registran crías directas para este animal.</p>
+                    <p className="text-sm font-semibold text-slate-600">No se registran crías directas para este animal.</p>
                   </div>
                 )}
               </div>
 
-              {/* Línea de Tiempo Gestación - Solo Hembras */}
+              {/* Línea de tiempo de gestación - Solo Hembras */}
               {!isMacho && <LineaTiempoGestacion estado={estadoReproductivo} />}
 
             </div>
@@ -840,8 +859,8 @@ export default function ExpedienteAnimal() {
             <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
               <div className="p-6 sm:p-8 flex items-center justify-between border-b border-slate-100 bg-surface">
                 <div>
-                  <h3 className="text-lg font-bold text-navy">Historial Sanitario y Tratamientos</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <h3 className="text-lg font-bold text-navy">Historial sanitario y Tratamientos</h3>
+                  <p className="text-xs text-slate-600 mt-0.5">
                     Registro cronológico de aplicaciones veterinarias y periodos de retiro oficial
                   </p>
                 </div>
@@ -852,13 +871,13 @@ export default function ExpedienteAnimal() {
                   }}
                   className="px-4 py-2 bg-danger text-white rounded-lg text-sm font-bold shadow-sm hover:bg-danger/90 transition-colors flex items-center gap-2"
                 >
-                  <Plus className="w-4 h-4" /> Aplicar Tratamiento
+                  <Plus className="w-4 h-4" /> Registrar tratamiento
                 </button></RequireRole>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider">
                       <th className="p-4 pl-6 sm:pl-8">Fecha</th>
                       <th className="p-4">Fármaco</th>
                       <th className="p-4">Diagnóstico</th>
@@ -885,7 +904,7 @@ export default function ExpedienteAnimal() {
                           <td className="p-4 pl-6 sm:pl-8 font-medium text-slate-700">
                             {formatearFecha(t.fecha)}
                             {t.fechaUltimaAdministracion && t.fechaUltimaAdministracion !== t.fecha && (
-                              <span className="text-xs text-slate-400 block">
+                              <span className="text-xs text-slate-600 block">
                                 Última: {formatearFecha(t.fechaUltimaAdministracion)}
                               </span>
                             )}
@@ -897,7 +916,7 @@ export default function ExpedienteAnimal() {
                           <td className="p-4">{t.diagnostico}</td>
                           <td className="p-4">
                             <span className="font-medium text-slate-700">{t.dosis}</span>
-                            {t.via && <span className="text-xs text-slate-400 block">{t.via}</span>}
+                            {t.via && <span className="text-xs text-slate-600 block">{t.via}</span>}
                           </td>
                           <td className="p-4 text-sky-700">{t.veterinario || '-'}</td>
                           <td className="p-4">
@@ -907,13 +926,13 @@ export default function ExpedienteAnimal() {
                                   {dLeche}d
                                 </span>
                                 {libLeche && (
-                                  <span className="text-xs text-slate-400 block">
+                                  <span className="text-xs text-slate-600 block">
                                     Lib: {formatearFecha(libLeche)}
                                   </span>
                                 )}
                               </div>
                             ) : (
-                              <span className="text-slate-400">0d</span>
+                              <span className="text-slate-600">0d</span>
                             )}
                           </td>
                           <td className="p-4">
@@ -923,13 +942,13 @@ export default function ExpedienteAnimal() {
                                   {dCarne}d
                                 </span>
                                 {libCarne && (
-                                  <span className="text-xs text-slate-400 block">
+                                  <span className="text-xs text-slate-600 block">
                                     Lib: {formatearFecha(libCarne)}
                                   </span>
                                 )}
                               </div>
                             ) : (
-                              <span className="text-slate-400">0d</span>
+                              <span className="text-slate-600">0d</span>
                             )}
                           </td>
                           <td className="p-4">
@@ -969,7 +988,7 @@ export default function ExpedienteAnimal() {
                     })}
                     {(!tratamientos || tratamientos.length === 0) && (
                       <tr>
-                        <td colSpan={9} className="p-8 text-center text-slate-400">
+                        <td colSpan={9} className="p-8 text-center text-slate-600">
                           No hay tratamientos veterinarios registrados para este animal.
                         </td>
                       </tr>
@@ -1005,20 +1024,20 @@ export default function ExpedienteAnimal() {
                     className="px-4 py-2 bg-navy text-white rounded-lg text-sm font-bold shadow-sm hover:bg-navy-light transition-colors flex items-center gap-2"
                   >
                     <Plus className="w-4 h-4" />
-                    Agregar Documento
+                    Agregar documento
                   </button>
                 </RequireRole>
               </div>
               <div className="p-6">
                 {documentosLoading ? (
-                  <p role="status" className="py-8 text-center text-sm text-slate-500">Cargando documentos del expediente…</p>
+                  <p role="status" className="py-8 text-center text-sm text-slate-600">Cargando documentos del expediente…</p>
                 ) : documentosError ? (
                   <div className="py-8 text-center">
                     <p role="alert" className="text-sm text-red-700">No se pudieron cargar los documentos del expediente.</p>
                     <button type="button" onClick={() => void recargarDocumentos()} className="mt-3 text-sm font-semibold text-navy underline">Reintentar</button>
                   </div>
                 ) : !documentosDocumentos || documentosDocumentos.length === 0 ? (
-                  <div className="py-8 flex flex-col items-center justify-center text-slate-400">
+                  <div className="py-8 flex flex-col items-center justify-center text-slate-600">
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 mb-3 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /></svg>
                     <p className="text-sm">No hay documentos registrados</p>
                   </div>
@@ -1033,7 +1052,7 @@ export default function ExpedienteAnimal() {
                             </div>
                           ) : null}
                           <h4 className="font-bold text-navy text-sm mb-1">{doc.tipo}</h4>
-                          <p className="text-xs text-slate-400">
+                          <p className="text-xs text-slate-600">
                             Cargado el {formatearFechaCivil(doc.createdAt)}
                           </p>
                         </div>
@@ -1048,7 +1067,7 @@ export default function ExpedienteAnimal() {
                           >
                             <Download className="w-3 h-3" />
                             Ver / Descargar
-                          </DocumentLink> : <span className="text-xs text-slate-500">Documento pendiente de migración segura.</span>}
+                          </DocumentLink> : <span className="text-xs text-slate-600">Documento pendiente de migración segura.</span>}
                         </div>
                       </div>
                     ))}
@@ -1110,7 +1129,7 @@ export default function ExpedienteAnimal() {
           >
             <div>
               <h2 className="text-lg font-bold text-navy">Anular tratamiento</h2>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-600 mt-0.5">
                 {tratamientoAAnular.farmaco} — {formatearFecha(tratamientoAAnular.fecha)}. El registro se conserva en el historial auditable y deja de contar para el retiro.
               </p>
             </div>

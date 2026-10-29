@@ -303,7 +303,7 @@ export default function QrScannerPage() {
       }
 
       // Buscar coincidencia exacta (areteInterno, DIIO o ID)
-      const exactMatch = results.find(
+      const exactMatches = results.filter(
         (a) =>
           a.areteInterno?.toLowerCase() === cleanInput.toLowerCase() ||
           `#${a.areteInterno}`.toLowerCase() === rawInput.toLowerCase() ||
@@ -311,7 +311,7 @@ export default function QrScannerPage() {
           a.id === cleanInput,
       );
 
-      const targetAnimal = exactMatch || (results.length === 1 ? results[0] : null);
+      const targetAnimal = exactMatches.length === 1 ? exactMatches[0] : (exactMatches.length === 0 && results.length === 1 ? results[0] : null);
 
       if (targetAnimal) {
         // Redirigir directamente al expediente del animal encontrado

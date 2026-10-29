@@ -97,7 +97,7 @@ describe('Formularios de Identidad y Unicidad DIIO (HATO-T002)', () => {
     });
   });
 
-  it('ModalEditarAnimal aplica trim al enviar DIIO modificado', async () => {
+  it('ModalEditarAnimal deja de solo lectura el DIIO oficial ya asignado', async () => {
     const updateSpy = vi.mocked(animalesApi.updateAnimal).mockResolvedValueOnce({} as unknown as animalesApi.Animal);
     const onCloseMock = vi.fn();
 
@@ -110,7 +110,8 @@ describe('Formularios de Identidad y Unicidad DIIO (HATO-T002)', () => {
     );
 
     const diioInput = screen.getByPlaceholderText('Ej. CR-12345678');
-    fireEvent.change(diioInput, { target: { value: '   CR-554433   ' } });
+    expect((diioInput as HTMLInputElement).readOnly).toBe(true);
+    expect((diioInput as HTMLInputElement).value).toBe('CR-998877');
 
     const submitBtn = screen.getByRole('button', { name: /guardar cambios/i });
     fireEvent.submit(submitBtn.closest('form')!);
@@ -119,13 +120,13 @@ describe('Formularios de Identidad y Unicidad DIIO (HATO-T002)', () => {
       expect(updateSpy).toHaveBeenCalledWith(
         'animal-123',
         expect.objectContaining({
-          numeroOficialDiio: 'CR-554433',
+          numeroOficialDiio: 'CR-998877',
         })
       );
     });
   });
 
-  it('ModalEditarAnimal envía null si el usuario borra el DIIO dejándolo en blanco', async () => {
+  it('ModalEditarAnimal conserva el DIIO oficial al guardar otros cambios', async () => {
     const updateSpy = vi.mocked(animalesApi.updateAnimal).mockResolvedValueOnce({} as unknown as animalesApi.Animal);
 
     renderWithClient(
@@ -137,7 +138,8 @@ describe('Formularios de Identidad y Unicidad DIIO (HATO-T002)', () => {
     );
 
     const diioInput = screen.getByPlaceholderText('Ej. CR-12345678');
-    fireEvent.change(diioInput, { target: { value: '   ' } });
+    expect((diioInput as HTMLInputElement).readOnly).toBe(true);
+    expect((diioInput as HTMLInputElement).value).toBe('CR-998877');
 
     const submitBtn = screen.getByRole('button', { name: /guardar cambios/i });
     fireEvent.submit(submitBtn.closest('form')!);
@@ -146,7 +148,7 @@ describe('Formularios de Identidad y Unicidad DIIO (HATO-T002)', () => {
       expect(updateSpy).toHaveBeenCalledWith(
         'animal-123',
         expect.objectContaining({
-          numeroOficialDiio: null,
+          numeroOficialDiio: 'CR-998877',
         })
       );
     });

@@ -74,7 +74,7 @@ export default function ServicioForm({ animalId, onClose }: ServicioFormProps) {
   });
 
   return (
-    <ModalFormulario titulo="Registrar servicio" onClose={onClose}>
+    <ModalFormulario titulo="Registrar servicio" onClose={onClose} pendiente={mutation.isPending}>
       {errorServidor && (
         <div
           role="alert"

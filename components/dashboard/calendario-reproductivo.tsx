@@ -38,7 +38,7 @@ function formatFecha(iso: string): string {
 }
 
 /**
- * Feed "Calendario Reproductivo" — próximas palpaciones y partos cercanos,
+ * Feed "Calendario reproductivo" — próximas palpaciones y partos cercanos,
  * consumidos de GET /reproductivo/proximos-eventos.
  * Muestra los hitos agrupados por animal, con enlace a la ficha del expediente.
  */
@@ -50,7 +50,7 @@ export function CalendarioReproductivo() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Calendario Reproductivo</CardTitle>
+        <CardTitle>Calendario reproductivo</CardTitle>
         <p className="mt-1 text-sm text-slate-500">Próximas palpaciones y partos</p>
       </CardHeader>
       <CardContent>

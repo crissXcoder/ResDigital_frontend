@@ -90,7 +90,7 @@ export function LoginForm() {
     <div className="w-full max-w-md bg-card text-card-foreground border border-border rounded-2xl shadow-2xl p-6 sm:p-8">
       <div className="mb-6 text-center">
         <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          Iniciar Sesión
+          Iniciar sesión
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
           Ingresá a tu cuaderno de campo digital ResDigital
@@ -204,7 +204,7 @@ export function LoginForm() {
           disabled={isLoading}
           className="w-full mt-2 py-2.5 px-4 rounded-md bg-primary text-primary-foreground font-medium text-sm hover:bg-navy-light focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 transition-colors shadow-sm cursor-pointer"
         >
-          {isLoading ? 'Ingresando...' : 'Iniciar Sesión'}
+          {isLoading ? 'Ingresando...' : 'Iniciar sesión'}
         </button>
       </form>
 

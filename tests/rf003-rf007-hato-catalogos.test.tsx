@@ -1,6 +1,6 @@
 import React from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { act, cleanup, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ModalEditarAnimal } from '@/components/modals/ModalEditarAnimal';
 import * as animalesApi from '@/lib/api/animales';
@@ -41,12 +41,14 @@ describe('RF-003 + RF-007 — Catálogos y gestión de Hato', () => {
     });
   });
 
-  const renderWithClient = (ui: React.ReactElement) => {
-    return render(
+  afterEach(() => { cleanup(); queryClient.clear(); });
+
+  const renderWithClient = async (ui: React.ReactElement) => {
+    return act(async () => render(
       <QueryClientProvider client={queryClient}>
         {ui}
       </QueryClientProvider>,
-    );
+    ));
   };
 
   const animalHembra: animalesApi.Animal = {
@@ -103,7 +105,7 @@ describe('RF-003 + RF-007 — Catálogos y gestión de Hato', () => {
   });
 
   it('RF-007: ModalEditarAnimal muestra categorías según el sexo del animal (Hembra)', async () => {
-    renderWithClient(
+    await renderWithClient(
       <ModalEditarAnimal
         isOpen={true}
         onClose={vi.fn()}
@@ -123,7 +125,7 @@ describe('RF-003 + RF-007 — Catálogos y gestión de Hato', () => {
   });
 
   it('RF-007: ModalEditarAnimal muestra categorías según el sexo del animal (Macho)', async () => {
-    renderWithClient(
+    await renderWithClient(
       <ModalEditarAnimal
         isOpen={true}
         onClose={vi.fn()}
@@ -142,7 +144,7 @@ describe('RF-003 + RF-007 — Catálogos y gestión de Hato', () => {
   });
 
   it('RF-007: Si se selecciona raza "Otra", muestra input obligatorio para especificarla', async () => {
-    renderWithClient(
+    await renderWithClient(
       <ModalEditarAnimal
         isOpen={true}
         onClose={vi.fn()}
@@ -169,7 +171,7 @@ describe('RF-003 + RF-007 — Catálogos y gestión de Hato', () => {
     const errorMsg = 'Ya existe un animal registrado con el número oficial DIIO "CR-101010" en esta finca.';
     vi.mocked(animalesApi.updateAnimal).mockRejectedValueOnce(new Error(errorMsg));
 
-    renderWithClient(
+    await renderWithClient(
       <ModalEditarAnimal
         isOpen={true}
         onClose={vi.fn()}
@@ -192,7 +194,7 @@ describe('RF-003 + RF-007 — Catálogos y gestión de Hato', () => {
   it('RF-003: DIIO vacío o con solo espacios se envía como null', async () => {
     const updateSpy = vi.mocked(animalesApi.updateAnimal).mockResolvedValueOnce({} as unknown as animalesApi.Animal);
 
-    renderWithClient(
+    await renderWithClient(
       <ModalEditarAnimal
         isOpen={true}
         onClose={vi.fn()}

@@ -126,7 +126,7 @@ describe('HATO-T001 — Eliminación de estados falsos en Hato', () => {
     expect(activos.length).toBeGreaterThanOrEqual(2); // Al menos Esperanza y Faraón (y opción de select)
 
     // Debe mostrar los estados de baja reales en la tabla y opciones
-    expect(screen.getAllByText('Venta Comercial').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText(/^Venta comercial$/i).length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText('Fallecimiento').length).toBeGreaterThanOrEqual(2);
   });
 

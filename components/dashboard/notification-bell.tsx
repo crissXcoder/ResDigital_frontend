@@ -15,7 +15,7 @@ import { useAlertas } from "@/lib/hooks/use-dashboard-data";
 /**
  * Campana de notificaciones — card flotante con las alertas activas del sistema.
  * Diseño idéntico al Figma:
- * - Header limpio con "Alertas Activas" y enlace "Cerrar"
+ * - Header limpio con "Alertas activas" y enlace "Cerrar"
  * - Card blanco con esquinas redondeadas (rounded-2xl) y sombra suave
  * - Items con indicador rojo (dot) a la izquierda y el mensaje de texto que usa el sistema
  */
@@ -60,7 +60,7 @@ export function NotificationBell() {
         className="w-[340px] sm:w-[380px] rounded-2xl border border-slate-100 bg-white p-5 shadow-2xl"
       >
         <div className="flex items-center justify-between pb-3">
-          <h3 className="text-sm font-semibold text-slate-900">Alertas Activas</h3>
+          <h3 className="text-sm font-semibold text-slate-900">Alertas activas</h3>
           <button
             type="button"
             onClick={() => setOpen(false)}

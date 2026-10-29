@@ -45,6 +45,14 @@ export interface TratamientoSanitario {
   usuarioId: string;
   eventoCorrigeId: string | null;
   fechaRegistro: string;
+  produccionesCorregidas?: ProduccionCorregida[];
+}
+
+export interface ProduccionCorregida {
+  idAnterior: string;
+  idNuevo: string;
+  disposicionAnterior: 'COMERCIALIZABLE' | 'DESCARTE';
+  disposicionNueva: 'COMERCIALIZABLE' | 'DESCARTE';
 }
 
 export interface DatosTratamientoDto {
@@ -72,6 +80,7 @@ export interface AnulacionTratamiento {
   id: string;
   eventoAnulacionId: string;
   motivo: string;
+  produccionesCorregidas: ProduccionCorregida[];
 }
 
 export interface EstadoSanitario {

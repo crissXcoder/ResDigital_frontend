@@ -63,7 +63,7 @@ const CONFIG_ACCIONES: Record<TipoAccionRapida, AccionConfig> = {
 };
 
 /**
- * Sección "Acciones Rápidas" del Dashboard con flujo completo:
+ * Sección "Acciones rápidas" del Dashboard con flujo completo:
  * 1. Tarjetas en diseño sobrio/neutral.
  * 2. Al pulsar cualquier acción, abre un selector modal de animales con búsqueda.
  * 3. Al seleccionar un animal, despliega directamente el formulario modal oficial

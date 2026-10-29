@@ -81,7 +81,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
 
         {/* Finca Info */}
         <div className="px-6 py-5 border-b border-slate-700/50">
-          <p className="text-[10px] font-bold text-slate-500 tracking-wider mb-1">FINCA ACTIVA</p>
+          <p className="text-[10px] font-bold text-slate-300 tracking-wider mb-1">Finca activa</p>
           <p className="text-sm font-semibold text-white">
             {user?.nombreFinca || <span className="italic text-slate-400">Sin finca asignada</span>}
           </p>
