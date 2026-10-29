@@ -49,7 +49,7 @@ function fechaLiberacion(animal: AnimalEnRetiro): string | null {
 }
 
 /**
- * Tabla "Semáforo de Retiro Sanitario" — todos los animales con retiro activo hoy,
+ * Tabla "Semáforo de retiro sanitario" — todos los animales con retiro activo hoy,
  * con cuenta regresiva de días y tipo de restricción.
  *
  * Columnas Fármaco y Aplicado se mostrarán cuando Ari (MOD-02) exponga el endpoint
@@ -62,7 +62,7 @@ export function SemaforoSanitario() {
     <Card>
       <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 space-y-0">
         <div>
-          <CardTitle>Semáforo de Retiro Sanitario</CardTitle>
+          <CardTitle>Semáforo de retiro sanitario</CardTitle>
           <p className="mt-1 text-sm text-slate-500">
             Animales con restricción activa de leche o carne
           </p>

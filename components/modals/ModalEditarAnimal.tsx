@@ -155,6 +155,7 @@ function ModalEditarAnimalForm({ isOpen, onClose, animal }: Omit<ModalEditarAnim
                 id="edit-numeroOficialDiio"
                 type="text"
                 value={formData.numeroOficialDiio}
+                readOnly={Boolean(animal.numeroOficialDiio)}
                 onChange={(e) => setFormData({ ...formData, numeroOficialDiio: e.target.value })}
                 className={`w-full px-4 py-2.5 bg-white border rounded-lg text-sm focus:outline-none focus:ring-2 ${
                   errorMensaje?.includes('DIIO')
@@ -163,7 +164,11 @@ function ModalEditarAnimalForm({ isOpen, onClose, animal }: Omit<ModalEditarAnim
                 } text-slate-700`}
                 placeholder="Ej. CR-12345678"
               />
-              <p className="text-[11px] text-slate-400 mt-1">Opcional. Identificador oficial único.</p>
+              <p className="text-[11px] text-slate-400 mt-1">
+                {animal.numeroOficialDiio
+                  ? 'El DIIO oficial no se puede cambiar ni retirar desde ResDigital.'
+                  : 'Opcional. Identificador oficial único.'}
+              </p>
             </div>
           </div>
 

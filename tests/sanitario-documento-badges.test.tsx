@@ -116,7 +116,7 @@ describe('ModalTratamiento con receta adjunta', () => {
     fireEvent.change(selectFarmaco, { target: { value: MED } });
     fireEvent.change(screen.getByPlaceholderText('ej. 20 ml, 1 jeringa'), { target: { value: '20 ml' } });
     fireEvent.change(document.getElementById('document-upload')!, { target: { files: [pdf()] } });
-    fireEvent.click(screen.getByRole('button', { name: 'Aplicar Tratamiento' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar tratamiento' }));
     await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
   }
 

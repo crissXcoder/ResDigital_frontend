@@ -61,7 +61,7 @@ export async function generateAnimalQrSvg(
  * Valida y extrae el ID de animal de un código QR escaneado.
  * Asegura que apunta estrictamente a una ruta de expediente /hato/:id.
  */
-export function parseAnimalQrPayload(payload: string): {
+export function parseAnimalQrPayload(payload: string, origin = typeof window !== 'undefined' ? window.location.origin : ''): {
   isValid: boolean;
   animalId: string | null;
   error?: string;
@@ -73,7 +73,8 @@ export function parseAnimalQrPayload(payload: string): {
   const cleanPayload = payload.trim();
 
   // Caso 1: Ruta relativa `/hato/:id`
-  const relativeMatch = cleanPayload.match(/^\/hato\/([a-zA-Z0-9_-]+)$/);
+  const pathPattern = /^\/hato\/([\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12})$/i;
+  const relativeMatch = cleanPayload.match(pathPattern);
   if (relativeMatch) {
     return { isValid: true, animalId: relativeMatch[1] };
   }
@@ -81,8 +82,8 @@ export function parseAnimalQrPayload(payload: string): {
   // Caso 2: URL absoluta `https?://.../hato/:id`
   try {
     const url = new URL(cleanPayload);
-    const pathMatch = url.pathname.match(/^\/hato\/([a-zA-Z0-9_-]+)$/);
-    if (pathMatch) {
+    const pathMatch = url.pathname.match(pathPattern);
+    if (pathMatch && ['http:', 'https:'].includes(url.protocol) && url.origin === origin && !url.username && !url.password && !url.search && !url.hash) {
       return { isValid: true, animalId: pathMatch[1] };
     }
   } catch {

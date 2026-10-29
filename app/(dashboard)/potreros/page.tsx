@@ -116,7 +116,7 @@ export default function PotrerosPage() {
             <p className="text-3xl font-extrabold text-amber-500">{cargaPromedio} UA/ha</p>
           </div>
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Alertas Activas</p>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Alertas activas</p>
             <p className="text-3xl font-extrabold text-red-500">{alertasActivas}</p>
           </div>
         </div>

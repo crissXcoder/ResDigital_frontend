@@ -74,6 +74,37 @@ async function descargarPdf() {
 }
 
 describe('PDF del expediente según el perfil del animal', () => {
+  it('incluye partos históricos corregidos aunque ya no exista servicio activo', async () => {
+    perfil.animal = base;
+    perfil.reproductivo = sinServicio('Hembra');
+    const anterior = fetchApi.getMockImplementation()!;
+    fetchApi.mockImplementation(async (endpoint: string) => endpoint.endsWith('/eventos-reproductivos')
+      ? [{ eventoId: 'parto-1', tipo: 'PARTO', fechaEvento: '2026-10-20', revertido: true, eventoCorrigeId: null }]
+      : anterior(endpoint));
+    await descargarPdf();
+    expect(table).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      head: [['Fecha', 'Evento', 'Vigencia', 'Corrección de']],
+      body: [['20/10/2026', 'Parto', 'Corregido / anulado', '-']],
+    }));
+  });
+
+  it('impide descargar si falla el historial reproductivo requerido', async () => {
+    perfil.animal = base;
+    perfil.reproductivo = sinServicio('Hembra');
+    const anterior = fetchApi.getMockImplementation()!;
+    fetchApi.mockImplementation(async (endpoint: string) => {
+      if (endpoint.endsWith('/eventos-reproductivos')) throw new Error('Fuente QA no disponible');
+      return anterior(endpoint);
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={client}><ExpedienteAnimal /></QueryClientProvider>);
+    const boton = await screen.findByRole('button', { name: /descargar/i });
+    await waitFor(() => expect(client.getQueryState(['historialReproductivo', base.id])?.status).toBe('error'));
+    fireEvent.click(boton);
+    expect(save).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert').textContent).toMatch(/expediente completo/);
+  });
+
   it('animal sin historial: todas las secciones dicen "Sin registros" y no hay tablas', async () => {
     perfil.animal = base;
     perfil.reproductivo = sinServicio('Hembra');
@@ -81,7 +112,7 @@ describe('PDF del expediente según el perfil del animal', () => {
     const textos = await descargarPdf();
 
     expect(table).not.toHaveBeenCalled();
-    for (const seccion of ['Historial de Pesajes', 'Historial de Producción de Leche', 'Historial Sanitario', 'Historial Reproductivo']) {
+    for (const seccion of ['Historial de pesajes', 'Historial de producción de leche', 'Historial sanitario', 'Historial reproductivo']) {
       expect(textos).toContain(seccion);
     }
     expect(textos.filter((t) => t === 'Sin registros')).toHaveLength(4);
@@ -107,9 +138,9 @@ describe('PDF del expediente según el perfil del animal', () => {
     const textos = await descargarPdf();
 
     expect(textos).toContain('Sexo: Macho');
-    expect(textos).not.toContain('Historial de Producción de Leche');
+    expect(textos).not.toContain('Historial de producción de leche');
     expect(fetchApi).not.toHaveBeenCalledWith('/produccion-leche/animal/animal-1');
-    expect(textos).toContain('Historial Reproductivo');
-    expect(textos.filter((t) => t === 'Sin registros')).toHaveLength(3);
+    expect(textos).not.toContain('Historial reproductivo');
+    expect(textos.filter((t) => t === 'Sin registros')).toHaveLength(2);
   });
 });

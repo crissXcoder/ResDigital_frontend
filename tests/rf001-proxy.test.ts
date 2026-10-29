@@ -21,6 +21,12 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe('RF-001 proxy y renovación', () => {
+  it.each(['/produccion', '/equipo', '/hato'])('protege %s incluso con cookie E2E falsificada', async (path) => {
+    auth.getUser.mockResolvedValue({ data: { user: null }, error: null });
+    const request = new NextRequest(`http://localhost:3000${path}`, { headers: { cookie: 'playwright_test_session=true' } });
+    const response = await updateSession(request);
+    expect(response.headers.get('location')).toBe(`http://localhost:3000/login?redirect=${encodeURIComponent(path)}`);
+  });
   it('conserva cookies renovadas y evita caché pública al redirigir al dashboard', async () => {
     const response = await updateSession(new NextRequest('http://localhost:3000/login'));
     expect(response.headers.get('location')).toBe('http://localhost:3000/dashboard');

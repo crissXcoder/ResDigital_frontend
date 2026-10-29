@@ -27,8 +27,6 @@ export async function fetchApi<T>(
 
   if (session?.access_token) {
     headers['Authorization'] = `Bearer ${session.access_token}`;
-  } else {
-    console.warn(`fetchApi: No hay sesión o access_token al llamar a ${endpoint}. Supabase devolió session:`, session);
   }
 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -40,8 +38,11 @@ export async function fetchApi<T>(
     const errorText = await response.text().catch(() => '');
     let errorData = null;
     try { errorData = JSON.parse(errorText); } catch { /* ignore */ }
-    console.error(`[fetchApi] Error en ${endpoint} | Status: ${response.status} | Body: ${errorText}`);
-    throw new ApiError(errorData?.message || `API Error: ${response.status} ${response.statusText}`, response.status);
+    const message = errorData?.message;
+    throw new ApiError(
+      Array.isArray(message) ? message.join('. ') : typeof message === 'string' ? message : `No se pudo completar la solicitud (${response.status}).`,
+      response.status,
+    );
   }
 
   return (await response.json()) as T;

@@ -6,7 +6,7 @@ import { test, expect } from '@playwright/test';
  * Flujo completo definido en la bitácora técnica de la bóveda (Karla-STATE.md):
  * 1. Carga del Dashboard con renderizado de los 4 KPIs principales y widgets.
  * 2. Interacción con la campana de alertas activas.
- * 3. Sección de Acciones Rápidas:
+ * 3. Sección de Acciones rápidas:
  *    - Click en "Registrar Tratamiento Médico" → apertura del selector modal de animales.
  *    - Búsqueda reactiva de animal por nombre/arete.
  *    - Selección del animal y apertura directa del formulario oficial (ModalTratamiento).
@@ -58,54 +58,29 @@ const ANIMALES_MOCK_API = [
   },
 ];
 
-test.beforeEach(async ({ context, page }, testInfo) => {
-  const role = testInfo.title.match(/AUTH-T002 role: (\w+)/)?.[1] ?? 'propietario';
-  // Inyectar cookie de sesión de prueba para pasar el middleware de autenticación
-  const now = Math.floor(Date.now() / 1000);
-  const session = {
-    access_token: 'playwright.test.token',
-    refresh_token: 'playwright.test.refresh',
-    token_type: 'bearer',
-    expires_in: 3600,
-    expires_at: now + 3600,
-    user: {
-      id: `${role}-test`,
-      aud: 'authenticated',
-      role: 'authenticated',
-      email: `${role}@example.test`,
-      app_metadata: { rol: role, tenant_id: 'tenant-test' },
-      user_metadata: { nombre_completo: `Usuario ${role} de prueba` },
-    },
-  };
-  await context.addCookies([
-    {
-      name: 'playwright_test_session',
-      value: 'true',
-      domain: 'localhost',
-      path: '/',
-    },
-    {
-      name: 'sb-jchrtqgzvidlcezzhols-auth-token',
-      value: `base64-${Buffer.from(JSON.stringify(session)).toString('base64url')}`,
-      domain: 'localhost',
-      path: '/',
-    },
-  ]);
-
-  await page.route('**/auth/perfil', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        userId: `${role}-test`,
-        tenantId: 'tenant-test',
-        rol: role,
-        nombreCompleto: `Usuario ${role} de prueba`,
-        correo: `${role}@example.test`,
-        nombreFinca: 'Finca de prueba',
-      }),
-    });
+// Estos casos verifican contratos de UI con datos interceptados; la sesión sí es real.
+test.beforeEach(async ({ page }, testInfo) => {
+  test.setTimeout(100_000);
+  // Respeta el límite real de /auth; solo reintenta GET tras Retry-After.
+  await page.route('**/auth/perfil', async route => {
+    let response = await route.fetch();
+    if (response.status() === 429) {
+      const seconds = Number(response.headers()['retry-after'] ?? '60');
+      if (!Number.isFinite(seconds) || seconds < 0 || seconds > 60) throw new Error('Retry-After de QA inválido');
+      await new Promise(resolve => setTimeout(resolve, (seconds + 1) * 1000));
+      response = await route.fetch();
+    }
+    await route.fulfill({ response });
   });
+  const role = testInfo.title.match(/AUTH-T002 role: (\w+)/)?.[1] ?? 'propietario';
+  const users = JSON.parse(process.env.PLAYWRIGHT_QA_USERS ?? '{}') as Record<string, string>;
+  const password = process.env.PLAYWRIGHT_QA_PASSWORD;
+  if (!users[role] || !password) throw new Error('Configure usuarios QA reales por rol y contraseña temporal en el proceso.');
+  await page.goto('/login');
+  await page.getByLabel('Correo electrónico').fill(users[role]);
+  await page.getByLabel('Contraseña', { exact: true }).fill(password);
+  await page.getByRole('button', { name: 'Iniciar sesión', exact: true }).click();
+  await expect(page).toHaveURL(/\/dashboard/);
 
   // Interceptar llamadas a la API de backend para que la prueba sea determinista y aislada
   await page.route('**/animales*', async (route) => {
@@ -140,6 +115,7 @@ test.beforeEach(async ({ context, page }, testInfo) => {
 for (const role of ['propietario', 'administrador', 'peon', 'veterinario']) {
   test(`AUTH-T002 role: ${role}: permisos visibles de acciones y documentos`, async ({ page }) => {
     await page.goto('/dashboard');
+    await expect(page.getByRole('heading', { name: 'Panel principal', level: 1 })).toBeVisible({ timeout: 75_000 });
     for (const action of ['tratamiento', 'reproductivo']) {
       await expect(page.getByTestId(`accion-rapida-${action}`)).toBeEnabled();
     }
@@ -170,8 +146,9 @@ for (const role of ['propietario', 'administrador', 'peon', 'veterinario']) {
       route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
     );
     await page.goto(`/hato/${animalId}`);
+    await expect(page.getByRole('button', { name: 'Descargar PDF', exact: true })).toBeVisible({ timeout: 75_000 });
     await page.getByRole('button', { name: 'Documentos', exact: true }).click();
-    const uploadButton = page.getByRole('button', { name: 'Agregar Documento' });
+    const uploadButton = page.getByRole('button', { name: 'Agregar documento' });
     if (role === 'propietario' || role === 'administrador') {
       await expect(uploadButton).toBeVisible();
     } else {
@@ -214,7 +191,7 @@ test('CORE-T004: no borra un archivo si la respuesta del registro puede haberse 
   });
   await page.goto(`/hato/${animalId}`);
   await page.getByRole('button', { name: 'Documentos', exact: true }).click();
-  await page.getByRole('button', { name: 'Agregar Documento' }).click();
+  await page.getByRole('button', { name: 'Agregar documento' }).click();
   await page.locator('input[list="docTypes"]').fill('Certificado de Prueba');
   await page.locator('input[type="file"]').setInputFiles({
     name: 'prueba.pdf',
@@ -230,7 +207,7 @@ test.describe('Dashboard MOD-04 — Flujo principal de usuario', () => {
     await page.goto('/dashboard');
 
     // Verificar encabezado principal
-    await expect(page.getByRole('heading', { name: 'Dashboard', level: 1 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Panel principal', level: 1 })).toBeVisible();
     await expect(page.getByText('Vistazo rápido del estado del hato y las alertas activas.')).toBeVisible();
 
     // Verificar los 4 KPIs del diseño
@@ -239,12 +216,12 @@ test.describe('Dashboard MOD-04 — Flujo principal de usuario', () => {
     await expect(page.getByText(/Gestantes confirmadas/i)).toBeVisible();
     await expect(page.getByText('Alertas activas', { exact: true })).toBeVisible();
 
-    // Verificar secciones de Semáforo Sanitario y Calendario Reproductivo
-    await expect(page.getByText('Semáforo de Retiro Sanitario')).toBeVisible();
-    await expect(page.getByText('Calendario Reproductivo')).toBeVisible();
+    // Verificar secciones de Semáforo Sanitario y Calendario reproductivo
+    await expect(page.getByText('Semáforo de retiro sanitario')).toBeVisible();
+    await expect(page.getByText('Calendario reproductivo')).toBeVisible();
 
-    // Verificar sección de Acciones Rápidas
-    await expect(page.getByRole('heading', { name: 'Acciones Rápidas' })).toBeVisible();
+    // Verificar sección de Acciones rápidas
+    await expect(page.getByRole('heading', { name: 'Acciones rápidas' })).toBeVisible();
   });
 
   test('debe abrir la campana de notificaciones y mostrar alertas activas', async ({ page }) => {
@@ -256,19 +233,19 @@ test.describe('Dashboard MOD-04 — Flujo principal de usuario', () => {
     await botonCampana.click();
 
     // Dropdown de alertas
-    await expect(page.getByRole('heading', { name: 'Alertas Activas' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Alertas activas' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Cerrar' })).toBeVisible();
 
     // Cerrar el menú desplegable
     await page.getByRole('button', { name: 'Cerrar' }).click();
-    await expect(page.getByRole('heading', { name: 'Alertas Activas' })).not.toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Alertas activas' })).not.toBeVisible();
   });
 
-  test('flujo Acciones Rápidas: Registrar Tratamiento → Buscar Animal → Abrir Formulario Modal', async ({ page }) => {
+  test('flujo Acciones rápidas: Registrar Tratamiento → Buscar Animal → Abrir Formulario Modal', async ({ page }) => {
     await page.goto('/dashboard');
 
     // 1. Click en la tarjeta de Acción Rápida "Registrar Tratamiento Médico"
-    await page.getByRole('button', { name: /Registrar Tratamiento Médico/i }).click();
+    await page.getByRole('button', { name: /Registrar tratamiento/i }).click();
 
     // 2. Comprobar que se abre el modal selector de animales
     const selectorModal = page.locator('div.fixed.inset-0').filter({ hasText: /Seleccionar Animal para Tratamiento/i });
@@ -288,8 +265,8 @@ test.describe('Dashboard MOD-04 — Flujo principal de usuario', () => {
 
     // 5. Debe cerrarse el selector y abrirse directamente el formulario ModalTratamiento
     await expect(selectorModal).not.toBeVisible();
-    const modalTratamiento = page.locator('div.fixed.inset-0').filter({ hasText: /Registrar Tratamiento Veterinario/i });
-    await expect(modalTratamiento.getByRole('heading', { name: 'Registrar Tratamiento Veterinario' })).toBeVisible();
+    const modalTratamiento = page.locator('div.fixed.inset-0').filter({ hasText: /Registrar tratamiento veterinario/i });
+    await expect(modalTratamiento.getByRole('heading', { name: 'Registrar tratamiento veterinario' })).toBeVisible();
     await expect(modalTratamiento.getByText(/Fármaco \*/i)).toBeVisible();
     const fechaCostaRica = await page.evaluate(() =>
       new Intl.DateTimeFormat('en-CA', {
@@ -299,7 +276,7 @@ test.describe('Dashboard MOD-04 — Flujo principal de usuario', () => {
         day: '2-digit',
       }).format(new Date()),
     );
-    await expect(modalTratamiento.locator('input[type="date"]')).toHaveValue(
+    await expect(modalTratamiento.locator('input[type="date"]').first()).toHaveValue(
       fechaCostaRica,
     );
 
@@ -397,6 +374,7 @@ test.describe('Dashboard MOD-04 — Flujo principal de usuario', () => {
       });
     });
 
+    await page.route('**/produccion-leche/animal/**', route => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
     await page.goto(`/hato/${animalId}`);
     await expect(page.getByText('01/01/2020', { exact: true })).toBeVisible();
     const hoyCostaRica = await page.evaluate(() =>
@@ -410,7 +388,7 @@ test.describe('Dashboard MOD-04 — Flujo principal de usuario', () => {
     const descarga = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Descargar PDF' }).click();
     expect((await descarga).suggestedFilename()).toBe(
-      `Expediente_DATE-001_${hoyCostaRica}.pdf`,
+      `Expediente_DATE-001_${animalId.slice(0, 8)}_${hoyCostaRica}.pdf`,
     );
   });
 });

@@ -107,7 +107,7 @@ export function RegisterForm() {
           href="/login"
           className="inline-block py-2.5 px-6 rounded-md bg-primary text-primary-foreground font-medium text-sm hover:bg-navy-light transition-colors"
         >
-          Volver a Iniciar Sesión
+          Volver a Iniciar sesión
         </Link>
       </div>
     );

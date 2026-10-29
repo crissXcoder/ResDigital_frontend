@@ -8,12 +8,12 @@
   --color-navy-deep: #182338;
 
   /* Semánticos de estado */
-  --color-danger: #DC2626;
+  --color-danger: #B91C1C;
   --color-danger-bg: #FEE2E2;
-  --color-warning: #D97706;
+  --color-warning: #92400E;
   --color-warning-bg: #FEF3C7;
   --color-warning-strong: #92400E;
-  --color-success: #16A34A;
+  --color-success: #166534;
   --color-success-bg: #DCFCE7;
   --color-info: #2563EB;
   --color-info-bg: #DBEAFE;
@@ -73,7 +73,7 @@
   --secondary-foreground: #FFFFFF;
 
   --muted: #F1F5F9;              /* slate-100 */
-  --muted-foreground: #64748B;   /* slate-500 */
+  --muted-foreground: #475569;   /* slate-600: AA también sobre slate-100 */
 
   --accent: var(--color-info-bg-soft);
   --accent-foreground: var(--color-info);

@@ -11,7 +11,7 @@ export type DiagnosticoInput = components['schemas']['RegistrarDiagnosticoDto'];
 export type NuevaCriaPartoInput = {
   areteInterno: string;
   nombre?: string;
-  sexo?: 'Hembra' | 'Macho';
+  sexo: 'Hembra' | 'Macho';
   razaId?: string;
   razaOtra?: string;
   numeroOficialDiio?: string;
@@ -20,6 +20,7 @@ export type NuevaCriaPartoInput = {
 
 export type PartoInput = components['schemas']['RegistrarPartoDto'] & {
   nuevaCria?: NuevaCriaPartoInput;
+  confirmarFechaNacimiento?: boolean;
 };
 export type SecadoInput = components['schemas']['RegistrarSecadoDto'];
 export type RegistrarServicioResponse =

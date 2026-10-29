@@ -196,7 +196,7 @@ export function SelectorAnimalReporte({
               ) : (
                 <>
                   <Download className="size-3.5" />
-                  Descargar Reporte PDF
+                  Descargar reporte PDF
                 </>
               )}
             </button>
@@ -311,6 +311,7 @@ export function SelectorAnimalReporte({
                               </span>
                               <span className="text-slate-500 text-[11px] ml-2">
                                 ({animal.sexo}, {animal.categoria})
+                                {' · '}{animal.activo ? 'Activo' : 'Baja'} · {animal.id.slice(0, 8)}
                               </span>
                               {animal.numeroOficialDiio && (
                                 <span className="text-[11px] text-blue-600 font-mono ml-2">
