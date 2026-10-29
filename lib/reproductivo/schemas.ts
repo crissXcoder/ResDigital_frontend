@@ -18,6 +18,12 @@ import { hoyLocal } from './fechas';
 
 export const fechaEventoSchema = z
   .string()
+  // El input es un <input type="date"> nativo: su .value siempre viene en
+  // AAAA-MM-DD cuando tiene algo, nunca en otro formato. El único caso real
+  // que llega vacío es que el usuario no eligió fecha, así que ese caso tiene
+  // su propio mensaje en vez de mostrar un error de "formato" que confunde
+  // (el navegador ya muestra la fecha en el formato del idioma del usuario).
+  .min(1, 'La fecha es obligatoria.')
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'La fecha debe tener el formato AAAA-MM-DD')
   // Comparación de strings ISO: ordena igual que la fecha y evita reintroducir
   // el corrimiento de zona horaria que ya se corrigió en el backend.

@@ -32,6 +32,7 @@ export default function ModalServicio({ isOpen, onClose, onSubmit, animalSexo }:
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ fecha?: string; semental?: string }>({});
 
   useEffect(() => {
     if (isOpen) {
@@ -48,8 +49,22 @@ export default function ModalServicio({ isOpen, onClose, onSubmit, animalSexo }:
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
     setErrorMessage(null);
+
+    const errores: { fecha?: string; semental?: string } = {};
+    if (!formData.fecha) {
+      errores.fecha = 'La fecha de servicio es obligatoria.';
+    }
+    if (!formData.semental.trim()) {
+      errores.semental = 'Indicá el toro o la pajilla.';
+    }
+    if (Object.keys(errores).length > 0) {
+      setFieldErrors(errores);
+      return;
+    }
+    setFieldErrors({});
+
+    setIsSubmitting(true);
     try {
       await onSubmit(formData);
       onClose();
@@ -74,7 +89,7 @@ export default function ModalServicio({ isOpen, onClose, onSubmit, animalSexo }:
           </button>
         </div>
         
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <form onSubmit={handleSubmit} noValidate className="p-6 space-y-5">
           {errorMessage && (
             <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium flex items-start gap-2 animate-in fade-in">
               <AlertCircle className="w-4 h-4 shrink-0 text-red-500 mt-0.5" />
@@ -107,10 +122,16 @@ export default function ModalServicio({ isOpen, onClose, onSubmit, animalSexo }:
                 type="date"
                 required
                 disabled={isSubmitting}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 disabled:opacity-60"
+                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 disabled:opacity-60 ${
+                  fieldErrors.fecha ? 'border-red-500 ring-2 ring-red-200' : 'border-slate-300'
+                }`}
                 value={formData.fecha}
-                onChange={e => setFormData({ ...formData, fecha: e.target.value })}
+                onChange={e => {
+                  setFormData({ ...formData, fecha: e.target.value });
+                  setFieldErrors(prev => ({ ...prev, fecha: undefined }));
+                }}
               />
+              {fieldErrors.fecha && <p className="text-xs text-danger font-medium">{fieldErrors.fecha}</p>}
             </div>
 
             <div className="space-y-1.5">
@@ -120,11 +141,17 @@ export default function ModalServicio({ isOpen, onClose, onSubmit, animalSexo }:
                 type="text"
                 required
                 disabled={isSubmitting}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light disabled:opacity-60"
+                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light disabled:opacity-60 ${
+                  fieldErrors.semental ? 'border-red-500 ring-2 ring-red-200' : 'border-slate-300'
+                }`}
                 value={formData.semental}
-                onChange={e => setFormData({ ...formData, semental: e.target.value })}
+                onChange={e => {
+                  setFormData({ ...formData, semental: e.target.value });
+                  setFieldErrors(prev => ({ ...prev, semental: undefined }));
+                }}
                 placeholder="Ej. Toro Campeón #50"
               />
+              {fieldErrors.semental && <p className="text-xs text-danger font-medium">{fieldErrors.semental}</p>}
             </div>
 
             <div className="space-y-1.5">

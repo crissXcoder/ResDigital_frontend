@@ -63,7 +63,9 @@ describe('Sesiones de formularios del hato', () => {
     await waitFor(() => expect(screen.getByRole('option', { name: 'Holstein' })).toBeDefined(), { timeout: 3000 });
     fireEvent.change(screen.getByPlaceholderText('Ej. Mariposa'), { target: { value: 'Nombre editado' } });
     fireEvent.submit(container.querySelector('form')!);
-    await waitFor(() => expect(alert).toHaveBeenCalledWith('No se pudo guardar el animal.'));
+    await waitFor(() => expect(screen.getByText('No se pudo guardar el animal.')).toBeDefined());
+    // El error se muestra solo en el banner inline; ya no se duplica como alerta nativa del navegador.
+    expect(alert).not.toHaveBeenCalled();
     expect(close).not.toHaveBeenCalled();
     expect((screen.getByPlaceholderText('Ej. Mariposa') as HTMLInputElement).value).toBe('Nombre editado');
   });

@@ -186,8 +186,8 @@ describe('RF-003 + RF-007 — Catálogos y gestión de Hato', () => {
       expect(screen.getByText(errorMsg)).toBeDefined();
     });
 
-    // Verificamos que se notificó el error
-    expect(alertSpy).toHaveBeenCalledWith(errorMsg);
+    // El error se notifica solo con el banner inline, sin duplicarlo como alerta nativa.
+    expect(alertSpy).not.toHaveBeenCalled();
     vi.unstubAllGlobals();
   });
 

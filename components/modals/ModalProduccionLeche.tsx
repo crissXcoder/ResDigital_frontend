@@ -35,6 +35,7 @@ export default function ModalProduccionLeche({
   const [litros, setLitros] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ litros?: string }>({});
 
   const fechaValida = /^\d{4}-\d{2}-\d{2}$/.test(fecha) && fecha <= hoy;
 
@@ -70,6 +71,14 @@ export default function ModalProduccionLeche({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!puedeGuardar) return;
+
+    const litrosNum = Number(litros);
+    if (!litros.trim() || Number.isNaN(litrosNum) || litrosNum <= 0) {
+      setFieldErrors({ litros: 'Ingresá los litros ordeñados.' });
+      return;
+    }
+    setFieldErrors({});
+
     setIsSubmitting(true);
     setErrorMessage(null);
     try {
@@ -99,7 +108,7 @@ export default function ModalProduccionLeche({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="p-5 space-y-4">
           {errorMessage && (
             <div role="alert" className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium flex items-start gap-2">
               <AlertCircle className="w-4 h-4 shrink-0 text-red-500 mt-0.5" />
@@ -164,11 +173,17 @@ export default function ModalProduccionLeche({
                 max={MAX_LITROS_TURNO}
                 required
                 disabled={isSubmitting}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light disabled:opacity-60"
+                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light disabled:opacity-60 ${
+                  fieldErrors.litros ? 'border-red-500 ring-2 ring-red-200' : 'border-slate-300'
+                }`}
                 value={litros}
-                onChange={(e) => setLitros(e.target.value)}
+                onChange={(e) => {
+                  setLitros(e.target.value);
+                  setFieldErrors({});
+                }}
                 placeholder="Ej. 12.5"
               />
+              {fieldErrors.litros && <p className="text-xs text-danger font-medium">{fieldErrors.litros}</p>}
             </div>
           </div>
 
