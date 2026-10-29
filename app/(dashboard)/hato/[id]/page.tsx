@@ -1080,12 +1080,6 @@ export default function ExpedienteAnimal() {
       </div>
 
       {/* Modals */}
-      <ModalEditarAnimal
-        isOpen={isEditarAnimalOpen}
-        onClose={() => setIsEditarAnimalOpen(false)}
-        animal={animal}
-      />
-
       <ModalPesaje
         isOpen={isPesajeOpen}
         onClose={() => setIsPesajeOpen(false)}

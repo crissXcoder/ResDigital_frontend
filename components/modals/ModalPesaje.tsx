@@ -20,6 +20,7 @@ export default function ModalPesaje({ isOpen, onClose, onSubmit }: ModalPesajePr
   const [formData, setFormData] = useState<PesajeFormData>({ fecha: hoy, peso_actual: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ peso_actual?: string }>({});
 
   useEffect(() => {
     if (isOpen) {
@@ -36,8 +37,16 @@ export default function ModalPesaje({ isOpen, onClose, onSubmit }: ModalPesajePr
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
     setErrorMessage(null);
+
+    const peso = Number(formData.peso_actual);
+    if (!formData.peso_actual.trim() || Number.isNaN(peso) || peso <= 0) {
+      setFieldErrors({ peso_actual: 'Ingresá un peso válido mayor a 0.' });
+      return;
+    }
+    setFieldErrors({});
+
+    setIsSubmitting(true);
     try {
       await onSubmit(formData);
       onClose();
@@ -62,7 +71,7 @@ export default function ModalPesaje({ isOpen, onClose, onSubmit }: ModalPesajePr
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="p-5 space-y-4">
           {errorMessage && (
             <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium flex items-start gap-2 animate-in fade-in">
               <AlertCircle className="w-4 h-4 shrink-0 text-red-500 mt-0.5" />
@@ -94,11 +103,17 @@ export default function ModalPesaje({ isOpen, onClose, onSubmit }: ModalPesajePr
               max="2000"
               required
               disabled={isSubmitting}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light disabled:opacity-60"
+              className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light disabled:opacity-60 ${
+                fieldErrors.peso_actual ? 'border-red-500 ring-2 ring-red-200' : 'border-slate-300'
+              }`}
               value={formData.peso_actual}
-              onChange={e => setFormData({ ...formData, peso_actual: e.target.value })}
+              onChange={e => {
+                setFormData({ ...formData, peso_actual: e.target.value });
+                setFieldErrors({});
+              }}
               placeholder="Ej. 485"
             />
+            {fieldErrors.peso_actual && <p className="text-xs text-danger font-medium">{fieldErrors.peso_actual}</p>}
           </div>
 
           <div className="flex justify-end gap-3 pt-4 mt-2 border-t border-slate-100">

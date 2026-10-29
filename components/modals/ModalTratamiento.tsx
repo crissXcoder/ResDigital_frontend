@@ -129,6 +129,29 @@ function mensajeDeError(err: unknown): string {
   return 'Error al guardar el tratamiento. Inténtalo de nuevo.';
 }
 
+/** Orden visual de los campos, de arriba hacia abajo, para saltar al primer error. */
+const ORDEN_CAMPOS = [
+  'padecimientoId',
+  'diagnosticoLibre',
+  'medicamentoId',
+  'farmacoLibre',
+  'dosis',
+  'fecha',
+  'fechaUltimaAdministracion',
+  'diasRetiroLeche',
+  'diasRetiroCarne',
+] as const;
+
+type CampoTratamiento = (typeof ORDEN_CAMPOS)[number];
+
+function idCampoTratamiento(campo: CampoTratamiento): string {
+  return `tratamiento-${campo}`;
+}
+
+function bordeError(errores: Partial<Record<CampoTratamiento, string>>, campo: CampoTratamiento): string {
+  return errores[campo] ? 'border-red-500 ring-2 ring-red-200' : 'border-slate-300';
+}
+
 export default function ModalTratamiento({
   isOpen,
   onClose,
@@ -144,6 +167,7 @@ export default function ModalTratamiento({
   const [isUploading, setIsUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<CampoTratamiento, string>>>({});
 
   const [prevIsOpen, setPrevIsOpen] = useState(false);
   const [prevInitialData, setPrevInitialData] = useState<InitialTratamientoData | null | undefined>(undefined);
@@ -171,6 +195,7 @@ export default function ModalTratamiento({
       setSugerenciaActiva(null);
       setFile(null);
       setErrorMessage(null);
+      setFieldErrors({});
     }
   }
 
@@ -219,8 +244,68 @@ export default function ModalTratamiento({
     });
   };
 
+  const validar = (): Partial<Record<CampoTratamiento, string>> => {
+    const errores: Partial<Record<CampoTratamiento, string>> = {};
+
+    if (!formData.padecimientoId) {
+      errores.padecimientoId = 'Seleccioná un diagnóstico.';
+    } else if (formData.padecimientoId === OTRO && !formData.diagnosticoLibre.trim()) {
+      errores.diagnosticoLibre = 'Especificá el diagnóstico.';
+    }
+
+    if (!formData.medicamentoId) {
+      errores.medicamentoId = 'Seleccioná un medicamento.';
+    } else if (formData.medicamentoId === OTRO && !formData.farmacoLibre.trim()) {
+      errores.farmacoLibre = 'Especificá el fármaco.';
+    }
+
+    if (!formData.dosis.trim()) {
+      errores.dosis = 'La dosis es obligatoria.';
+    }
+
+    if (!formData.fecha) {
+      errores.fecha = 'La fecha de aplicación es obligatoria.';
+    }
+
+    if (!formData.fechaUltimaAdministracion) {
+      errores.fechaUltimaAdministracion = 'La última administración es obligatoria.';
+    } else if (formData.fecha && formData.fechaUltimaAdministracion < formData.fecha) {
+      errores.fechaUltimaAdministracion = 'No puede ser anterior a la fecha de aplicación.';
+    }
+
+    if (formData.diasRetiroLeche.trim() === '') {
+      errores.diasRetiroLeche = 'Este campo es obligatorio.';
+    } else if (Number(formData.diasRetiroLeche) < 0) {
+      errores.diasRetiroLeche = 'No puede ser negativo.';
+    }
+
+    if (formData.diasRetiroCarne.trim() === '') {
+      errores.diasRetiroCarne = 'Este campo es obligatorio.';
+    } else if (Number(formData.diasRetiroCarne) < 0) {
+      errores.diasRetiroCarne = 'No puede ser negativo.';
+    }
+
+    return errores;
+  };
+
+  const saltarAlPrimerError = (errores: Partial<Record<CampoTratamiento, string>>) => {
+    const primerCampo = ORDEN_CAMPOS.find(campo => errores[campo]);
+    if (!primerCampo) return;
+    const elemento = document.getElementById(idCampoTratamiento(primerCampo));
+    elemento?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    (elemento as HTMLElement | null)?.focus();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const errores = validar();
+    if (Object.keys(errores).length > 0) {
+      setFieldErrors(errores);
+      saltarAlPrimerError(errores);
+      return;
+    }
+    setFieldErrors({});
 
     let finalDocumentoUrl = formData.documentoUrl;
     let rutaSubida: string | null = null;
@@ -343,7 +428,7 @@ export default function ModalTratamiento({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="min-h-0 overflow-y-auto p-5 sm:p-6 space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="min-h-0 overflow-y-auto p-5 sm:p-6 space-y-4">
           {errorMessage && (
             <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium flex items-start gap-2 animate-in fade-in">
               <AlertCircle className="w-4 h-4 shrink-0 text-red-500 mt-0.5" />
@@ -364,11 +449,15 @@ export default function ModalTratamiento({
               </label>
               <div className="space-y-2">
                 <select
+                  id={idCampoTratamiento('padecimientoId')}
                   required
                   disabled={loadingPadecimientos}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white"
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white ${bordeError(fieldErrors, 'padecimientoId')}`}
                   value={formData.padecimientoId}
-                  onChange={e => handleDiagnosticoChange(e.target.value)}
+                  onChange={e => {
+                    handleDiagnosticoChange(e.target.value);
+                    setFieldErrors(prev => ({ ...prev, padecimientoId: undefined }));
+                  }}
                 >
                   <option value="">
                     {loadingPadecimientos ? 'Cargando padecimientos...' : '— Seleccione diagnóstico —'}
@@ -380,16 +469,28 @@ export default function ModalTratamiento({
                   ))}
                   <option value={OTRO}>Otro (personalizado)</option>
                 </select>
+                {fieldErrors.padecimientoId && (
+                  <p className="text-xs text-danger font-medium">{fieldErrors.padecimientoId}</p>
+                )}
 
                 {formData.padecimientoId === OTRO && (
-                  <input
-                    type="text"
-                    required
-                    placeholder="Especifique el diagnóstico"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light"
-                    value={formData.diagnosticoLibre}
-                    onChange={e => setFormData({ ...formData, diagnosticoLibre: e.target.value })}
-                  />
+                  <>
+                    <input
+                      id={idCampoTratamiento('diagnosticoLibre')}
+                      type="text"
+                      required
+                      placeholder="Especifique el diagnóstico"
+                      className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light ${bordeError(fieldErrors, 'diagnosticoLibre')}`}
+                      value={formData.diagnosticoLibre}
+                      onChange={e => {
+                        setFormData({ ...formData, diagnosticoLibre: e.target.value });
+                        setFieldErrors(prev => ({ ...prev, diagnosticoLibre: undefined }));
+                      }}
+                    />
+                    {fieldErrors.diagnosticoLibre && (
+                      <p className="text-xs text-danger font-medium">{fieldErrors.diagnosticoLibre}</p>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -406,11 +507,15 @@ export default function ModalTratamiento({
               </div>
               <div className="space-y-2">
                 <select
+                  id={idCampoTratamiento('medicamentoId')}
                   required
                   disabled={loadingMedicamentos}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white"
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white ${bordeError(fieldErrors, 'medicamentoId')}`}
                   value={formData.medicamentoId}
-                  onChange={e => handleMedicamentoChange(e.target.value)}
+                  onChange={e => {
+                    handleMedicamentoChange(e.target.value);
+                    setFieldErrors(prev => ({ ...prev, medicamentoId: undefined }));
+                  }}
                 >
                   <option value="">
                     {loadingMedicamentos ? 'Cargando medicamentos...' : '— Seleccione medicamento —'}
@@ -422,16 +527,28 @@ export default function ModalTratamiento({
                   ))}
                   <option value={OTRO}>Otro (personalizado)</option>
                 </select>
+                {fieldErrors.medicamentoId && (
+                  <p className="text-xs text-danger font-medium">{fieldErrors.medicamentoId}</p>
+                )}
 
                 {formData.medicamentoId === OTRO && (
-                  <input
-                    type="text"
-                    required
-                    placeholder="Especifique el fármaco"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light"
-                    value={formData.farmacoLibre}
-                    onChange={e => setFormData({ ...formData, farmacoLibre: e.target.value })}
-                  />
+                  <>
+                    <input
+                      id={idCampoTratamiento('farmacoLibre')}
+                      type="text"
+                      required
+                      placeholder="Especifique el fármaco"
+                      className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light ${bordeError(fieldErrors, 'farmacoLibre')}`}
+                      value={formData.farmacoLibre}
+                      onChange={e => {
+                        setFormData({ ...formData, farmacoLibre: e.target.value });
+                        setFieldErrors(prev => ({ ...prev, farmacoLibre: undefined }));
+                      }}
+                    />
+                    {fieldErrors.farmacoLibre && (
+                      <p className="text-xs text-danger font-medium">{fieldErrors.farmacoLibre}</p>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -442,13 +559,18 @@ export default function ModalTratamiento({
             <div className="space-y-1.5">
               <label className="block text-sm font-semibold text-navy">Dosis *</label>
               <input
+                id={idCampoTratamiento('dosis')}
                 type="text"
                 required
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700"
+                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 ${bordeError(fieldErrors, 'dosis')}`}
                 value={formData.dosis}
-                onChange={e => setFormData({ ...formData, dosis: e.target.value })}
+                onChange={e => {
+                  setFormData({ ...formData, dosis: e.target.value });
+                  setFieldErrors(prev => ({ ...prev, dosis: undefined }));
+                }}
                 placeholder="ej. 20 ml, 1 jeringa"
               />
+              {fieldErrors.dosis && <p className="text-xs text-danger font-medium">{fieldErrors.dosis}</p>}
             </div>
 
             {/* Vía */}
@@ -474,30 +596,43 @@ export default function ModalTratamiento({
             <div className="space-y-1.5">
               <label className="block text-sm font-semibold text-navy">Fecha de Aplicación *</label>
               <input
+                id={idCampoTratamiento('fecha')}
                 type="date"
                 required
                 max={hoy}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700"
+                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 ${bordeError(fieldErrors, 'fecha')}`}
                 value={formData.fecha}
-                onChange={e => handleFechaChange(e.target.value)}
+                onChange={e => {
+                  handleFechaChange(e.target.value);
+                  setFieldErrors(prev => ({ ...prev, fecha: undefined, fechaUltimaAdministracion: undefined }));
+                }}
               />
+              {fieldErrors.fecha && <p className="text-xs text-danger font-medium">{fieldErrors.fecha}</p>}
             </div>
 
             {/* Última administración */}
             <div className="space-y-1.5">
               <label className="block text-sm font-semibold text-navy">Última administración *</label>
               <input
+                id={idCampoTratamiento('fechaUltimaAdministracion')}
                 type="date"
                 required
                 min={formData.fecha || undefined}
                 max={maxUltimaAdministracion}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700"
+                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 ${bordeError(fieldErrors, 'fechaUltimaAdministracion')}`}
                 value={formData.fechaUltimaAdministracion}
-                onChange={e => setFormData({ ...formData, fechaUltimaAdministracion: e.target.value })}
+                onChange={e => {
+                  setFormData({ ...formData, fechaUltimaAdministracion: e.target.value });
+                  setFieldErrors(prev => ({ ...prev, fechaUltimaAdministracion: undefined }));
+                }}
               />
-              <span className="text-[11px] text-slate-500 block">
-                Última dosis del protocolo; los retiros se cuentan desde esta fecha
-              </span>
+              {fieldErrors.fechaUltimaAdministracion ? (
+                <p className="text-xs text-danger font-medium">{fieldErrors.fechaUltimaAdministracion}</p>
+              ) : (
+                <span className="text-[11px] text-slate-500 block">
+                  Última dosis del protocolo; los retiros se cuentan desde esta fecha
+                </span>
+              )}
             </div>
           </div>
 
@@ -520,16 +655,24 @@ export default function ModalTratamiento({
                 Retiro Leche (días) *
               </label>
               <input
+                id={idCampoTratamiento('diasRetiroLeche')}
                 type="number"
                 min="0"
                 max="365"
                 step="1"
                 required
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 font-bold"
+                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 font-bold ${bordeError(fieldErrors, 'diasRetiroLeche')}`}
                 value={formData.diasRetiroLeche}
-                onChange={e => setFormData({ ...formData, diasRetiroLeche: e.target.value })}
+                onChange={e => {
+                  setFormData({ ...formData, diasRetiroLeche: e.target.value });
+                  setFieldErrors(prev => ({ ...prev, diasRetiroLeche: undefined }));
+                }}
               />
-              <span className="text-[11px] text-slate-500 block">Días según catálogo o receta</span>
+              {fieldErrors.diasRetiroLeche ? (
+                <p className="text-xs text-danger font-medium">{fieldErrors.diasRetiroLeche}</p>
+              ) : (
+                <span className="text-[11px] text-slate-500 block">Días según catálogo o receta</span>
+              )}
             </div>
 
             {/* Días Retiro Carne */}
@@ -538,16 +681,24 @@ export default function ModalTratamiento({
                 Retiro Carne (días) *
               </label>
               <input
+                id={idCampoTratamiento('diasRetiroCarne')}
                 type="number"
                 min="0"
                 max="365"
                 step="1"
                 required
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 font-bold"
+                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 font-bold ${bordeError(fieldErrors, 'diasRetiroCarne')}`}
                 value={formData.diasRetiroCarne}
-                onChange={e => setFormData({ ...formData, diasRetiroCarne: e.target.value })}
+                onChange={e => {
+                  setFormData({ ...formData, diasRetiroCarne: e.target.value });
+                  setFieldErrors(prev => ({ ...prev, diasRetiroCarne: undefined }));
+                }}
               />
-              <span className="text-[11px] text-slate-500 block">Días según catálogo o receta</span>
+              {fieldErrors.diasRetiroCarne ? (
+                <p className="text-xs text-danger font-medium">{fieldErrors.diasRetiroCarne}</p>
+              ) : (
+                <span className="text-[11px] text-slate-500 block">Días según catálogo o receta</span>
+              )}
             </div>
           </div>
 
