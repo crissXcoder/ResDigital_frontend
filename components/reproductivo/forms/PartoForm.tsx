@@ -13,6 +13,11 @@ import {
   partoSchema,
   type ModalidadCria,
 } from '@/lib/reproductivo/schemas';
+import {
+  fechaMinimaPartoViable,
+  mensajePartoPrematuro,
+} from '@/lib/reproductivo/edad-preniez';
+import { formatearFecha } from '@/lib/reproductivo/fechas';
 import { FACILIDADES_PARTO } from '@/lib/reproductivo/tipos';
 import ModalFormulario from './ModalFormulario';
 import type { EventoHistorial, DetalleParto } from '@/lib/reproductivo/tipos';
@@ -21,6 +26,8 @@ interface PartoFormProps {
   animalId: string;
   /** Precargado desde estado.servicioActivo?.eventoId — no se escribe a mano. */
   eventoServicioId?: string;
+  fechaServicio?: string;
+  diasGestacionRaza?: number;
   onClose: () => void;
   correccion?: EventoHistorial & { detalle: DetalleParto };
 }
@@ -34,9 +41,12 @@ const ETIQUETA_MODALIDAD: Record<ModalidadCria, string> = {
 export default function PartoForm({
   animalId,
   eventoServicioId,
+  fechaServicio,
+  diasGestacionRaza,
   onClose,
   correccion,
 }: PartoFormProps) {
+  const fechaMinimaViable = fechaMinimaPartoViable(fechaServicio, diasGestacionRaza);
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
   const [accionFiliacion, setAccionFiliacion] = useState<'' | 'CONSERVAR' | 'DESVINCULAR'>('');
   const mutation = useRegistrarParto(animalId);
@@ -121,7 +131,13 @@ export default function PartoForm({
             validators={{
               onChange: ({ value }) => {
                 const res = fechaEventoSchema.safeParse(value);
-                return res.success ? undefined : res.error.issues[0]?.message;
+                if (!res.success) return res.error.issues[0]?.message;
+                const facilidad = form.getFieldValue('facilidadParto');
+                if (facilidad === 'Aborto' || !fechaMinimaViable) return undefined;
+                if (value < fechaMinimaViable) {
+                  return mensajePartoPrematuro(fechaMinimaViable);
+                }
+                return undefined;
               },
             }}
           >
@@ -139,6 +155,11 @@ export default function PartoForm({
                   onBlur={field.handleBlur}
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
+                {fechaMinimaViable && (
+                  <p className="text-xs text-slate-500">
+                    Un parto viable a partir del {formatearFecha(fechaMinimaViable)}. Un aborto sí puede registrarse antes.
+                  </p>
+                )}
                 {field.state.meta.errors.length > 0 && (
                   <p className="text-xs text-danger font-medium">
                     {field.state.meta.errors[0]}

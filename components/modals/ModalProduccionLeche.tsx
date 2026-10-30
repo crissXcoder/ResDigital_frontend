@@ -65,7 +65,11 @@ export default function ModalProduccionLeche({
     sanitario?.liberacionLeche && !(aplicacion && aplicacion > fecha)
       ? sanitario.liberacionLeche
       : null;
-  const puedeGuardar = fechaValida && lactancia?.enLactancia === true && !isSubmitting;
+  const puedeGuardar =
+    fechaValida &&
+    lactancia?.enLactancia === true &&
+    lactancia.tienePartoPrevio !== false &&
+    !isSubmitting;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,11 +111,20 @@ export default function ModalProduccionLeche({
             </div>
           )}
 
-          {noLactante && (
+          {lactancia?.tienePartoPrevio === false && (
             <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-xs font-medium flex items-start gap-2">
               <Ban className="w-4 h-4 shrink-0 text-slate-500 mt-0.5" />
               <span>
-                El animal no está en lactancia el {formatearFecha(fecha)}. Solo una hembra en lactancia registra producción; si ya se ordeña, el propietario o administrador debe iniciar la lactancia desde la ficha.
+                Esta hembra no puede ordeñarse hasta registrar su primer parto en el ciclo reproductivo.
+              </span>
+            </div>
+          )}
+
+          {noLactante && lactancia.tienePartoPrevio !== false && (
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-xs font-medium flex items-start gap-2">
+              <Ban className="w-4 h-4 shrink-0 text-slate-500 mt-0.5" />
+              <span>
+                El animal no está en lactancia el {formatearFecha(fecha)}. Un parto (que no sea aborto) abre la lactancia; si fue aborto, inicie la lactancia desde la ficha.
               </span>
             </div>
           )}

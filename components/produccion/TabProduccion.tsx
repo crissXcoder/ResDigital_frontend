@@ -125,6 +125,11 @@ export default function TabProduccion({
                     ? `En lactancia desde ${formatearFecha(lactancia.fechaInicio)}`
                     : 'No lactante'}
               </p>
+              {lactancia?.tienePartoPrevio === false && (
+                <p className="text-xs text-slate-500 mt-1" data-testid="aviso-parto-previo">
+                  No puede ordeñarse hasta registrar su primer parto. Un aborto no abre la lactancia sola: después puede iniciarla aquí.
+                </p>
+              )}
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -324,7 +329,7 @@ export default function TabProduccion({
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
                 {accionLactancia === 'inicio'
-                  ? 'Para vacas que ya se ordeñan sin parto registrado. Un parto registrado inicia la lactancia automáticamente.'
+                  ? 'Solo después de un parto o aborto. El primer parto (que no sea aborto) abre la lactancia solo; el aborto requiere iniciarla aquí.'
                   : 'Para una vaca no preñada que deja de ordeñarse. Si está preñada, registre el secado en el ciclo reproductivo.'}
               </p>
             </div>
