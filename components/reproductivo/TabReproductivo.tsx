@@ -10,6 +10,7 @@ import SecadoForm from './forms/SecadoForm';
 import { useEstadoReproductivo, useHistorialReproductivo } from '@/lib/hooks/use-reproductivo';
 import { useAuthUser } from '@/lib/hooks/useAuthUser';
 import type { EventoHistorial, DetalleParto } from '@/lib/reproductivo/tipos';
+import { puedeQuedarPreniada } from '@/lib/reproductivo/edad-preniez';
 
 /**
  * Contenedor de la pestaña "Ciclo Reproductivo" del Expediente 360°.
@@ -65,12 +66,16 @@ export default function TabReproductivo({ animalId, sexo }: TabReproductivoProps
     );
   }
 
+  const aptaParaPreniez = puedeQuedarPreniada(estado);
+  const rolesServicio = ['propietario', 'administrador', 'peon', 'veterinario'].includes(role ?? '');
+  const rolesDiagnostico = ['propietario', 'administrador', 'veterinario'].includes(role ?? '');
+
   return (
     <div className="mt-6 space-y-6">
       <EstadoReproductivoPanel
         estado={estado}
-        puedeRegistrarServicio={['propietario', 'administrador', 'peon', 'veterinario'].includes(role ?? '')}
-        puedeRegistrarDiagnostico={['propietario', 'administrador', 'veterinario'].includes(role ?? '')}
+        puedeRegistrarServicio={rolesServicio && aptaParaPreniez}
+        puedeRegistrarDiagnostico={rolesDiagnostico && aptaParaPreniez}
         puedeRegistrarSecado={['propietario', 'administrador', 'peon', 'veterinario'].includes(role ?? '')}
         puedeRegistrarParto={['propietario', 'administrador', 'peon', 'veterinario'].includes(role ?? '')}
         onRegistrarServicio={() => setModalActivo('servicio')}
@@ -88,6 +93,7 @@ export default function TabReproductivo({ animalId, sexo }: TabReproductivoProps
         <DiagnosticoForm
           animalId={animalId}
           eventoServicioId={estado.servicioActivo?.eventoId ?? ''}
+          fechaServicio={estado.servicioActivo?.fechaServicio}
           onClose={() => setModalActivo(null)}
         />
       )}
@@ -96,6 +102,8 @@ export default function TabReproductivo({ animalId, sexo }: TabReproductivoProps
           animalId={animalId}
           correccion={partoACorregir}
           eventoServicioId={estado.servicioActivo?.eventoId}
+          fechaServicio={estado.servicioActivo?.fechaServicio}
+          diasGestacionRaza={estado.diasGestacionRaza}
           onClose={() => { setModalActivo(null); setPartoACorregir(undefined); }}
         />
       )}

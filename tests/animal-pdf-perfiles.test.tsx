@@ -35,7 +35,7 @@ const base: Animal = { id: 'animal-1', tenantId: 'test', nombre: 'Canela', arete
 
 const gestante: EstadoReproductivoResponse = {
   animalId: base.id, areteInterno: base.areteInterno, sexo: 'Hembra', estadoActual: 'Preñada',
-  proximosHitos: [], advertencias: [],
+  proximosHitos: [], advertencias: [], aptoParaPreniez: true,
   servicioActivo: { eventoId: 'servicio-1', fechaServicio: '2026-05-10', tipoServicio: 'Inseminación Artificial',
     toroOPajilla: 'Pajilla 77', responsable: null, fpp: '2027-02-15', palpacionFecha: '2026-06-20', secadoFecha: '2026-12-17',
     avisoPartoFecha: '2027-01-31', avisoPartoUrgenteFecha: '2027-02-12', notas: null },
@@ -45,7 +45,7 @@ const gestante: EstadoReproductivoResponse = {
 
 const sinServicio = (sexo: string): EstadoReproductivoResponse => ({
   animalId: base.id, areteInterno: base.areteInterno, sexo, estadoActual: 'Vacía',
-  proximosHitos: [], advertencias: [],
+  proximosHitos: [], advertencias: [], aptoParaPreniez: true,
 });
 
 beforeEach(() => {

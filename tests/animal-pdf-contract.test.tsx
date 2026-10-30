@@ -27,7 +27,7 @@ const animal: Animal = { id: 'animal-1', tenantId: 'test', nombre: 'Canela', are
   sexo: 'Hembra', razaId: 'raza', categoria: 'Vaca', activo: true };
 const reproductive: EstadoReproductivoResponse = {
   animalId: animal.id, areteInterno: animal.areteInterno, sexo: 'Hembra', estadoActual: 'Servida',
-  proximosHitos: [], advertencias: [],
+  proximosHitos: [], advertencias: [], aptoParaPreniez: true,
   servicioActivo: { eventoId: 'servicio-1', fechaServicio: '2026-09-10', tipoServicio: 'Monta Natural',
     toroOPajilla: 'Titan', responsable: null, fpp: '2027-06-20', palpacionFecha: '2026-10-20', secadoFecha: '2027-04-21',
     avisoPartoFecha: '2027-06-05', avisoPartoUrgenteFecha: '2027-06-17', notas: null },
