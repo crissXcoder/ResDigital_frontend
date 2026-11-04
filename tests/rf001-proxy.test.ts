@@ -31,6 +31,7 @@ describe('RF-001 proxy y renovación', () => {
     const response = await updateSession(new NextRequest('http://localhost:3000/login'));
     expect(response.headers.get('location')).toBe('http://localhost:3000/dashboard');
     expect(response.cookies.get('qa-renewed')?.value).toBe('synthetic-unit-cookie');
+    expect(response.cookies.get('qa-renewed')?.httpOnly).toBe(true);
     expect(response.headers.get('cache-control')).toContain('no-store');
   });
   it('protege QR sin usuario y conserva el destino local', async () => {

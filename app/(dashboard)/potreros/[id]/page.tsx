@@ -82,13 +82,13 @@ export default function PotreroDetailPage() {
         {/* Top Navigation Tabs */}
         <div className="flex justify-between items-end border-b border-slate-200 pb-0">
           <div className="flex space-x-8 px-2">
-            <Link href="/potreros" className="pb-3 text-slate-400 font-semibold text-sm cursor-pointer hover:text-slate-600 transition-colors">
+            <Link href="/potreros" className="pb-3 text-slate-600 font-semibold text-sm cursor-pointer hover:text-slate-600 transition-colors">
               Lista
             </Link>
             <div className="pb-3 border-b-2 border-navy text-navy font-bold text-sm cursor-pointer">
               Detalle
             </div>
-            <RequireRole roles={['propietario', 'administrador', 'peon']}><Link href="/potreros/asignar" className="pb-3 text-slate-400 font-semibold text-sm cursor-pointer hover:text-slate-600 transition-colors">
+            <RequireRole roles={['propietario', 'administrador', 'peon']}><Link href="/potreros/asignar" className="pb-3 text-slate-600 font-semibold text-sm cursor-pointer hover:text-slate-600 transition-colors">
               Asignar Animales
             </Link></RequireRole>
           </div>

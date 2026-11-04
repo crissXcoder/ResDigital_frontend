@@ -240,7 +240,7 @@ export default function ServicioForm({ animalId, onClose }: ServicioFormProps) {
                             No hay toros reproductores activos. Escribí uno externo o registralo en el hato.
                           </p>
                         )}
-                        {field.state.meta.isBlurred && field.state.meta.errors.length > 0 && (
+                        {field.state.meta.errors.length > 0 && (
                           <p className="text-xs text-danger font-medium">
                             {field.state.meta.errors[0]}
                           </p>
@@ -275,7 +275,7 @@ export default function ServicioForm({ animalId, onClose }: ServicioFormProps) {
                         onChange={(e) => field.handleChange(e.target.value)}
                         placeholder="CRC-B-001"
                       />
-                      {field.state.meta.isBlurred && field.state.meta.errors.length > 0 && (
+                      {field.state.meta.errors.length > 0 && (
                         <p className="text-xs text-danger font-medium">
                           {field.state.meta.errors[0]}
                         </p>

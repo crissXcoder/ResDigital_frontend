@@ -23,6 +23,7 @@ function ModalEditarAnimalForm({ isOpen, onClose, animal }: Omit<ModalEditarAnim
   const queryClient = useQueryClient();
   
   const [errorMensaje, setErrorMensaje] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ razaId?: string; razaOtra?: string; pesoActualKg?: string }>({});
   const [formData, setFormData] = useState(() => ({
     nombre: animal.nombre || '',
     numeroOficialDiio: animal.numeroOficialDiio || '',
@@ -65,11 +66,7 @@ function ModalEditarAnimalForm({ isOpen, onClose, animal }: Omit<ModalEditarAnim
     },
     onError: (error: Error) => {
       console.error(error);
-      const msg = error.message || 'Hubo un error al actualizar el animal';
-      setErrorMensaje(msg);
-      if (typeof window !== 'undefined' && typeof window.alert === 'function') {
-        window.alert(msg);
-      }
+      setErrorMensaje(error.message || 'Hubo un error al actualizar el animal');
     }
   });
 
@@ -78,6 +75,24 @@ function ModalEditarAnimalForm({ isOpen, onClose, animal }: Omit<ModalEditarAnim
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMensaje(null);
+
+    const errores: { razaId?: string; razaOtra?: string; pesoActualKg?: string } = {};
+    if (!formData.razaId) {
+      errores.razaId = 'Seleccioná una raza.';
+    }
+    const esRazaOtraActual = razas.find((r) => r.id === formData.razaId)?.nombre.toLowerCase() === 'otra';
+    if (esRazaOtraActual && !formData.razaOtra.trim()) {
+      errores.razaOtra = 'Especificá la raza.';
+    }
+    if (formData.pesoActualKg.trim() && Number(formData.pesoActualKg) < 0) {
+      errores.pesoActualKg = 'El peso no puede ser negativo.';
+    }
+    if (Object.keys(errores).length > 0) {
+      setFieldErrors(errores);
+      return;
+    }
+    setFieldErrors({});
+
     const trimmedDiio = formData.numeroOficialDiio.trim();
 
     updateMutation.mutate({
@@ -114,7 +129,7 @@ function ModalEditarAnimalForm({ isOpen, onClose, animal }: Omit<ModalEditarAnim
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <form onSubmit={handleSubmit} noValidate className="p-6 space-y-5">
           {errorMensaje && (
             <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5 text-red-700 text-sm">
               <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
@@ -181,14 +196,20 @@ function ModalEditarAnimalForm({ isOpen, onClose, animal }: Omit<ModalEditarAnim
                 id="edit-razaId"
                 required
                 value={formData.razaId}
-                onChange={(e) => setFormData({ ...formData, razaId: e.target.value })}
-                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700"
+                onChange={(e) => {
+                  setFormData({ ...formData, razaId: e.target.value });
+                  setFieldErrors((prev) => ({ ...prev, razaId: undefined }));
+                }}
+                className={`w-full px-4 py-2.5 bg-white border rounded-lg text-sm focus:outline-none focus:ring-2 text-slate-700 ${
+                  fieldErrors.razaId ? 'border-red-500 ring-2 ring-red-200' : 'border-slate-200 focus:ring-navy-light'
+                }`}
               >
                 <option value="">— Seleccione raza —</option>
                 {razas.map((raza) => (
                   <option key={raza.id} value={raza.id}>{raza.nombre}</option>
                 ))}
               </select>
+              {fieldErrors.razaId && <p className="text-xs text-danger font-medium mt-1">{fieldErrors.razaId}</p>}
             </div>
             {isOtraRaza && (
               <div>
@@ -200,10 +221,16 @@ function ModalEditarAnimalForm({ isOpen, onClose, animal }: Omit<ModalEditarAnim
                   required
                   type="text"
                   value={formData.razaOtra}
-                  onChange={(e) => setFormData({ ...formData, razaOtra: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700"
+                  onChange={(e) => {
+                    setFormData({ ...formData, razaOtra: e.target.value });
+                    setFieldErrors((prev) => ({ ...prev, razaOtra: undefined }));
+                  }}
+                  className={`w-full px-4 py-2.5 bg-white border rounded-lg text-sm focus:outline-none focus:ring-2 text-slate-700 ${
+                    fieldErrors.razaOtra ? 'border-red-500 ring-2 ring-red-200' : 'border-slate-200 focus:ring-navy-light'
+                  }`}
                   placeholder="Ej. Girolando (75% Holstein / 25% Gyr)"
                 />
+                {fieldErrors.razaOtra && <p className="text-xs text-danger font-medium mt-1">{fieldErrors.razaOtra}</p>}
               </div>
             )}
           </div>
@@ -241,10 +268,16 @@ function ModalEditarAnimalForm({ isOpen, onClose, animal }: Omit<ModalEditarAnim
                 min="0"
                 step="0.1"
                 value={formData.pesoActualKg}
-                onChange={(e) => setFormData({ ...formData, pesoActualKg: e.target.value })}
-                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light focus:border-transparent text-slate-700"
+                onChange={(e) => {
+                  setFormData({ ...formData, pesoActualKg: e.target.value });
+                  setFieldErrors((prev) => ({ ...prev, pesoActualKg: undefined }));
+                }}
+                className={`w-full px-4 py-2.5 bg-white border rounded-lg text-sm focus:outline-none focus:ring-2 focus:border-transparent text-slate-700 ${
+                  fieldErrors.pesoActualKg ? 'border-red-500 ring-2 ring-red-200' : 'border-slate-200 focus:ring-navy-light'
+                }`}
                 placeholder="485"
               />
+              {fieldErrors.pesoActualKg && <p className="text-xs text-danger font-medium mt-1">{fieldErrors.pesoActualKg}</p>}
             </div>
             <div>
               <label htmlFor="edit-potreroId" className="block text-sm font-semibold text-slate-700 mb-1.5">

@@ -22,6 +22,12 @@ export function FormPotrero({ potrero, onClose }: FormPotreroProps) {
     estadoManual: potrero?.estadoManual || '',
     notas: potrero?.notas || '',
   });
+  const [fieldErrors, setFieldErrors] = useState<{
+    nombre?: string;
+    areaHa?: string;
+    capacidadRecomendadaUaHa?: string;
+    diasDescansoRecomendados?: string;
+  }>({});
 
   const mutation = useMutation({
     mutationFn: async (data: Partial<Potrero>) => {
@@ -39,6 +45,26 @@ export function FormPotrero({ potrero, onClose }: FormPotreroProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const errores: typeof fieldErrors = {};
+    if (!formData.nombre.trim()) {
+      errores.nombre = 'El nombre del potrero es obligatorio.';
+    }
+    if (!String(formData.areaHa).trim() || Number(formData.areaHa) <= 0) {
+      errores.areaHa = 'Ingresá un área mayor a 0.';
+    }
+    if (!String(formData.capacidadRecomendadaUaHa).trim() || Number(formData.capacidadRecomendadaUaHa) <= 0) {
+      errores.capacidadRecomendadaUaHa = 'Ingresá una capacidad mayor a 0.';
+    }
+    if (!formData.diasDescansoRecomendados || Number(formData.diasDescansoRecomendados) < 1) {
+      errores.diasDescansoRecomendados = 'Ingresá al menos 1 día.';
+    }
+    if (Object.keys(errores).length > 0) {
+      setFieldErrors(errores);
+      return;
+    }
+    setFieldErrors({});
+
     const payload = {
       ...formData,
       areaHa: Number(formData.areaHa),
@@ -68,58 +94,86 @@ export function FormPotrero({ potrero, onClose }: FormPotreroProps) {
 
         {/* Body */}
         <div className="p-6 overflow-y-auto">
-          <form id="potrero-form" onSubmit={handleSubmit} className="space-y-6">
+          <form id="potrero-form" onSubmit={handleSubmit} noValidate className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">Nombre del Potrero *</label>
-                <input 
+                <input
                   required
-                  type="text" 
+                  type="text"
                   value={formData.nombre}
-                  onChange={e => setFormData({...formData, nombre: e.target.value})}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700"
+                  onChange={e => {
+                    setFormData({...formData, nombre: e.target.value});
+                    setFieldErrors(prev => ({ ...prev, nombre: undefined }));
+                  }}
+                  className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 ${
+                    fieldErrors.nombre ? 'border-red-500 ring-2 ring-red-200' : 'border-slate-200'
+                  }`}
                   placeholder="Ej: La Loma"
                 />
+                {fieldErrors.nombre && <p className="text-xs text-danger font-medium">{fieldErrors.nombre}</p>}
               </div>
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">Área (Hectáreas) *</label>
-                <input 
+                <input
                   required
-                  type="number" 
+                  type="number"
                   step="0.1"
                   min="0.1"
                   value={formData.areaHa}
-                  onChange={e => setFormData({...formData, areaHa: e.target.value})}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700"
+                  onChange={e => {
+                    setFormData({...formData, areaHa: e.target.value});
+                    setFieldErrors(prev => ({ ...prev, areaHa: undefined }));
+                  }}
+                  className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 ${
+                    fieldErrors.areaHa ? 'border-red-500 ring-2 ring-red-200' : 'border-slate-200'
+                  }`}
                 />
+                {fieldErrors.areaHa && <p className="text-xs text-danger font-medium">{fieldErrors.areaHa}</p>}
               </div>
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">Capacidad (UA/Ha) *</label>
-                <input 
+                <input
                   required
-                  type="number" 
+                  type="number"
                   step="0.1"
                   min="0.1"
                   value={formData.capacidadRecomendadaUaHa}
-                  onChange={e => setFormData({...formData, capacidadRecomendadaUaHa: e.target.value})}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700"
+                  onChange={e => {
+                    setFormData({...formData, capacidadRecomendadaUaHa: e.target.value});
+                    setFieldErrors(prev => ({ ...prev, capacidadRecomendadaUaHa: undefined }));
+                  }}
+                  className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 ${
+                    fieldErrors.capacidadRecomendadaUaHa ? 'border-red-500 ring-2 ring-red-200' : 'border-slate-200'
+                  }`}
                   placeholder="Ej: 2.5"
                 />
+                {fieldErrors.capacidadRecomendadaUaHa && (
+                  <p className="text-xs text-danger font-medium">{fieldErrors.capacidadRecomendadaUaHa}</p>
+                )}
               </div>
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">Días Descanso Recomendados *</label>
-                <input 
+                <input
                   required
-                  type="number" 
+                  type="number"
                   min="1"
                   value={formData.diasDescansoRecomendados}
-                  onChange={e => setFormData({...formData, diasDescansoRecomendados: Number(e.target.value) || 0})}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700"
+                  onChange={e => {
+                    setFormData({...formData, diasDescansoRecomendados: Number(e.target.value) || 0});
+                    setFieldErrors(prev => ({ ...prev, diasDescansoRecomendados: undefined }));
+                  }}
+                  className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 ${
+                    fieldErrors.diasDescansoRecomendados ? 'border-red-500 ring-2 ring-red-200' : 'border-slate-200'
+                  }`}
                 />
+                {fieldErrors.diasDescansoRecomendados && (
+                  <p className="text-xs text-danger font-medium">{fieldErrors.diasDescansoRecomendados}</p>
+                )}
               </div>
 
               <div className="space-y-2">

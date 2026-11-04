@@ -22,6 +22,29 @@ import {
   esCategoriaValidaPorSexo,
 } from '@/lib/api/catalogos';
 
+/** Orden visual de los campos validados, de arriba hacia abajo, para saltar al primer error. */
+const ORDEN_CAMPOS_HATO = [
+  'areteInterno',
+  'nombre',
+  'razaId',
+  'razaOtra',
+  'categoria',
+  'pesoActualKg',
+  'fechaNacimiento',
+  'fechaCompra',
+  'valorCompraCrc',
+] as const;
+
+type CampoHato = (typeof ORDEN_CAMPOS_HATO)[number];
+
+function idCampoHato(campo: CampoHato): string {
+  return `hato-${campo}`;
+}
+
+function bordeErrorHato(errores: Partial<Record<CampoHato, string>>, campo: CampoHato): string {
+  return errores[campo] ? 'border-red-500 ring-2 ring-red-200' : 'border-slate-300 focus:ring-navy-light';
+}
+
 export default function NuevoAnimalPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -31,6 +54,7 @@ export default function NuevoAnimalPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [errorMensaje, setErrorMensaje] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<CampoHato, string>>>({});
   const [createdAnimalId, setCreatedAnimalId] = useState<string | null>(null);
   const { user: authUser } = useAuthUser();
 
@@ -106,30 +130,69 @@ export default function NuevoAnimalPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMensaje(null);
+  const validar = (): Partial<Record<CampoHato, string>> => {
+    const errores: Partial<Record<CampoHato, string>> = {};
+
+    if (!formData.areteInterno.trim()) {
+      errores.areteInterno = 'El número de arete es obligatorio.';
+    }
+    if (!formData.nombre.trim()) {
+      errores.nombre = 'El nombre es obligatorio.';
+    }
+    if (!formData.razaId) {
+      errores.razaId = 'Seleccioná una raza.';
+    }
+    const esRazaOtraActual = razas.find(r => r.id === formData.razaId)?.nombre.toLowerCase() === 'otra';
+    if (esRazaOtraActual && !formData.razaOtra.trim()) {
+      errores.razaOtra = 'Especificá la raza.';
+    }
+    if (!formData.categoria) {
+      errores.categoria = 'Seleccioná una categoría.';
+    }
+    if (formData.pesoActualKg.trim() && Number(formData.pesoActualKg) < 0) {
+      errores.pesoActualKg = 'El peso no puede ser negativo.';
+    }
 
     const hoy = hoyLocal();
     if (formData.fechaNacimiento && formData.fechaNacimiento > hoy) {
-      setErrorMensaje('La fecha de nacimiento no puede ser futura.');
-      return;
+      errores.fechaNacimiento = 'La fecha de nacimiento no puede ser futura.';
     }
     if (formData.fechaCompra && formData.fechaCompra > hoy) {
-      setErrorMensaje('La fecha de compra no puede ser futura.');
-      return;
-    }
-    if (
+      errores.fechaCompra = 'La fecha de compra no puede ser futura.';
+    } else if (
       formData.fechaCompra &&
       formData.fechaNacimiento &&
       formData.fechaCompra < formData.fechaNacimiento
     ) {
-      setErrorMensaje(
-        'La fecha de compra no puede ser anterior a la fecha de nacimiento.',
-      );
+      errores.fechaCompra = 'La fecha de compra no puede ser anterior a la fecha de nacimiento.';
+    }
+    if (formData.valorCompraCrc.trim() && Number(formData.valorCompraCrc) < 0) {
+      errores.valorCompraCrc = 'El valor no puede ser negativo.';
+    }
+
+    return errores;
+  };
+
+  const saltarAlPrimerErrorHato = (errores: Partial<Record<CampoHato, string>>) => {
+    const primerCampo = ORDEN_CAMPOS_HATO.find(campo => errores[campo]);
+    if (!primerCampo) return;
+    const elemento = document.getElementById(idCampoHato(primerCampo));
+    elemento?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    (elemento as HTMLElement | null)?.focus();
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMensaje(null);
+
+    const errores = validar();
+    if (Object.keys(errores).length > 0) {
+      setFieldErrors(errores);
+      saltarAlPrimerErrorHato(errores);
       return;
     }
-    
+    setFieldErrors({});
+
     if (file) {
       try {
         getAnimalDocumentExtension(file);
@@ -247,7 +310,7 @@ export default function NuevoAnimalPage() {
           </Link>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-8">
+        <form onSubmit={handleSubmit} noValidate className="p-6 space-y-8">
           {errorMensaje && (
             <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 text-red-700 text-sm">
               <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
@@ -359,19 +422,26 @@ export default function NuevoAnimalPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="block text-sm font-semibold text-navy">Número de Arete <span className="text-danger">*</span></label>
-                <input 
+                <input
+                  id={idCampoHato('areteInterno')}
                   required
-                  type="text" 
+                  type="text"
                   name="areteInterno"
                   value={formData.areteInterno}
-                  onChange={handleChange}
+                  onChange={e => {
+                    handleChange(e);
+                    setFieldErrors(prev => ({ ...prev, areteInterno: undefined }));
+                  }}
                   className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 ${
-                    errorMensaje?.includes('arete')
+                    fieldErrors.areteInterno || errorMensaje?.includes('arete')
                       ? 'border-red-500 ring-2 ring-red-200'
                       : 'border-slate-300 focus:ring-navy-light'
                   }`}
                   placeholder="201"
                 />
+                {fieldErrors.areteInterno && (
+                  <p className="text-xs text-danger font-medium">{fieldErrors.areteInterno}</p>
+                )}
               </div>
 
               <div className="space-y-1.5">
@@ -395,55 +465,75 @@ export default function NuevoAnimalPage() {
 
               <div className="space-y-1.5">
                 <label className="block text-sm font-semibold text-navy">Nombre <span className="text-danger">*</span></label>
-                <input 
+                <input
+                  id={idCampoHato('nombre')}
                   required
-                  type="text" 
+                  type="text"
                   name="nombre"
                   value={formData.nombre}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light"
+                  onChange={e => {
+                    handleChange(e);
+                    setFieldErrors(prev => ({ ...prev, nombre: undefined }));
+                  }}
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 ${bordeErrorHato(fieldErrors, 'nombre')}`}
                   placeholder="Esperanza"
                 />
+                {fieldErrors.nombre && <p className="text-xs text-danger font-medium">{fieldErrors.nombre}</p>}
               </div>
 
               <div className="space-y-1.5">
                 <label className="block text-sm font-semibold text-navy">Raza Principal <span className="text-danger">*</span></label>
                 <select
+                  id={idCampoHato('razaId')}
                   required
                   name="razaId"
                   value={formData.razaId}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light bg-white"
+                  onChange={e => {
+                    handleChange(e);
+                    setFieldErrors(prev => ({ ...prev, razaId: undefined }));
+                  }}
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 bg-white ${bordeErrorHato(fieldErrors, 'razaId')}`}
                 >
                   <option value="">— Seleccione —</option>
                   {razas.map((raza) => (
                     <option key={raza.id} value={raza.id}>{raza.nombre}</option>
                   ))}
                 </select>
+                {fieldErrors.razaId && <p className="text-xs text-danger font-medium">{fieldErrors.razaId}</p>}
               </div>
 
               {isRazaOtra && (
                 <div className="space-y-1.5">
                   <label className="block text-sm font-semibold text-navy">Especifique la Raza <span className="text-danger">*</span></label>
-                  <input 
+                  <input
+                    id={idCampoHato('razaOtra')}
                     required
-                    type="text" 
+                    type="text"
                     name="razaOtra"
                     value={formData.razaOtra}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light"
+                    onChange={e => {
+                      handleChange(e);
+                      setFieldErrors(prev => ({ ...prev, razaOtra: undefined }));
+                    }}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 ${bordeErrorHato(fieldErrors, 'razaOtra')}`}
                     placeholder="Escriba la raza"
                   />
+                  {fieldErrors.razaOtra && <p className="text-xs text-danger font-medium">{fieldErrors.razaOtra}</p>}
                 </div>
               )}
 
               <div className="space-y-1.5">
-                <label className="block text-sm font-semibold text-navy">Categoría</label>
+                <label className="block text-sm font-semibold text-navy">Categoría <span className="text-danger">*</span></label>
                 <select
+                  id={idCampoHato('categoria')}
                   name="categoria"
+                  required
                   value={formData.categoria}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light bg-white"
+                  onChange={e => {
+                    handleChange(e);
+                    setFieldErrors(prev => ({ ...prev, categoria: undefined }));
+                  }}
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 bg-white ${bordeErrorHato(fieldErrors, 'categoria')}`}
                 >
                   <option value="">— Seleccione categoría —</option>
                   {(!formData.sexo || formData.sexo === 'Hembra') &&
@@ -459,32 +549,45 @@ export default function NuevoAnimalPage() {
                       </option>
                     ))}
                 </select>
+                {fieldErrors.categoria && <p className="text-xs text-danger font-medium">{fieldErrors.categoria}</p>}
               </div>
 
               <div className="space-y-1.5">
                 <label className="block text-sm font-semibold text-navy">Peso Actual (kg)</label>
-                <input 
-                  type="number" 
+                <input
+                  id={idCampoHato('pesoActualKg')}
+                  type="number"
                   min="0"
                   step="0.1"
                   name="pesoActualKg"
                   value={formData.pesoActualKg}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light"
+                  onChange={e => {
+                    handleChange(e);
+                    setFieldErrors(prev => ({ ...prev, pesoActualKg: undefined }));
+                  }}
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 ${bordeErrorHato(fieldErrors, 'pesoActualKg')}`}
                   placeholder="480"
                 />
+                {fieldErrors.pesoActualKg && <p className="text-xs text-danger font-medium">{fieldErrors.pesoActualKg}</p>}
               </div>
 
               <div className="space-y-1.5">
                 <label className="block text-sm font-semibold text-navy">Fecha de Nacimiento</label>
-                <input 
-                  type="date" 
+                <input
+                  id={idCampoHato('fechaNacimiento')}
+                  type="date"
                   max={hoyLocal()}
                   name="fechaNacimiento"
                   value={formData.fechaNacimiento}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-600"
+                  onChange={e => {
+                    handleChange(e);
+                    setFieldErrors(prev => ({ ...prev, fechaNacimiento: undefined, fechaCompra: undefined }));
+                  }}
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 text-slate-600 ${bordeErrorHato(fieldErrors, 'fechaNacimiento')}`}
                 />
+                {fieldErrors.fechaNacimiento && (
+                  <p className="text-xs text-danger font-medium">{fieldErrors.fechaNacimiento}</p>
+                )}
               </div>
 
               <div className="col-span-1 sm:col-span-2 space-y-1.5">
@@ -582,27 +685,43 @@ export default function NuevoAnimalPage() {
                 <div className="space-y-1.5">
                   <label className="block text-sm font-semibold text-navy">Fecha de Compra</label>
                   <input
+                    id={idCampoHato('fechaCompra')}
                     type="date"
                     max={hoyLocal()}
                     min={formData.fechaNacimiento || undefined}
                     name="fechaCompra"
                     value={formData.fechaCompra || ''}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-amber-200/60 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light bg-white/50 text-slate-600"
+                    onChange={e => {
+                      handleChange(e);
+                      setFieldErrors(prev => ({ ...prev, fechaCompra: undefined }));
+                    }}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 bg-white/50 text-slate-600 ${
+                      fieldErrors.fechaCompra ? 'border-red-500 ring-2 ring-red-200' : 'border-amber-200/60 focus:ring-navy-light'
+                    }`}
                   />
+                  {fieldErrors.fechaCompra && (
+                    <p className="text-xs text-danger font-medium">{fieldErrors.fechaCompra}</p>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <label className="block text-sm font-semibold text-navy">Valor de Compra (CRC ₡)</label>
                   <input
+                    id={idCampoHato('valorCompraCrc')}
                     type="number"
                     min="0"
                     step="1"
                     name="valorCompraCrc"
                     value={formData.valorCompraCrc || ''}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-amber-200/60 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light bg-white/50"
+                    onChange={e => {
+                      handleChange(e);
+                      setFieldErrors(prev => ({ ...prev, valorCompraCrc: undefined }));
+                    }}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 bg-white/50 ${
+                      fieldErrors.valorCompraCrc ? 'border-red-500 ring-2 ring-red-200' : 'border-amber-200/60 focus:ring-navy-light'
+                    }`}
                     placeholder="850000"
                   />
+                  {fieldErrors.valorCompraCrc && <p className="text-xs text-danger font-medium">{fieldErrors.valorCompraCrc}</p>}
                 </div>
                 <div className="space-y-1.5">
                   <label className="block text-sm font-semibold text-navy">N° Comprobante / Guía</label>

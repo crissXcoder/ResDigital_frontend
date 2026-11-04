@@ -393,7 +393,7 @@ export default function QrScannerPage() {
           </div>
           <button
             onClick={() => setErrorMessage(null)}
-            className="text-red-400 hover:text-red-700 text-xs font-bold"
+            className="text-red-700 hover:text-red-900 text-xs font-bold"
           >
             Descartar
           </button>
@@ -511,10 +511,10 @@ export default function QrScannerPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-200">
           {/* Subir archivo de imagen con QR */}
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
               <Upload className="w-4 h-4 text-navy" />
               Escanear desde foto guardada
-            </h3>
+            </h2>
             <p className="text-xs text-slate-500">
               ¿Tomaste una fotografía de la etiqueta con otro teléfono o cámara?
             </p>
@@ -533,10 +533,10 @@ export default function QrScannerPage() {
 
           {/* Búsqueda manual por arete */}
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
               <Search className="w-4 h-4 text-navy" />
               Búsqueda directa por arete o DIIO
-            </h3>
+            </h2>
             <p className="text-xs text-slate-500">
               Si la etiqueta física está rota o ilegible en campo:
             </p>

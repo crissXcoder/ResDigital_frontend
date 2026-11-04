@@ -1409,6 +1409,11 @@ export interface components {
             ultimoParto?: components["schemas"]["ResumenPartoActivoDto"];
             ultimoSecado?: components["schemas"]["ResumenSecadoActivoDto"];
             proximosHitos: components["schemas"]["HitoReproductivoDto"][];
+            /**
+             * @description False si la hembra aún no cumple 15 meses o su categoría es Ternera. Sin fecha de nacimiento ni categoría no se afirma lo contrario.
+             * @example true
+             */
+            aptoParaPreniez: boolean;
             /** @description Inconsistencias detectadas al derivar el estado, por ejemplo un evento sin su fila de detalle. */
             advertencias: string[];
         };
@@ -1588,6 +1593,8 @@ export interface components {
             fechaInicio: string | null;
             /** Format: uuid */
             eventoInicioId: string | null;
+            /** @description True si hay un parto (incluido aborto) no revertido en o antes de la fecha de referencia. Sin eso no se ordeña ni se inicia lactancia a mano. */
+            tienePartoPrevio: boolean;
             /** @example 2026-10-06 */
             fechaReferencia: string;
         };
