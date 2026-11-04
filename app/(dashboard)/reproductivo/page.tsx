@@ -139,19 +139,19 @@ export default function ReproductivoPage() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-100 bg-white">
-                  <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  <th className="py-4 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">
                     Animal
                   </th>
-                  <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  <th className="py-4 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">
                     Hito
                   </th>
-                  <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  <th className="py-4 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">
                     Fecha
                   </th>
-                  <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  <th className="py-4 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">
                     Restante
                   </th>
-                  <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">
+                  <th className="py-4 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider text-right">
                     Acciones
                   </th>
                 </tr>
@@ -191,7 +191,7 @@ export default function ReproductivoPage() {
                     >
                       <td className="py-4 px-6">
                         <span className="font-extrabold text-navy text-sm">{evento.nombre}</span>
-                        <span className="text-slate-400 font-mono text-xs ml-2">
+                        <span className="text-slate-600 font-mono text-xs ml-2">
                           ({evento.arete})
                         </span>
                       </td>

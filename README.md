@@ -1,6 +1,90 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ResDigital — Frontend
 
-## Getting Started
+Interfaz web de **ResDigital**, cuaderno de campo digital para trazabilidad, sanidad, reproducción y producción lechera de pequeños y medianos ganaderos de Costa Rica.
+
+> Necesita la API del repositorio `backend` corriendo para mostrar datos. Ver su README.
+
+## Stack
+
+| Capa | Tecnología |
+|---|---|
+| Framework | Next.js (App Router) + React 19 + TypeScript |
+| Estilos | Tailwind CSS 4 + componentes tipo shadcn/ui (Radix) |
+| Datos | TanStack Query; formularios con TanStack Form y Zod |
+| Autenticación | Supabase Auth (`@supabase/ssr`); el inicio de sesión nunca pasa por contraseñas propias |
+| Gráficos y reportes | Recharts, jsPDF (expedientes y reportes en PDF), códigos QR |
+| Pruebas | Vitest + Testing Library; e2e con Playwright |
+| Gestor de paquetes | pnpm 10.32.1, Node `>=24.14 <25` |
+
+## Puesta en marcha
+
+1. Instalar dependencias:
+
+   ```bash
+   pnpm install
+   ```
+
+2. Crear el archivo de entorno a partir del ejemplo:
+
+   ```bash
+   cp .env.example .env.local
+   ```
+
+   Variables (los valores reales los entrega el equipo; **nunca** se suben al repositorio):
+
+   | Variable | Para qué sirve |
+   |---|---|
+   | `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto de Supabase |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Clave pública de Supabase |
+   | `NEXT_PUBLIC_BACKEND_URL` | URL de la API (en local, `http://localhost:3001`) |
+   | `NEXT_PUBLIC_SUPABASE_BUCKET_DOCUMENTOS`, `..._ANIMAL_DOCS`, `..._ANIMALES_FOTOS` | Buckets de Storage para documentos y fotos |
+
+3. Levantar la API del backend (puerto 3001) y luego la interfaz:
+
+   ```bash
+   pnpm dev
+   ```
+
+   Abrir `http://localhost:3000`.
+
+4. Versión de producción local (la que se usó para medir con Lighthouse):
+
+   ```bash
+   pnpm build
+   pnpm start
+   ```
+
+## Uso rápido
+
+1. Entrar a `/login` con un usuario de la finca, o registrar una finca nueva en `/registro`. Los usuarios demo del seed están descritos en el README del backend.
+2. El propietario o administrador invita a más personas desde la sección de equipo y les asigna un rol: `propietario`, `administrador`, `peon` o `veterinario`.
+3. Flujo principal: dar de alta animales en **Hato ganadero**, registrar servicio, diagnóstico y parto en **Reproducción**, tratamientos en la ficha del animal, y litros en **Producción lechera**. La leche producida bajo retiro sanitario se registra como descarte.
+
+## Estructura
+
+```
+app/(dashboard)/   Panel principal, hato, reproductivo, producción, potreros, reportes, QR, equipo
+app/               Login, registro, invitaciones, recuperación de contraseña, términos y privacidad
+components/        UI, modales, formularios y paneles por módulo
+lib/api/           Cliente de la API y tipos generados desde OpenAPI
+lib/supabase/      Clientes de Supabase (navegador, servidor y middleware)
+lib/reportes/      Generación de PDF
+tests/  e2e/       Pruebas unitarias/de componente y e2e
+```
+
+## Pruebas y calidad
+
+```bash
+pnpm test          # Vitest
+pnpm test:e2e      # Playwright
+pnpm typecheck     # tipos
+pnpm lint          # ESLint
+pnpm openapi:check # el contrato del backend coincide con los tipos
+```
+
+## Idioma, moneda y fechas
+
+La interfaz está en español (`lang="es"`). Los montos se muestran en colones (₡) y las fechas se manejan por día civil en la zona `America/Costa_Rica` (UTC−6) para evitar corrimientos de un día. No hay selector de idioma ni de moneda todavía.
 
 ## Git y CI
 
@@ -14,36 +98,3 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 - CD de aplicación queda pendiente hasta que se definan entornos, secretos, aprobadores y rollback.
 
 Ver plan operativo y procedimiento de aplicación de rulesets en la bóveda ResDigital: `00-Sistema/Git-y-Entrega.md`.
-
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

@@ -511,7 +511,7 @@ function HatoContent() {
                           <RequireRole roles={['propietario', 'administrador']}><div className="relative">
                             <button
                               onClick={() => setActiveDropdownId(activeDropdownId === animal.id ? null : animal.id)}
-                              className="p-1.5 text-slate-600 hover:text-navy border border-slate-200 rounded-full hover:bg-slate-50 transition-colors"
+                              aria-label="Más acciones del animal" aria-haspopup="menu" className="p-1.5 text-slate-600 hover:text-navy border border-slate-200 rounded-full hover:bg-slate-50 transition-colors"
                             >
                               <MoreVertical size={16} />
                             </button>

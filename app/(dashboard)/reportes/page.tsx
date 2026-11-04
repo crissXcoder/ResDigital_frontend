@@ -163,7 +163,7 @@ export default function ReportesPage() {
             </p>
           </CardHeader>
           <CardContent className="flex flex-col flex-1 justify-between gap-6 pt-0">
-            <div className="space-y-4">
+            <div className="space-y-4 min-h-24">
               {errorRetiros ? <p role="alert">No se pudo consultar el retiro sanitario. Reintentá antes de descargar.</p> : loadingRetiros ? (
                 <div className="h-16 animate-pulse bg-slate-100 rounded-lg" />
               ) : listaRetiros.length === 0 ? (
@@ -238,7 +238,7 @@ export default function ReportesPage() {
             </p>
           </CardHeader>
           <CardContent className="flex flex-col flex-1 justify-between gap-6 pt-0">
-            <div className="space-y-4">
+            <div className="space-y-4 min-h-24">
               {/* Parámetros interactivos del reporte */}
               <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 border border-slate-100 rounded-xl">
                 <div>

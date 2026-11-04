@@ -34,12 +34,13 @@ vi.mock('@/lib/api/client', () => ({
 
 const ANIMAL = '11111111-1111-4111-8111-111111111111';
 
-function lactancia(enLactancia: boolean): EstadoLactancia {
+function lactancia(enLactancia: boolean, tienePartoPrevio = enLactancia): EstadoLactancia {
   return {
     animalId: ANIMAL,
     enLactancia,
     fechaInicio: enLactancia ? '2026-08-01' : null,
     eventoInicioId: null,
+    tienePartoPrevio,
     fechaReferencia: '2026-10-06',
   };
 }
@@ -130,7 +131,7 @@ describe('payloads de producción y pesaje', () => {
 
 describe('ModalProduccionLeche', () => {
   it('bloquea el registro si la hembra no está en lactancia', async () => {
-    api.lactancia = lactancia(false);
+    api.lactancia = lactancia(false, true);
     const onSubmit = vi.fn();
     conQuery(<ModalProduccionLeche isOpen onClose={vi.fn()} animalId={ANIMAL} onSubmit={onSubmit} />);
 
@@ -139,6 +140,16 @@ describe('ModalProduccionLeche', () => {
     expect(guardar.disabled).toBe(true);
     fireEvent.click(guardar);
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('bloquea el registro si nunca ha parido', async () => {
+    api.lactancia = lactancia(false, false);
+    conQuery(<ModalProduccionLeche isOpen onClose={vi.fn()} animalId={ANIMAL} onSubmit={vi.fn()} />);
+
+    expect(await screen.findByText(/primer parto/i)).toBeDefined();
+    expect(
+      (screen.getByRole('button', { name: /guardar producción/i }) as HTMLButtonElement).disabled,
+    ).toBe(true);
   });
 
   it('advierte que la producción será descarte durante el retiro de leche', async () => {
@@ -212,12 +223,20 @@ describe('TabProduccion por rol y estado de lactancia', () => {
   });
 
   it('sin lactancia no ofrece registrar producción y permite iniciarla', async () => {
-    api.lactancia = lactancia(false);
+    api.lactancia = lactancia(false, true);
     conQuery(<TabProduccion {...props} />);
 
     expect(await screen.findByRole('button', { name: 'Iniciar lactancia' })).toBeDefined();
     expect(screen.getByTestId('estado-lactancia').textContent).toBe('No lactante');
     expect(screen.queryByRole('button', { name: /registrar producción/i })).toBeNull();
+  });
+
+  it('avisa que no se ordeña hasta el primer parto', async () => {
+    api.lactancia = lactancia(false, false);
+    conQuery(<TabProduccion {...props} />);
+
+    expect(await screen.findByTestId('aviso-parto-previo')).toBeDefined();
+    expect(screen.getByText(/primer parto/i)).toBeDefined();
   });
 
   it('un macho solo ve pesajes', () => {

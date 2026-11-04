@@ -15,7 +15,7 @@ export default function DescendenciaRegistrada({ animalId }: { animalId: string 
   return (
     <section className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm">
       <div className="flex items-center gap-3 mb-2">
-        <h3 className="text-lg font-bold text-navy">Descendencia Registrada</h3>
+        <h2 className="text-lg font-bold text-navy">Descendencia Registrada</h2>
         <span className="w-6 h-6 rounded bg-blue-50 text-blue-600 text-xs font-bold flex items-center justify-center">
           {descendenciaQuery.isPending ? '…' : descendenciaQuery.isError ? '!' : descendenciaQuery.data.length}
         </span>

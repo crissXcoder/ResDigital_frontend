@@ -81,7 +81,7 @@ export default function PotrerosPage() {
             <div className="pb-3 border-b-2 border-navy text-navy font-bold text-sm cursor-pointer">
               Lista
             </div>
-            <RequireRole roles={['propietario', 'administrador', 'peon']}><Link href="/potreros/asignar" className="pb-3 text-slate-400 font-semibold text-sm cursor-pointer hover:text-slate-600 transition-colors">
+            <RequireRole roles={['propietario', 'administrador', 'peon']}><Link href="/potreros/asignar" className="pb-3 text-slate-600 font-semibold text-sm cursor-pointer hover:text-slate-600 transition-colors">
               Asignar Animales
             </Link></RequireRole>
           </div>
@@ -109,11 +109,11 @@ export default function PotrerosPage() {
           </div>
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Hectáreas Totales</p>
-            <p className="text-3xl font-extrabold text-emerald-500">{hectareasTotales.toFixed(1)} ha</p>
+            <p className="text-3xl font-extrabold text-emerald-700">{hectareasTotales.toFixed(1)} ha</p>
           </div>
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Carga Promedio</p>
-            <p className="text-3xl font-extrabold text-amber-500">{cargaPromedio} UA/ha</p>
+            <p className="text-3xl font-extrabold text-amber-700">{cargaPromedio} UA/ha</p>
           </div>
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Alertas activas</p>
@@ -144,14 +144,14 @@ export default function PotrerosPage() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-100 bg-white">
-                  <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider">Potrero</th>
-                  <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider">Área</th>
-                  <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider">Tipo de Pasto</th>
-                  <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider">Animales Asignados</th>
-                  <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider">Carga Animal (UA/Ha)</th>
-                  <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider">Días de Descanso</th>
-                  <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider">Estado</th>
-                  <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">Acciones</th>
+                  <th className="py-4 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">Potrero</th>
+                  <th className="py-4 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">Área</th>
+                  <th className="py-4 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">Tipo de Pasto</th>
+                  <th className="py-4 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">Animales Asignados</th>
+                  <th className="py-4 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">Carga Animal (UA/Ha)</th>
+                  <th className="py-4 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">Días de Descanso</th>
+                  <th className="py-4 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">Estado</th>
+                  <th className="py-4 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -180,7 +180,7 @@ export default function PotrerosPage() {
                         <td className="py-4 px-6">
                           <div className="flex flex-col">
                             <span className="text-sm font-semibold text-slate-700">{potrero.areaHa}</span>
-                            <span className="text-xs font-medium text-slate-400">ha</span>
+                            <span className="text-xs font-medium text-slate-600">ha</span>
                           </div>
                         </td>
                         <td className="py-4 px-6">

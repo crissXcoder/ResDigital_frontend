@@ -630,7 +630,7 @@ export default function ExpedienteAnimal() {
               <div className="bg-white border border-slate-200 rounded-xl p-6 sm:p-8 shadow-sm relative">
                 <div className="flex justify-between items-start mb-10">
                   <div>
-                    <h3 className="text-lg font-bold text-navy">Pedigrí y genealogía</h3>
+                    <h2 className="text-lg font-bold text-navy">Pedigrí y genealogía</h2>
                     <p className="text-sm text-slate-600">Origen: <span className="font-semibold text-slate-700">{animal.origen}</span></p>
                   </div>
                   <button
@@ -682,7 +682,7 @@ export default function ExpedienteAnimal() {
 
                     {/* Madre */}
                     <div className="bg-green-50/30 border border-green-200 rounded-xl p-4 w-[45%] shadow-sm hover:border-green-300 transition-colors">
-                      <div className="text-[10px] font-bold text-green-600 uppercase tracking-wide mb-1">Madre (vaca matriz)</div>
+                      <div className="text-[10px] font-bold text-green-700 uppercase tracking-wide mb-1">Madre (vaca matriz)</div>
                       <div className="font-bold text-navy text-base">
                         {animal.madre ? (
                           `Matriz #${animal.madre.areteInterno} ${animal.madre.nombre || ''}`
@@ -762,7 +762,7 @@ export default function ExpedienteAnimal() {
               {/* Descendencia Registrada */}
               <div className="bg-white border border-slate-200 rounded-xl p-6 sm:p-8 shadow-sm">
                 <div className="flex items-center gap-3 mb-2">
-                  <h3 className="text-lg font-bold text-navy">Descendencia Registrada</h3>
+                  <h2 className="text-lg font-bold text-navy">Descendencia Registrada</h2>
                   <span className="w-6 h-6 rounded bg-blue-50 text-blue-600 text-xs font-bold flex items-center justify-center">
                     {crias?.length ?? 0}
                   </span>
@@ -859,7 +859,7 @@ export default function ExpedienteAnimal() {
             <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
               <div className="p-6 sm:p-8 flex items-center justify-between border-b border-slate-100 bg-surface">
                 <div>
-                  <h3 className="text-lg font-bold text-navy">Historial sanitario y Tratamientos</h3>
+                  <h2 className="text-lg font-bold text-navy">Historial sanitario y Tratamientos</h2>
                   <p className="text-xs text-slate-600 mt-0.5">
                     Registro cronológico de aplicaciones veterinarias y periodos de retiro oficial
                   </p>
@@ -1017,7 +1017,7 @@ export default function ExpedienteAnimal() {
           {activeTab === 'documentos' && (
             <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden mt-6">
               <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                <h3 className="text-lg font-bold text-navy">Documentos del Animal</h3>
+                <h2 className="text-lg font-bold text-navy">Documentos del Animal</h2>
                 <RequireRole roles={['propietario', 'administrador']}>
                   <button
                     onClick={() => setIsDocumentoOpen(true)}

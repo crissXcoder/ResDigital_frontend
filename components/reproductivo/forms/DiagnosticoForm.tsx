@@ -4,20 +4,28 @@ import { useState } from 'react';
 import { useForm } from '@tanstack/react-form';
 import { useRegistrarDiagnostico } from '@/lib/hooks/use-reproductivo';
 import { diagnosticoSchema } from '@/lib/reproductivo/schemas';
+import {
+  fechaMinimaDiagnostico,
+  mensajeDiagnosticoPrematuro,
+} from '@/lib/reproductivo/edad-preniez';
+import { formatearFecha } from '@/lib/reproductivo/fechas';
 import { METODOS_DIAGNOSTICO, RESULTADOS_DIAGNOSTICO } from '@/lib/reproductivo/tipos';
 import ModalFormulario from './ModalFormulario';
 
 interface DiagnosticoFormProps {
   animalId: string;
   eventoServicioId: string;
+  fechaServicio?: string;
   onClose: () => void;
 }
 
 export default function DiagnosticoForm({
   animalId,
   eventoServicioId,
+  fechaServicio,
   onClose,
 }: DiagnosticoFormProps) {
+  const fechaMinima = fechaMinimaDiagnostico(fechaServicio);
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
   const mutation = useRegistrarDiagnostico(animalId);
 
@@ -73,7 +81,11 @@ export default function DiagnosticoForm({
             validators={{
               onChange: ({ value }) => {
                 const res = diagnosticoSchema.shape.fechaEvento.safeParse(value);
-                return res.success ? undefined : res.error.issues[0]?.message;
+                if (!res.success) return res.error.issues[0]?.message;
+                if (fechaMinima && value < fechaMinima) {
+                  return mensajeDiagnosticoPrematuro(fechaMinima);
+                }
+                return undefined;
               },
             }}
           >
@@ -86,11 +98,17 @@ export default function DiagnosticoForm({
                   id={field.name}
                   name={field.name}
                   type="date"
+                  min={fechaMinima ?? undefined}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700"
                   value={field.state.value}
                   onBlur={field.handleBlur}
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
+                {fechaMinima && (
+                  <p className="text-xs text-slate-500">
+                    La palpación se registra a partir del {formatearFecha(fechaMinima)} (35 días post-servicio).
+                  </p>
+                )}
                 {field.state.meta.errors.length > 0 && (
                   <p className="text-xs text-danger font-medium">
                     {field.state.meta.errors[0]}
