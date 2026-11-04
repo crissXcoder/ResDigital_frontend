@@ -25,6 +25,7 @@ function ModalDarBajaForm({ isOpen, onClose, animal }: Omit<ModalDarBajaProps, '
     motivoBaja: '',
     pesoFinalKg: '',
   });
+  const [fieldErrors, setFieldErrors] = useState<{ tipoBaja?: string; motivoBaja?: string; pesoFinalKg?: string }>({});
 
   useEffect(() => {
     if (isOpen) {
@@ -56,6 +57,23 @@ function ModalDarBajaForm({ isOpen, onClose, animal }: Omit<ModalDarBajaProps, '
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const errores: { tipoBaja?: string; motivoBaja?: string; pesoFinalKg?: string } = {};
+    if (!formData.tipoBaja) {
+      errores.tipoBaja = 'Seleccioná el tipo de baja.';
+    }
+    if (formData.tipoBaja === 'Otro' && !formData.motivoBaja.trim()) {
+      errores.motivoBaja = 'Especificá el motivo.';
+    }
+    if (formData.pesoFinalKg.trim() && Number(formData.pesoFinalKg) < 0) {
+      errores.pesoFinalKg = 'El peso no puede ser negativo.';
+    }
+    if (Object.keys(errores).length > 0) {
+      setFieldErrors(errores);
+      return;
+    }
+    setFieldErrors({});
+
     const payload = {
       tipoBaja: formData.tipoBaja,
       motivoBaja: formData.motivoBaja,
@@ -88,7 +106,7 @@ function ModalDarBajaForm({ isOpen, onClose, animal }: Omit<ModalDarBajaProps, '
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <form onSubmit={handleSubmit} noValidate className="p-6 space-y-5">
           <p className="text-sm text-slate-500 mb-4">
             Al dar de baja a este animal, se registrará su salida y ya no aparecerá en el inventario activo.
           </p>
@@ -100,8 +118,13 @@ function ModalDarBajaForm({ isOpen, onClose, animal }: Omit<ModalDarBajaProps, '
               id="tipo-baja-select"
               required
               value={formData.tipoBaja}
-              onChange={(e) => setFormData({ ...formData, tipoBaja: e.target.value })}
-              className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-400 text-slate-700"
+              onChange={(e) => {
+                setFormData({ ...formData, tipoBaja: e.target.value });
+                setFieldErrors((prev) => ({ ...prev, tipoBaja: undefined }));
+              }}
+              className={`w-full px-4 py-2.5 bg-white border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-400 text-slate-700 ${
+                fieldErrors.tipoBaja ? 'border-red-500 ring-2 ring-red-200' : 'border-slate-200'
+              }`}
             >
               <option value="">— Seleccione el tipo —</option>
               <option value="Venta Comercial">Venta Comercial</option>
@@ -110,6 +133,7 @@ function ModalDarBajaForm({ isOpen, onClose, animal }: Omit<ModalDarBajaProps, '
               <option value="Traslado">Traslado</option>
               <option value="Otro">Otro motivo</option>
             </select>
+            {fieldErrors.tipoBaja && <p className="text-xs text-danger font-medium mt-1">{fieldErrors.tipoBaja}</p>}
           </div>
 
           {(formData.tipoBaja && formData.tipoBaja !== 'Venta Comercial') && (
@@ -122,10 +146,16 @@ function ModalDarBajaForm({ isOpen, onClose, animal }: Omit<ModalDarBajaProps, '
                 type="text"
                 required={isOtroMotivo}
                 value={formData.motivoBaja}
-                onChange={(e) => setFormData({ ...formData, motivoBaja: e.target.value })}
-                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-400 text-slate-700"
+                onChange={(e) => {
+                  setFormData({ ...formData, motivoBaja: e.target.value });
+                  setFieldErrors((prev) => ({ ...prev, motivoBaja: undefined }));
+                }}
+                className={`w-full px-4 py-2.5 bg-white border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-400 text-slate-700 ${
+                  fieldErrors.motivoBaja ? 'border-red-500 ring-2 ring-red-200' : 'border-slate-200'
+                }`}
                 placeholder={isOtroMotivo ? "Especifique el motivo" : "Ej. Causa de muerte o destino"}
               />
+              {fieldErrors.motivoBaja && <p className="text-xs text-danger font-medium mt-1">{fieldErrors.motivoBaja}</p>}
             </div>
           )}
 
@@ -139,10 +169,16 @@ function ModalDarBajaForm({ isOpen, onClose, animal }: Omit<ModalDarBajaProps, '
               step="0.01"
               min="0"
               value={formData.pesoFinalKg}
-              onChange={(e) => setFormData({ ...formData, pesoFinalKg: e.target.value })}
-              className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-400 text-slate-700"
+              onChange={(e) => {
+                setFormData({ ...formData, pesoFinalKg: e.target.value });
+                setFieldErrors((prev) => ({ ...prev, pesoFinalKg: undefined }));
+              }}
+              className={`w-full px-4 py-2.5 bg-white border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-400 text-slate-700 ${
+                fieldErrors.pesoFinalKg ? 'border-red-500 ring-2 ring-red-200' : 'border-slate-200'
+              }`}
               placeholder={animal.pesoActualKg ? String(animal.pesoActualKg) : "Ej. 450"}
             />
+            {fieldErrors.pesoFinalKg && <p className="text-xs text-danger font-medium mt-1">{fieldErrors.pesoFinalKg}</p>}
           </div>
 
           <div className="flex gap-3 pt-4 border-t border-slate-100">

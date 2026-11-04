@@ -41,6 +41,7 @@ function ModalEditarOrigenForm({ isOpen, onClose, onSubmit, animal }: Omit<Modal
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ padre?: string; madre?: string; fechaCompra?: string; valorCompraCrc?: string }>({});
 
   const { data: animales, isLoading } = useQuery({
     queryKey: ['animales'],
@@ -55,35 +56,38 @@ function ModalEditarOrigenForm({ isOpen, onClose, onSubmit, animal }: Omit<Modal
     setIsSubmitting(true);
     setErrorMessage(null);
 
+    const errores: { padre?: string; madre?: string; fechaCompra?: string; valorCompraCrc?: string } = {};
+
     if (origen === 'Finca') {
       if (padre && padre === animal.id) {
-        setErrorMessage('Un animal no puede ser su propio padre.');
-        setIsSubmitting(false);
-        return;
+        errores.padre = 'Un animal no puede ser su propio padre.';
       }
       if (madre && madre === animal.id) {
-        setErrorMessage('Un animal no puede ser su propia madre.');
-        setIsSubmitting(false);
-        return;
+        errores.madre = 'Un animal no puede ser su propia madre.';
       }
     }
 
     if (origen === 'Externa') {
       const hoy = hoyLocal();
       if (fechaCompra && fechaCompra > hoy) {
-        setErrorMessage('La fecha de compra no puede ser futura.');
-        setIsSubmitting(false);
-        return;
+        errores.fechaCompra = 'La fecha de compra no puede ser futura.';
+      } else {
+        const fechaNac = animal.fechaNacimiento ? animal.fechaNacimiento.split('T')[0] : null;
+        if (fechaCompra && fechaNac && fechaCompra < fechaNac) {
+          errores.fechaCompra = 'La fecha de compra no puede ser anterior a la fecha de nacimiento del animal.';
+        }
       }
-      const fechaNac = animal.fechaNacimiento ? animal.fechaNacimiento.split('T')[0] : null;
-      if (fechaCompra && fechaNac && fechaCompra < fechaNac) {
-        setErrorMessage(
-          'La fecha de compra no puede ser anterior a la fecha de nacimiento del animal.',
-        );
-        setIsSubmitting(false);
-        return;
+      if (valorCompraCrc.trim() && Number(valorCompraCrc) < 0) {
+        errores.valorCompraCrc = 'El valor no puede ser negativo.';
       }
     }
+
+    if (Object.keys(errores).length > 0) {
+      setFieldErrors(errores);
+      setIsSubmitting(false);
+      return;
+    }
+    setFieldErrors({});
 
     try {
       await onSubmit({
@@ -120,7 +124,7 @@ function ModalEditarOrigenForm({ isOpen, onClose, onSubmit, animal }: Omit<Modal
           </button>
         </div>
         
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} noValidate className="p-6 space-y-6">
           <div className="space-y-2">
             <label className="block text-xs font-bold text-navy uppercase tracking-wider">Tipo de Origen</label>
             <div className="flex rounded-lg overflow-hidden border border-slate-200">
@@ -159,9 +163,14 @@ function ModalEditarOrigenForm({ isOpen, onClose, onSubmit, animal }: Omit<Modal
                   <label htmlFor="toroPadreSelect" className="block text-sm font-semibold text-navy">Toro Padre (Semental de la Finca)</label>
                   <select
                     id="toroPadreSelect"
-                    className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white"
+                    className={`w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white ${
+                      fieldErrors.padre ? 'border-red-500 ring-2 ring-red-200' : 'border-slate-300'
+                    }`}
                     value={padre}
-                    onChange={e => setPadre(e.target.value)}
+                    onChange={e => {
+                      setPadre(e.target.value);
+                      setFieldErrors(prev => ({ ...prev, padre: undefined }));
+                    }}
                     disabled={isLoading || isSubmitting}
                   >
                     <option value="">-- Seleccionar Toro Padre --</option>
@@ -169,14 +178,20 @@ function ModalEditarOrigenForm({ isOpen, onClose, onSubmit, animal }: Omit<Modal
                       <option key={a.id} value={a.id}>#{a.areteInterno} {a.nombre}</option>
                     ))}
                   </select>
+                  {fieldErrors.padre && <p className="text-xs text-danger font-medium mt-1">{fieldErrors.padre}</p>}
                 </div>
                 <div className="space-y-1.5">
                   <label htmlFor="vacaMadreSelect" className="block text-sm font-semibold text-navy">Vaca Madre (Matriz de la Finca)</label>
                   <select
                     id="vacaMadreSelect"
-                    className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white"
+                    className={`w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white ${
+                      fieldErrors.madre ? 'border-red-500 ring-2 ring-red-200' : 'border-slate-300'
+                    }`}
                     value={madre}
-                    onChange={e => setMadre(e.target.value)}
+                    onChange={e => {
+                      setMadre(e.target.value);
+                      setFieldErrors(prev => ({ ...prev, madre: undefined }));
+                    }}
                     disabled={isLoading || isSubmitting}
                   >
                     <option value="">-- Seleccionar Vaca Madre --</option>
@@ -184,6 +199,7 @@ function ModalEditarOrigenForm({ isOpen, onClose, onSubmit, animal }: Omit<Modal
                       <option key={a.id} value={a.id}>#{a.areteInterno} {a.nombre}</option>
                     ))}
                   </select>
+                  {fieldErrors.madre && <p className="text-xs text-danger font-medium mt-1">{fieldErrors.madre}</p>}
                 </div>
               </>
             ) : (
@@ -208,10 +224,16 @@ function ModalEditarOrigenForm({ isOpen, onClose, onSubmit, animal }: Omit<Modal
                     max={hoyLocal()}
                     min={animal.fechaNacimiento ? animal.fechaNacimiento.split('T')[0] : undefined}
                     value={fechaCompra}
-                    onChange={(e) => setFechaCompra(e.target.value)}
+                    onChange={(e) => {
+                      setFechaCompra(e.target.value);
+                      setFieldErrors(prev => ({ ...prev, fechaCompra: undefined }));
+                    }}
                     disabled={isSubmitting}
-                    className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white disabled:opacity-50"
+                    className={`w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white disabled:opacity-50 ${
+                      fieldErrors.fechaCompra ? 'border-red-500 ring-2 ring-red-200' : 'border-slate-300'
+                    }`}
                   />
+                  {fieldErrors.fechaCompra && <p className="text-xs text-danger font-medium mt-1">{fieldErrors.fechaCompra}</p>}
                 </div>
                 <div className="space-y-1.5">
                   <label htmlFor="valorCompraInput" className="block text-sm font-semibold text-navy">Valor de Compra (CRC ₡)</label>
@@ -221,10 +243,16 @@ function ModalEditarOrigenForm({ isOpen, onClose, onSubmit, animal }: Omit<Modal
                     min="0"
                     placeholder="Ej. 850000"
                     value={valorCompraCrc}
-                    onChange={(e) => setValorCompraCrc(e.target.value)}
+                    onChange={(e) => {
+                      setValorCompraCrc(e.target.value);
+                      setFieldErrors(prev => ({ ...prev, valorCompraCrc: undefined }));
+                    }}
                     disabled={isSubmitting}
-                    className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white disabled:opacity-50"
+                    className={`w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-light text-slate-700 bg-white disabled:opacity-50 ${
+                      fieldErrors.valorCompraCrc ? 'border-red-500 ring-2 ring-red-200' : 'border-slate-300'
+                    }`}
                   />
+                  {fieldErrors.valorCompraCrc && <p className="text-xs text-danger font-medium mt-1">{fieldErrors.valorCompraCrc}</p>}
                 </div>
                 <div className="space-y-1.5">
                   <label htmlFor="numeroGuiaInput" className="block text-sm font-semibold text-navy">Nº Comprobante / Guía</label>
